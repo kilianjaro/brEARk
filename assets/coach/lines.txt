@@ -1,0 +1,255 @@
+# brEARk coach lines
+#
+# [event/tone] or [event] (= any tone). One message per line. '#' starts a comment.
+# Tones: witty (fresh ears), mentor (tired), brutal (ignored).
+# Placeholders: {break} min  {battery} %  {dose} %  {listened} h:mm  {time} hh:mm
+#               {creep} dB  {loop} bars  {looptime} m:ss  {plays}  {psr} dB  {spl} dB
+#
+# Your own lines: ~/Library/Application Support/brEARk/coach.txt, same format.
+# They are added to these. A header ending in '!' replaces a section: [idle/witty!]
+
+[headsUp/mentor]
+Battery at {battery} %. Start wrapping up this idea.
+{battery} % left. Finish the thought, then plan a break.
+Your ears are getting tired. Land this section, then stop.
+Heads up: a break is coming. Save what you love about this mix now.
+Bounce a reference now. Your future fresh ears will thank you.
+{battery} %. Write down what you'd change next, before your ears forget.
+
+[breakDue/mentor]
+Take a break of {break} minutes and take care of your ears.
+Your ears are empty. {break} minutes away from the speakers.
+Stop here. {break} minutes of silence, then come back and judge.
+Time for {break} minutes off. Leave the room, not just the mix.
+You've listened hard. Give your ears {break} quiet minutes.
+Break now. The decisions you make next would be worse ones.
+{break} minutes. Walk, breathe, drink water. The track will wait.
+Your ears got used to this level a while ago. Reset them: {break} minutes.
+Fresh ears are a production tool. Get some: {break} minutes.
+Close the laptop lid. Open a window. {break} minutes.
+
+[breakDue/brutal]
+EMPTY. {break} MIN. GO.
+
+[reminder/mentor]
+Still listening. Your judgement is drifting. Take {break} minutes.
+Mixes made on tired ears get brighter and louder. Stop for {break} minutes.
+You're adjusting by habit now, not by ear. {break} minutes off.
+Every move from here gets undone tomorrow. Break first.
+Your ears asked nicely ten minutes ago. {break} minutes, please.
+This is the part where you think: one more tweak. It isn't. Break.
+The mix will still be here in {break} minutes. So will you, refreshed.
+Save, stand up, leave. {break} minutes.
+
+[reminder/brutal]
+STOP. {break} MIN. NO AUDIO.
+STOP NOW.
+NO MORE TWEAKS. {break} MINUTES.
+EARS EMPTY. LEAVE THE ROOM.
+SAVE. STAND UP. GO.
+OFF. {break} MIN.
+BREAK. NOT LATER. NOW.
+YOU ARE MIXING ON FUMES.
+NOTHING YOU DO NOW WILL SURVIVE TOMORROW.
+SILENCE. {break} MINUTES.
+
+[unplug/brutal]
+UNPLUGGED. 5 MINUTES OF SILENCE.
+YOU IGNORED IT. THE PLUG IS OUT.
+NO SOUND FOR 5 MINUTES. USE THEM.
+POWER OFF. EARS ON.
+THE TURNTABLE STOPPED. SO DO YOU.
+SILENCE IS NOT A PUNISHMENT. IT'S MAINTENANCE.
+
+[afterTake/mentor]
+Finish this take. Then the plug comes out.
+Recording? Fine. After this take: unplug.
+I'll wait for the take. Then it's break time.
+Nail it. Then rest.
+
+[backOn/mentor]
+Back on. Listen to the first minute like a stranger would.
+Back on. Check the low end first, it lies the most.
+Welcome back. Trust what you hear in the next ten minutes.
+Back on. Play it once without touching anything.
+Five minutes of silence. Now: what's the first thing that bothers you?
+Back. Write down your first impression before you fix anything.
+
+[backOn/witty]
+And we're back. The mix missed you less than you think.
+Sound restored. Try not to make me do that again.
+Plugged in again. Hydrated? Good.
+
+[snoozed/mentor]
+10 more minutes. Then the plug comes out again.
+Snoozed. Use these 10 minutes to finish, not to start something new.
+Fine. 10 minutes. Make them count.
+10 minutes. Then silence, no discussion.
+
+[snoozed/brutal]
+10 MINUTES. THEN OFF.
+LAST 10 MINUTES.
+SNOOZED. COUNTING.
+
+[breakStart/mentor]
+Break: {break} minutes. Leave the room. Notice the silence.
+{break} minutes. No headphones, no phone speaker, no YouTube.
+Resting. Work on the track in your head for the next few minutes.
+{break} minutes of quiet. Notice the sounds and silence in your studio.
+Good. {break} minutes. Your ears start recovering right now.
+Break started. Drink some water. Look at something far away.
+
+[breakOver/mentor]
+Break done. Listen with fresh ears.
+Welcome back. First listen: no touching, just notes.
+Back. Turn it down a little: your ears have reset their baseline.
+Break over. Check the mix at a lower volume first.
+Welcome back. What did you hear in your head during the break? Do that.
+
+[breakOver/witty]
+You're back. The track didn't fix itself, sadly.
+Welcome back. The silence was the best mix you heard all day.
+Break complete. Ears: rebooted.
+
+# Rotates during breaks (guided, silence, unplugged).
+[breakTask]
+Work on the track in your head for the next 5 minutes.
+Hum the hook. Does it still stand without the production?
+Which part of the arrangement bores you? Decide in your head.
+Imagine the track on a phone speaker. What disappears?
+Picture the drop. What would make it hit harder, without more level?
+Name the one element that carries the track. Too loud? Too quiet?
+Sing the bassline. If you can't, maybe the bass has no line.
+Write down three things you'd change, without listening.
+Think of a reference track. How does its intro make you wait?
+What would the track lose if you muted the busiest element?
+Play the next 8 bars in your head. What happens? Make that real later.
+Imagine the track in a club at 2 am. Where do people stop dancing?
+If this track had a title already, what would it be?
+Which sound is new to you in this track? Which one is just habit?
+What should a listener remember after the first minute?
+Count the elements in the chorus in your head. More than five? Choose.
+Think about contrast: where is the quietest moment of the track?
+Recall the first version of this idea. What did it have that this one lost?
+Decide the next step now, so you don't wander when you're back.
+Imagine a friend hearing it for the first time. Where do they look up?
+
+[breakCare]
+Notice the sounds and silence in your studio.
+Leave the room. A break in front of the speakers only half counts.
+Drink a glass of water.
+Look out of a window, at something far away. Your eyes worked too.
+Stretch your neck and shoulders. Slowly.
+Stand up. Walk around the block if you can.
+Breathe in for four, out for six. A few times.
+No headphones during the break. Not even for a podcast.
+Close your eyes for a minute. Just listen to the room.
+Wash your face with cold water.
+Open a window. Fresh air, fresh ears.
+Don't check the mix on your phone. That's still listening.
+Eat something. Mixing hungry makes everything sound wrong.
+Sit somewhere else for a while. A new view helps a new perspective.
+Let your ears be bored. That's how they recover.
+
+[fact]
+Ears tire in the highs first: after loud listening, sensitivity drops most around 4 kHz.
++3 dB halves the safe listening time. Small level changes matter.
+WHO's safe limit for adults: about 80 dB(A) for 40 hours a week.
+Ringing ears after a session is a warning sign, not a badge.
+Dull ears after loud listening usually recover within hours. Repeated damage doesn't.
+Damaged hair cells in the inner ear don't grow back.
+Ears adapt to loudness within minutes. What sounds normal now may be loud.
+Turning down by 6 dB cuts the sound energy by 75 %.
+Noise-induced hearing loss is painless and gradual. You notice it late.
+The ear's protective reflex tires with time and is too slow for sharp transients.
+Mixes made late in long sessions tend to get brighter and louder.
+After a few repeats, the brain stops listening to a loop critically.
+Around 80 dB the ear's frequency response is flatter than at whisper levels.
+A quiet room lets ears recover better than a noisy café.
+Research suggests loud sound can harm the ear's nerve links before a hearing test shows it.
+Headphones have no room to soften the sound. It's easy to listen louder than you think.
+Bass needs far more energy to sound as loud as the mids. A-weighting discounts it for that.
+A 10-minute break per hour is the classic studio rule.
+Musicians' earplugs reduce level evenly instead of muffling. Use them at gigs.
+Your hearing is the one tool in your studio you can't upgrade.
+
+# Hints: silent pop-ups, rate-limited.
+[creep/witty]
+Your level crept up {creep} dB in the last hour. Sneaky.
++{creep} dB since an hour ago. Your fader has ambitions.
+You're {creep} dB louder than an hour ago. Your ears noticed before you did.
+
+[creep/mentor]
+Your level crept up {creep} dB in the last hour. Check the mix at whisper volume.
++{creep} dB in an hour. Turn it down and see what still works.
+Louder isn't better, it's just louder. You're up {creep} dB.
+
+[loop/witty]
+You've heard these {loop} bars about {plays} times. They're not changing.
+It looks like you're looping. Would you like help moving on?
+Same {loop} bars for {looptime}. Commit, or move to the next section.
+
+[loop/mentor]
+Same {loop} bars for {looptime}. Your brain stopped listening a while ago.
+Loop blindness sets in after this many repeats. Play the whole track once.
+You've been on this loop for {looptime}. Listen from the start once.
+Step out of the loop. Hear it in context, from 16 bars earlier.
+
+[late/witty]
+It looks like you're mixing at {time}. Would you like help going to bed?
+{time}. Bold. Mixes made now get remixed tomorrow.
+It's {time}. The best decision tonight might be "save".
+
+[late/mentor]
+It's {time}. Tired ears make bright mixes. Decide less, sketch more.
+Late session. Keep the level down and the decisions small.
+
+[harsh/witty]
+That's bright. Your 3 kHz is shouting, and your ears are listening.
+Bright mix ahead. Your ears tire faster up there.
+
+[harsh/mentor]
+Lots of energy at 2 to 5 kHz. Ears tire fastest there. Check it quieter.
+The top end is hot. Take it down, or take breaks more often.
+
+[squashed/witty]
+PSR {psr} dB. The limiter is doing all the work.
+Very little dynamics left ({psr} dB PSR). The transients called. They miss you.
+
+[squashed/mentor]
+Dense, limited audio tires the ears faster. Mix with headroom, master later.
+PSR {psr} dB: very compressed. Try mixing without the master limiter for a while.
+
+[loud/witty]
+About {spl} dB. Loud enough to feel good, loud enough to cost you.
+~{spl} dB. Your ears would like a word.
+
+[loud/mentor]
+You're listening at about {spl} dB. Turn it down; the mix will tell you more.
+Loud playback hides problems. At {spl} dB, check at half the level.
+
+[dose50]
+Half of today's safe sound dose is used ({dose} %). Pace yourself.
+{dose} % of today's dose. The rest of the day is still long.
+
+[dose100]
+Today's safe sound dose is used up ({dose} %). Quieter from now, or call it a day.
+{dose} % of the daily dose. More today is borrowed from your future ears.
+Full dose for today. Switch to editing, arranging, anything quiet.
+
+# Now and then, when nothing else is going on.
+[idle/witty]
+Listening. Quietly judging nothing.
+Your ears are fine. The kick, I'm not so sure.
+All good. I'll speak up when it matters.
+Fresh ears. Make the big decisions now.
+Nothing to report. Make something loud. Not too loud.
+Good level, good ears, good time to decide.
+Still fresh. This is when your judgement is best.
+I'm just here, listening. Like you should.
+
+[idle/mentor]
+Getting tired. Small decisions only.
+Battery at {battery} %. Fine-tuning is for later; finish the structure now.
+You've listened {listened} today. Keep the level moderate.
+Your ears are working hard. A short pause now saves a long one later.

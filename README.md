@@ -28,3 +28,10 @@ BREARK_STATE_FILE=/tmp/breark-pluginval.json /Applications/pluginval.app/Content
 ```
 
 `brEARk_Tests` checks the engine (BS.1770 / EBU Tech 3341, A-weighting, FIFO, end-to-end Brain, CPU budget). `brEARk_NullTest` hosts the installed VST3 and AU like a DAW and requires the output to be **bit-identical** to the input (mono/stereo, 44.1–192 kHz, 32/64-bit, irregular block sizes). Both tools redirect the listening history (`BREARK_STATE_FILE`), so testing never touches your real `~/Library/Application Support/brEARk/state.json`.
+
+## Your own coach lines
+
+Put a `coach.txt` next to the listening history in `~/Library/Application Support/brEARk/`; `coach.example.txt` in the same folder is a template. The format is the same as [assets/coach/lines.txt](assets/coach/lines.txt):
+- Your lines are **added** to the built-in ones.
+- A section header ending in `!` (e.g. `[idle/witty!]`) **replaces** that section instead.
+- Changes are picked up within about 10 s.

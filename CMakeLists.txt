@@ -56,13 +56,15 @@ target_sources(brEARk PRIVATE
     source/PluginProcessor.cpp
     source/PluginEditor.cpp
     source/AlertPresenter.cpp
+    source/coach/Coach.cpp
+    source/coach/CoachLines.cpp
     source/ui/ToastWindow.cpp
     source/platform/AlertSound_mac.mm
     source/platform/WindowTweaks_mac.mm
     ${BREARK_ENGINE_SOURCES})
 
 # The alert sound, embedded in the plugin binary (BinaryData::alert_mp3).
-juce_add_binary_data(breark_assets SOURCES assets/alert.mp3)
+juce_add_binary_data(breark_assets SOURCES assets/alert.mp3 assets/coach/lines.txt)
 
 target_include_directories(brEARk PRIVATE source)
 
@@ -114,13 +116,17 @@ if(BREARK_BUILD_TOOLS)
         tests/LoopDetectorTests.cpp
         tests/BreakControllerTests.cpp
         tests/PowerDownTests.cpp
+        tests/CoachTests.cpp
+        source/coach/Coach.cpp
+        source/coach/CoachLines.cpp
         ${BREARK_ENGINE_SOURCES})
 
     target_include_directories(brEARk_Tests PRIVATE source)
 
     target_compile_definitions(brEARk_Tests PRIVATE
         JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0)
+        JUCE_USE_CURL=0
+        BREARK_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
     target_link_libraries(brEARk_Tests
         PRIVATE

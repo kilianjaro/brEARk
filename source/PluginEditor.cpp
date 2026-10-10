@@ -255,7 +255,7 @@ void BrearkEditor::paint (juce::Graphics& g)
     for (const auto& row : rows)
         g.drawText (row, area.removeFromTop (rowHeight), juce::Justification::centredLeft, false);
 
-    g.drawText ("> M5. Ignore me in Hard mode and I pull the plug.",
+    g.drawText ("> " + brearkProcessor.getAlertPresenter().getCoachLine(),
                 area.removeFromBottom (rowHeight), juce::Justification::centredLeft, false);
 
     g.setColour (ink.withAlpha (0.5f));

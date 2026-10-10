@@ -30,7 +30,7 @@ public:
 
         beginTest ("Realtime playback is measured, and not mistaken for an export");
         {
-            Brain brain;
+            Brain brain (tempStateFile());
             int token = 0;
             start (brain, token, rate);
 
@@ -55,24 +55,59 @@ public:
 
         beginTest ("A faster-than-realtime burst (export without host flag) is detected");
         {
-            Brain brain;
+            Brain brain (tempStateFile());
             int token = 0;
             start (brain, token, rate);
 
             for (int i = 0; i < 1000; ++i) // 10 s of audio, as fast as possible
                 brain.push (makeBlock (i), false);
 
-            juce::Thread::sleep (200);
-            const auto s = brain.getSnapshot();
+            const auto s = waitFor (brain, [] (const Snapshot& x) { return x.rendersSeen > 0; });
 
             expect (s.rendering, "burst not detected as export");
             expectEquals (s.rendersSeen, 1);
             brain.detach (&token);
         }
 
+        beginTest ("State is saved when the Brain shuts down and restored on the next start");
+        {
+            const auto file = tempStateFile();
+            float batteryBefore = 0.0f;
+
+            {
+                Brain brain (file);
+                int token = 0;
+                start (brain, token, rate);
+                brain.setSettings ({ Setup::headphones, LevelPreset::loud });
+
+                for (int i = 0; i < 250; ++i) // 2.5 s at a loud headphone level
+                {
+                    brain.push (makeBlock (i), false);
+                    juce::Thread::sleep (10);
+                }
+
+                batteryBefore = waitFor (brain, [] (const Snapshot& x) { return x.battery < 100.0f; }).battery;
+                brain.detach (&token);
+            }
+
+            expect (file.existsAsFile(), "no state file written");
+            expect (batteryBefore < 100.0f, "battery did not drain");
+
+            Brain restored (file);
+            int token = 0;
+            start (restored, token, rate);
+            const auto s = waitFor (restored, [] (const Snapshot& x) { return x.battery < 100.0f; });
+
+            expect (restored.getSettings().setup == Setup::headphones);
+            expect (restored.getSettings().preset == LevelPreset::loud);
+            expectWithinAbsoluteError (s.battery, batteryBefore, 0.5f);
+            restored.detach (&token);
+            file.deleteFile();
+        }
+
         beginTest ("A host-flagged export is detected and never analysed");
         {
-            Brain brain;
+            Brain brain (tempStateFile());
             int token = 0;
             start (brain, token, rate);
 
@@ -82,8 +117,7 @@ public:
                 juce::Thread::sleep (10);
             }
 
-            juce::Thread::sleep (1800); // render hold time passes
-            const auto s = brain.getSnapshot();
+            const auto s = waitFor (brain, [] (const Snapshot& x) { return x.rendersSeen == 1 && ! x.rendering; }, 5000.0);
 
             expect (! s.rendering);
             expectEquals (s.rendersSeen, 1);
@@ -94,6 +128,30 @@ public:
     }
 
 private:
+    // Polls instead of sleeping a fixed time: macOS coalesces background-thread
+    // wakes (measured 150-250 ms), so fixed sleeps make tests flaky.
+    template <typename Predicate>
+    static Snapshot waitFor (const Brain& brain, Predicate&& done, double timeoutMs = 3000.0)
+    {
+        const auto startMs = juce::Time::getMillisecondCounterHiRes();
+        auto s = brain.getSnapshot();
+
+        while (! done (s) && juce::Time::getMillisecondCounterHiRes() - startMs < timeoutMs)
+        {
+            juce::Thread::sleep (10);
+            s = brain.getSnapshot();
+        }
+
+        return s;
+    }
+
+    // Tests must never touch the real listening history.
+    static juce::File tempStateFile()
+    {
+        return juce::File::getSpecialLocation (juce::File::tempDirectory)
+            .getNonexistentChildFile ("brEARk-brain-test", ".json");
+    }
+
     static void start (Brain& brain, int& token, double rate)
     {
         brain.attach (&token);

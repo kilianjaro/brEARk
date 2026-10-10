@@ -113,18 +113,27 @@ processBlock(buffer)                     every ~50 ms:                          
 | EAR BATTERY | Engineered heuristic anchored to studio practice ("~10 min break per hour at ~80 dB") | Medium, tunable |
 | Factors (harshness, dynamics, repetition, time of day) | Literature-inspired heuristics: ear sensitivity, density, habituation, circadian fatigue | Labelled as heuristics in code and UI |
 
-### 4.1 Estimated level
+### 4.1 Estimated level (hybrid model, revised in M2)
 
-`L_A = A-weighted level (dBFS, stereo power sum) + offset(setup, preset)`
+brEARk can't see the monitor knob, so a preset states how loud your *typical* playback sounds. Deviations from your own long-term loudness (the reference) move the estimate:
 
-Initial offsets, tuned in M2:
+```
+L_perceived = preset + headphones + (LUFS_S − reference)     → drives the EAR BATTERY
+L_A         = preset + headphones + (dBFS(A) − reference)    → drives the DAILY DOSE
+reference  ← slow average of your playback LUFS (time constant ~2 h, persisted)
+```
 
-| Setup | QUIET | NORMAL | LOUD |
-|---|---|---|---|
-| MONITORS | +88 dB | +96 dB | +104 dB |
-| HEADPHONES | +92 dB | +100 dB | +108 dB |
+| Preset | QUIET | NORMAL | LOUD | HEADPHONES |
+|---|---|---|---|---|
+| Typical playback | ~70 dB (talk easily) | ~80 dB (raise your voice) | ~90 dB (shout) | +3 dB |
 
-On MONITORS / NORMAL, a typical −14 LUFS mix comes out at roughly 80–82 dB(A).
+**Why two weightings (M1 finding):** Kilian's master measured −8.7 LUFS but −22 dBFS(A).
+- Bass-heavy music at the same perceived loudness carries ~13 dB less A-weighted dose, which is what the standards intend.
+- Fatigue follows perceived loudness, so the battery uses LUFS.
+
+**Why hybrid (Kilian's answer):** sometimes the monitor knob gets turned down for loud masters, sometimes not.
+- A short louder session counts as louder.
+- A whole day at master loudness slowly becomes the new normal.
 
 ### 4.2 Daily and weekly dose (WHO)
 
@@ -139,7 +148,7 @@ dose_week[%]  = Σ dose_day(last 7 days) / 5                 → 100 % = WHO 40 
 ### 4.3 EAR BATTERY
 
 ```
-drain[%/min] = ( 100/240  +  (100/70 − 100/240) · 10^((L_A − 80)/10) ) · F
+drain[%/min] = ( 100/240  +  (100/70 − 100/240) · 10^((L_perceived − 80)/10) ) · F
 F = F_harsh(1.0–1.3) · F_dyn(1.0–1.2) · F_rep(1.0–1.5) · F_night(1.0–1.25) · F_day(1 + 0.5·min(dose_day,1)) ;  F capped at 2.0
 ```
 
@@ -147,7 +156,7 @@ The first term is a time-only drain: even at whisper level, the battery empties 
 
 With neutral factors, the battery empties after:
 
-| L_A | 74 dB | 77 dB | **80 dB** | 83 dB | 86 dB | 89 dB |
+| L_perceived | 74 dB | 77 dB | **80 dB** | 83 dB | 86 dB | 89 dB |
 |---|---|---|---|---|---|---|
 | Battery empty after | 149 min | 108 min | **70 min** | 41 min | 22 min | 12 min |
 
@@ -204,7 +213,7 @@ Escalation timing per strictness mode follows CONCEPT.md §6.
 | Alert sound | `AVAudioPlayer` on the embedded mp3 (`BinaryData` → `NSData`), triggered from the message thread. Plays on the macOS default output, completely separate from Live's stream. The mp3 is decoded by macOS, so no decoder is in our code. |
 | Toast window | A JUCE `Component` on the desktop, borderless. Native tweaks via `NSWindow`: floating level, `hidesOnDeactivate = NO`, `canJoinAllSpaces | fullScreenAuxiliary`, non-activating (never steals keyboard focus). Created on demand, auto-dismissed. |
 | Persistence | `~/Library/Application Support/brEARk/state.json`, written atomically (temp + rename) about once a minute, under 50 KB. |
-| Export detection | `isNonRealtime()` (VST3 `kOffline` / AU offline render), **or** audio time advancing more than 1.5× faster than the wall clock for 2 s. **To be verified on Live 11 in M1 with a logging build.** |
+| Export detection | `isNonRealtime()` (VST3 `kOffline` / AU offline render), **or** audio arriving faster than the wall clock. **Verified M1: Live 11 sets the offline flag for VST3 exports.** AU relies on the speed check |
 
 ---
 
@@ -260,7 +269,7 @@ Each milestone has the same rhythm:
 |---|---|---|---|
 | **M0** ✅ | Setup: brew cmake/ninja, git + private GitHub, CMake skeleton (VST3/AU/Standalone), pure pass-through with the 64-bit path, pluginval | Empty brEARk loads in Live | **Null test −∞**, pluginval passes. *Automated gates all green 2026-10-10; Live null test by Kilian* |
 | **M1** | Analysis engine: Brain, FIFO, worker, LUFS, FFT features, export detection (+ debug UI with raw numbers) | Live numbers in a debug view | LUFS ±0.3 LU, CPU unmeasurable, Live 11 export flag verified. *Automated: 95 checks incl. EBU Tech 3341 at 44.1–192 kHz, end-to-end Brain test, null test 24/24, pluginval 10, auval. Pending: Live check by Kilian* |
-| **M2** | Exposure model + persistence: battery, dose, recovery, silence, day rollover, presets, time-warp | The battery drains and recovers | Unit tests, behaviour matches §4 tables |
+| **M2** | Exposure model + persistence: battery, dose, recovery, silence, day rollover, presets, time-warp | The battery drains and recovers | Unit tests, behaviour matches §4 tables. *Automated: 166 checks (drain table, recovery curve, WHO dose, rollover, weekly, persistence, save/restore), null test 24/24, pluginval 10, auval. Dev tools redirect state via `BREARK_STATE_FILE`. Pending: Live check by Kilian* |
 | **M3** | Factors: harshness, PLR, hybrid repetition, time of day, level creep | Factor readouts react to test material | Factors behave on your own loops |
 | **M4** | Break controller + alerts: strictness modes, escalation, BREAK button, toast window, mp3 via system output, recording guard | Full escalation run (time-warped) | Toast never steals focus; alerts never in exports |
 | **M5** | Hard mode: PowerDown DSP, minimum break, snooze, export bypass | Vinyl power-down/up by ear | Export nulls; pluginval; no clicks |

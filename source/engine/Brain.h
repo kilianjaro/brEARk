@@ -1,6 +1,8 @@
 #pragma once
 
+#include "ExposureModel.h"
 #include "LoudnessMeter.h"
+#include "Persistence.h"
 #include "SampleFifo.h"
 #include "Snapshot.h"
 #include "SpectrumAnalyser.h"
@@ -25,7 +27,8 @@ namespace breark
 class Brain final : private juce::Thread
 {
 public:
-    Brain();
+    Brain() : Brain (persistence::defaultFile()) {}
+    explicit Brain (juce::File stateFileToUse); // tests pass a temporary file
     ~Brain() override;
 
     //==============================================================================
@@ -33,6 +36,13 @@ public:
     void attach (const void* instance);
     void detach (const void* instance);
     void prepare (double sampleRate) noexcept;
+
+    void setSettings (Settings newSettings) noexcept;
+    Settings getSettings() const noexcept;
+
+    // Debug: the model clock runs this many times faster. While > 1 nothing is
+    // saved, and returning to 1 restores the real state from disk.
+    void setTimeWarp (int factor) noexcept { timeWarp.store (juce::jmax (1, factor)); }
 
     //==============================================================================
     // Audio thread: wait-free, allocation-free, never writes the buffer.
@@ -69,7 +79,10 @@ private:
     void updateRenderState (double wallSeconds);
     void analyseAvailable();
     void summariseSecond (double wallSeconds);
+    void updateModel (double wallSeconds);
     void publishSnapshot();
+    void loadState();
+    void saveState();
 
     //==============================================================================
     // Shared with the audio thread
@@ -80,9 +93,12 @@ private:
     std::atomic<bool> hostNonRealtimeSeen { false };
     std::atomic<juce::int64> audioTicksTotal { 0 }, audioBlocks { 0 }, audioTicksMax { 0 };
 
-    // Message thread
+    // Message thread → worker
     std::mutex instancesMutex;
     std::vector<const void*> instances;
+    std::atomic<int> setupSetting { (int) Setup::monitors };
+    std::atomic<int> presetSetting { (int) LevelPreset::normal };
+    std::atomic<int> timeWarp { 1 };
 
     // Worker thread only
     LoudnessMeter loudness;
@@ -95,6 +111,10 @@ private:
     juce::int64 busyTicks = 0, lastAudioTicks = 0, lastAudioBlocks = 0;
     int wakes = 0;
     double maxWakeGapMs = 0.0;
+    ExposureModel exposure;
+    const juce::File stateFile;
+    double secondsSinceSave = 0.0;
+    int activeWarp = 1;
     Snapshot working;
 
     // Worker → UI

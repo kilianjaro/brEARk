@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ExposureModel.h"
+
 #include <juce_core/juce_core.h>
 
 #include <limits>
@@ -21,6 +23,21 @@ struct Snapshot
     float presence      = minusInfinity; // 2–5 kHz share of 20 Hz–20 kHz energy, dB
     float highs         = minusInfinity; // 8–16 kHz share, dB
     bool  silent        = true;
+
+    // Exposure model
+    float    battery               = 100.0f;        // EAR BATTERY %
+    float    doseToday             = 0.0f;          // % of the WHO daily allowance
+    float    doseWeek              = 0.0f;          // % of the WHO weekly allowance
+    float    perceivedSpl          = minusInfinity; // estimated, drives the battery
+    float    doseSpl               = minusInfinity; // estimated dB(A), drives the dose
+    float    referenceLufs         = -14.0f;        // your long-term typical loudness
+    double   listeningSecondsToday = 0.0;
+    double   secondsSinceBreak     = 0.0;
+    int      breaksToday           = 0;
+    bool     recovering            = false;
+    float    suggestedBreakMinutes = 5.0f;
+    Settings settings;
+    int      timeWarp              = 1;
 
     // Engine
     double sampleRate = 0.0;

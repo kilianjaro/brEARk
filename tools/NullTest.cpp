@@ -163,6 +163,12 @@ int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInitialiser; // plugin hosting needs a message manager
 
+    // The hosted plugins must not write into the real listening history.
+    const auto stateFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                               .getNonexistentChildFile ("brEARk-nulltest-state", ".json");
+    setenv ("BREARK_STATE_FILE", stateFile.getFullPathName().toRawUTF8(), 1);
+    const juce::ScopeGuard removeStateFile { [&] { stateFile.deleteFile(); } };
+
     juce::AudioPluginFormatManager formats;
     juce::addHeadlessDefaultFormatsToManager (formats);
 

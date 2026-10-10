@@ -1,0 +1,12 @@
+# Build output
+build/
+cmake-build-*/
+
+# IDEs
+.vscode/
+.idea/
+*.xcuserstate
+xcuserdata/
+
+# macOS
+.DS_Store

@@ -10,3 +10,6 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# Local test audio (exported loops for calibration)
+testdata/

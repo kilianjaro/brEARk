@@ -94,6 +94,14 @@ inline constexpr int creepWindowMinutes = 10;  // compare the last 10 playback m
 inline constexpr int creepSpanMinutes   = 60;  // … with the same window one hour ago
 inline constexpr double creepMinPlaybackSeconds = 180.0; // each window needs 3 min of playback
 
+//── Break alerts (CONCEPT.md §6) ──────────────────────────────────────────────
+inline constexpr double warnBattery  = 20.0; // heads-up (not in GENTLE)
+inline constexpr double emptyBattery = 0.5;  // the break is due
+inline constexpr double rearmBattery = 30.0; // recovered: alerts start over
+inline constexpr double firstReminderSeconds = 10.0 * 60.0; // listening time after empty
+inline constexpr double reminderIntervalSeconds = 5.0 * 60.0;
+inline constexpr double hardGraceSeconds = 10.0 * 60.0;     // HARD: unplug after this
+
 //── History ───────────────────────────────────────────────────────────────────
 inline constexpr int historyDays = 14;
 } // namespace breark::model

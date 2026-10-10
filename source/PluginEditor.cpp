@@ -28,6 +28,20 @@ juce::String times (double factor)
     return "x" + juce::String (factor, 2);
 }
 
+juce::String phaseName (breark::BreakPhase phase)
+{
+    switch (phase)
+    {
+        case breark::BreakPhase::listening: return "LISTENING";
+        case breark::BreakPhase::warned:    return "HEADS UP GIVEN (20 %)";
+        case breark::BreakPhase::due:       return "BREAK DUE";
+        case breark::BreakPhase::onBreak:   return "ON A BREAK";
+        case breark::BreakPhase::unplugged: return "UNPLUG REQUESTED (POWER-DOWN IS M5)";
+    }
+
+    return {};
+}
+
 juce::String yesNo (bool value)
 {
     return value ? "YES" : "NO";
@@ -77,7 +91,36 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
 
     warpSwitch.onChange = [&brain] (int index) { brain.setTimeWarp (index == 1 ? 60 : 1); };
 
-    setSize (720, 760);
+    strictnessSwitch.setColours (ink, paper);
+    addAndMakeVisible (strictnessSwitch);
+    strictnessSwitch.onChange = [&brain] (int index)
+    {
+        auto settings = brain.getSettings();
+        settings.strictness = (breark::Strictness) index;
+        brain.setSettings (settings);
+    };
+
+    for (auto* button : { &breakButton, &testAlertButton })
+    {
+        button->setColour (juce::TextButton::buttonColourId, ink);
+        button->setColour (juce::TextButton::textColourOffId, paper);
+        button->setWantsKeyboardFocus (false);
+        addAndMakeVisible (*button);
+    }
+
+    breakButton.onClick = [&brain] { brain.toggleBreak(); };
+
+    testAlertButton.onClick = [this]
+    {
+        breark::Alert alert;
+        alert.kind = breark::AlertKind::breakDue;
+        alert.withSound = true;
+        alert.battery = snapshot.battery;
+        alert.breakMinutes = snapshot.suggestedBreakMinutes;
+        brearkProcessor.getAlertPresenter().present (alert);
+    };
+
+    setSize (720, 820);
     timerCallback();
     startTimerHz (4);
 }
@@ -95,20 +138,31 @@ void BrearkEditor::timerCallback()
     const auto settings = brearkProcessor.getBrain().getSettings();
     setupSwitch.setSelectedIndex ((int) settings.setup);
     presetSwitch.setSelectedIndex ((int) settings.preset);
+    strictnessSwitch.setSelectedIndex ((int) settings.strictness);
     warpSwitch.setSelectedIndex (snapshot.timeWarp > 1 ? 1 : 0);
+    breakButton.setButtonText (snapshot.breakPhase == breark::BreakPhase::onBreak ? "END BREAK" : "BREAK");
 
     repaint();
 }
 
 void BrearkEditor::resized()
 {
-    auto row = getLocalBounds().reduced (24).removeFromBottom (rowHeight + 34).removeFromTop (28);
+    auto controls = getLocalBounds().reduced (24).removeFromBottom (rowHeight + 70);
+    auto top = controls.removeFromTop (28);
+    controls.removeFromTop (8);
+    auto bottom = controls.removeFromTop (28);
 
-    setupSwitch.setBounds (row.removeFromLeft (220));
-    row.removeFromLeft (12);
-    presetSwitch.setBounds (row.removeFromLeft (260));
-    row.removeFromLeft (12);
-    warpSwitch.setBounds (row);
+    setupSwitch.setBounds (top.removeFromLeft (220));
+    top.removeFromLeft (12);
+    presetSwitch.setBounds (top.removeFromLeft (260));
+    top.removeFromLeft (12);
+    warpSwitch.setBounds (top);
+
+    strictnessSwitch.setBounds (bottom.removeFromLeft (360));
+    bottom.removeFromLeft (12);
+    breakButton.setBounds (bottom.removeFromLeft (120));
+    bottom.removeFromLeft (12);
+    testAlertButton.setBounds (bottom);
 }
 
 void BrearkEditor::paint (juce::Graphics& g)
@@ -160,6 +214,10 @@ void BrearkEditor::paint (juce::Graphics& g)
         "EST. LEVEL    ~" + db (s.perceivedSpl, 0) + " dB PERCEIVED   ~" + db (s.doseSpl, 0) + " dB(A) DOSE",
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)
             + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",
+        "BREAKS        " + phaseName (s.breakPhase)
+            + (s.breakPhase == breark::BreakPhase::onBreak ? "   " + minutesSeconds (s.breakSecondsLeft) + " LEFT" : juce::String())
+            + (s.breakPhase == breark::BreakPhase::due || s.breakPhase == breark::BreakPhase::unplugged
+                   ? "   " + minutesSeconds (s.secondsSinceDue) + " LISTENED SINCE EMPTY" : juce::String()),
         "",
         "ENGINE        " + juce::String (s.sampleRate, 0) + " HZ  " + wrapper.toUpperCase()
             + "  " + (processor.isUsingDoublePrecision() ? "64" : "32") + "-BIT  FFT " + juce::String (s.fftSize),
@@ -176,7 +234,7 @@ void BrearkEditor::paint (juce::Graphics& g)
     for (const auto& row : rows)
         g.drawText (row, area.removeFromTop (rowHeight), juce::Justification::centredLeft, false);
 
-    g.drawText ("> M3. Weighing what you hear: harsh, squashed, repeated, late.",
+    g.drawText ("> M4. Watching the clock for you. Press BREAK when you go.",
                 area.removeFromBottom (rowHeight), juce::Justification::centredLeft, false);
 
     g.setColour (ink.withAlpha (0.5f));

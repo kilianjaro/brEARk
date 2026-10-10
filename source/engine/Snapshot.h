@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BreakController.h"
 #include "ExposureModel.h"
 #include "FatigueFactors.h"
 
@@ -54,6 +55,11 @@ struct Snapshot
     float    suggestedBreakMinutes = 5.0f;
     Settings settings;
     int      timeWarp              = 1;
+
+    // Breaks
+    BreakPhase breakPhase       = BreakPhase::listening;
+    double     secondsSinceDue  = 0.0; // listening time since the battery ran out
+    double     breakSecondsLeft = 0.0; // guided break countdown
 
     // Engine
     double sampleRate = 0.0;

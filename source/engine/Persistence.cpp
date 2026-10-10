@@ -6,6 +6,7 @@ namespace
 {
 const juce::StringArray setupNames { "monitors", "headphones" };
 const juce::StringArray presetNames { "quiet", "normal", "loud" };
+const juce::StringArray strictnessNames { "gentle", "escalating", "hard" };
 
 juce::var toVar (const DayRecord& record)
 {
@@ -48,6 +49,7 @@ bool save (const juce::File& file, const PersistedState& state)
     auto settings = std::make_unique<juce::DynamicObject>();
     settings->setProperty ("setup", setupNames[(int) state.settings.setup]);
     settings->setProperty ("preset", presetNames[(int) state.settings.preset]);
+    settings->setProperty ("strictness", strictnessNames[(int) state.settings.strictness]);
 
     juce::Array<juce::var> history;
 
@@ -98,6 +100,7 @@ std::optional<PersistedState> load (const juce::File& file)
     state.savedAtMs = (juce::int64) root["savedAtMs"];
     state.settings.setup = enumFromName (setupNames, s["setup"], Setup::monitors);
     state.settings.preset = enumFromName (presetNames, s["preset"], LevelPreset::normal);
+    state.settings.strictness = enumFromName (strictnessNames, s["strictness"], Strictness::escalating);
 
     auto& x = state.exposure;
     x.day = (int) e["day"];

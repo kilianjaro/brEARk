@@ -68,11 +68,18 @@ void Brain::setSettings (Settings newSettings) noexcept
 {
     setupSetting.store ((int) newSettings.setup);
     presetSetting.store ((int) newSettings.preset);
+    strictnessSetting.store ((int) newSettings.strictness);
 }
 
 Settings Brain::getSettings() const noexcept
 {
-    return { (Setup) setupSetting.load(), (LevelPreset) presetSetting.load() };
+    return { (Setup) setupSetting.load(), (LevelPreset) presetSetting.load(), (Strictness) strictnessSetting.load() };
+}
+
+std::vector<Alert> Brain::takeAlerts()
+{
+    const std::scoped_lock lock (alertsMutex);
+    return std::exchange (pendingAlerts, {});
 }
 
 void Brain::addAudioThreadTicks (juce::int64 ticks) noexcept
@@ -219,7 +226,26 @@ void Brain::updateModel (double wallSeconds)
     period.levelA = working.levelA;
     period.silent = silent;
     period.fatigueFactor = factors.product();
+    period.onBreak = breaks.getPhase() == BreakPhase::onBreak;
     exposure.advance (period, now);
+
+    // Breaks and alerts.
+    if (breakToggleRequested.exchange (false))
+        breaks.toggleBreak (exposure.suggestedBreakMinutes());
+
+    BreakInputs breakInputs;
+    breakInputs.seconds = period.seconds;
+    breakInputs.battery = exposure.getState().battery;
+    breakInputs.silent = silent;
+    breakInputs.recording = transportRecording.load (std::memory_order_relaxed);
+    breakInputs.suggestedBreakMinutes = exposure.suggestedBreakMinutes();
+    breakInputs.strictness = exposure.getSettings().strictness;
+
+    if (auto alerts = breaks.advance (breakInputs); ! alerts.empty())
+    {
+        const std::scoped_lock lock (alertsMutex);
+        pendingAlerts.insert (pendingAlerts.end(), alerts.begin(), alerts.end());
+    }
 
     if ((secondsSinceSave += wallSeconds) >= saveIntervalSeconds)
         saveState();
@@ -252,6 +278,9 @@ void Brain::updateModel (double wallSeconds)
     working.loopBestBars = loops.getBestBars();
     working.loopHasGrid = loops.hasGrid();
     working.levelCreepDb = (float) creep.getCreepDb();
+    working.breakPhase = breaks.getPhase();
+    working.secondsSinceDue = breaks.getSecondsSinceDue();
+    working.breakSecondsLeft = breaks.getBreakSecondsLeft();
     working.transportPlaying = transportPlaying.load (std::memory_order_relaxed);
     working.transportRecording = transportRecording.load (std::memory_order_relaxed);
 }

@@ -41,6 +41,7 @@ juce_add_plugin(brEARk
 # Engine sources are shared by the plugin and the unit tests.
 set(BREARK_ENGINE_SOURCES
     source/engine/Brain.cpp
+    source/engine/BreakController.cpp
     source/engine/ExposureModel.cpp
     source/engine/FatigueFactors.cpp
     source/engine/LoudnessMeter.cpp
@@ -53,7 +54,14 @@ option(BREARK_DEV_METRICS "Measure audio-thread time per block (shown in the deb
 target_sources(brEARk PRIVATE
     source/PluginProcessor.cpp
     source/PluginEditor.cpp
+    source/AlertPresenter.cpp
+    source/ui/ToastWindow.cpp
+    source/platform/AlertSound_mac.mm
+    source/platform/WindowTweaks_mac.mm
     ${BREARK_ENGINE_SOURCES})
+
+# The alert sound, embedded in the plugin binary (BinaryData::alert_mp3).
+juce_add_binary_data(breark_assets SOURCES assets/alert.mp3)
 
 target_include_directories(brEARk PRIVATE source)
 
@@ -74,8 +82,10 @@ target_compile_definitions(brEARk PUBLIC
 
 target_link_libraries(brEARk
     PRIVATE
+        breark_assets
         juce::juce_audio_utils
         juce::juce_dsp
+        "-framework AVFoundation"
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
@@ -101,6 +111,7 @@ if(BREARK_BUILD_TOOLS)
         tests/PersistenceTests.cpp
         tests/FactorTests.cpp
         tests/LoopDetectorTests.cpp
+        tests/BreakControllerTests.cpp
         ${BREARK_ENGINE_SOURCES})
 
     target_include_directories(brEARk_Tests PRIVATE source)

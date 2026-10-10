@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AlertPresenter.h"
 #include "engine/Brain.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -17,6 +18,7 @@ public:
     ~BrearkProcessor() override;
 
     breark::Brain& getBrain() noexcept { return *brain; }
+    AlertPresenter& getAlertPresenter() noexcept { return *alertPresenter; }
     bool isActiveInstance() const noexcept { return brain->isActive (this); }
 
     //==============================================================================
@@ -56,6 +58,7 @@ private:
     void process (juce::AudioBuffer<SampleType>& buffer) noexcept;
 
     juce::SharedResourcePointer<breark::Brain> brain;
+    juce::SharedResourcePointer<AlertPresenter> alertPresenter; // toast + sound, one per process
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkProcessor)
 };

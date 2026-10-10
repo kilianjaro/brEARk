@@ -11,11 +11,13 @@ namespace breark
 {
 enum class Setup { monitors, headphones };
 enum class LevelPreset { quiet, normal, loud };
+enum class Strictness { gentle, escalating, hard };
 
 struct Settings
 {
     Setup setup = Setup::monitors;
     LevelPreset preset = LevelPreset::normal;
+    Strictness strictness = Strictness::escalating;
 };
 
 // One measurement period, handed over by the analysis worker.
@@ -25,6 +27,7 @@ struct ListeningPeriod
     float  lufsShortTerm = -std::numeric_limits<float>::infinity(); // perceived loudness
     float  levelA = -std::numeric_limits<float>::infinity();        // dBFS(A), for the dose
     bool   silent = true;                                          // also while exporting / muted
+    bool   onBreak = false;                                        // a BREAK was pressed: recovery starts at once
     double fatigueFactor = 1.0;                                    // M3: harshness · dynamics · repetition · night
 };
 
@@ -90,7 +93,7 @@ private:
     double presetSpl() const noexcept;
     void rollOverIfNewDay (juce::Time now);
     void listen (const ListeningPeriod& period);
-    void rest (double seconds) noexcept;
+    void rest (double seconds, bool onBreak) noexcept;
 
     Settings settings;
     ExposureState state;

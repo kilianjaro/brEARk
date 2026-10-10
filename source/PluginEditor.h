@@ -25,6 +25,8 @@ private:
     SegmentedControl setupSwitch { { "MONITORS", "HEADPHONES" } };
     SegmentedControl presetSwitch { { "QUIET ~70", "NORMAL ~80", "LOUD ~90" } };
     SegmentedControl warpSwitch { { "TIME x1", "x60 TEST" } };
+    SegmentedControl strictnessSwitch { { "GENTLE", "ESCALATING", "HARD" } };
+    juce::TextButton breakButton { "BREAK" }, testAlertButton { "TEST ALERT" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkEditor)
 };

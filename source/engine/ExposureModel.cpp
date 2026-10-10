@@ -62,7 +62,7 @@ void ExposureModel::advance (const ListeningPeriod& period, juce::Time now)
         return;
 
     if (period.silent || ! std::isfinite (period.lufsShortTerm))
-        rest (period.seconds);
+        rest (period.seconds, period.onBreak);
     else
         listen (period);
 
@@ -70,13 +70,15 @@ void ExposureModel::advance (const ListeningPeriod& period, juce::Time now)
         state.secondsSinceBreak += period.seconds;
 }
 
-void ExposureModel::rest (double seconds) noexcept
+void ExposureModel::rest (double seconds, bool onBreak) noexcept
 {
     const auto before = state.silenceSeconds;
     state.silenceSeconds += seconds;
 
-    // Only silence beyond the onset recovers. exp() is exact for any length.
-    const auto recoverySeconds = state.silenceSeconds - std::max (before, model::recoveryOnsetSeconds);
+    // Only silence beyond the onset recovers (on a deliberate break: all of it).
+    // exp() is exact for any length.
+    const auto onset = onBreak ? 0.0 : model::recoveryOnsetSeconds;
+    const auto recoverySeconds = state.silenceSeconds - std::max (before, onset);
 
     if (recoverySeconds > 0.0)
         state.battery = 100.0 - (100.0 - state.battery) * std::exp (-recoverySeconds / model::recoveryTimeConstantSeconds);

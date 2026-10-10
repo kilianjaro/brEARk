@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BreakController.h"
 #include "ExposureModel.h"
 #include "LevelCreepTracker.h"
 #include "LoudnessMeter.h"
@@ -46,6 +47,12 @@ public:
     // Debug: the model clock runs this many times faster. While > 1 nothing is
     // saved, and returning to 1 restores the real state from disk.
     void setTimeWarp (int factor) noexcept { timeWarp.store (juce::jmax (1, factor)); }
+
+    // The BREAK button (toast or plugin window): starts a guided break, or ends it.
+    void toggleBreak() noexcept { breakToggleRequested.store (true); }
+
+    // Alerts produced since the last call, for the message thread to present.
+    std::vector<Alert> takeAlerts();
 
     //==============================================================================
     // Audio thread: wait-free, allocation-free, never writes the buffer.
@@ -117,7 +124,9 @@ private:
     std::vector<const void*> instances;
     std::atomic<int> setupSetting { (int) Setup::monitors };
     std::atomic<int> presetSetting { (int) LevelPreset::normal };
+    std::atomic<int> strictnessSetting { (int) Strictness::escalating };
     std::atomic<int> timeWarp { 1 };
+    std::atomic<bool> breakToggleRequested { false };
 
     // Worker thread only
     LoudnessMeter loudness;
@@ -138,14 +147,17 @@ private:
     int wakes = 0;
     double maxWakeGapMs = 0.0;
     ExposureModel exposure;
+    BreakController breaks;
     const juce::File stateFile;
     double secondsSinceSave = 0.0;
     int activeWarp = 1;
     Snapshot working;
 
-    // Worker → UI
+    // Worker → UI / message thread
     mutable std::mutex snapshotMutex;
     Snapshot published;
+    std::mutex alertsMutex;
+    std::vector<Alert> pendingAlerts;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Brain)
 };

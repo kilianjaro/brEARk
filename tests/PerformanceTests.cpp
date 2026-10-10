@@ -1,5 +1,6 @@
 #include "engine/LoudnessMeter.h"
-#include "engine/RepetitionDetector.h"
+#include "RealisticMusic.h"
+#include "engine/GridLoopDetector.h"
 #include "engine/SpectrumAnalyser.h"
 
 #include <juce_core/juce_core.h>
@@ -58,26 +59,34 @@ public:
         const auto loudnessPercent = timeStage ([&] (const float* l, const float* r, int n) { loudness.process (l, r, n); });
         const auto spectrumPercent = timeStage ([&] (const float* l, const float* r, int n) { spectrum.process (l, r, n); });
 
-        // Loop detection on non-repeating audio is its worst case: a full search every 2 s.
-        RepetitionDetector repetition;
-        repetition.prepare (spectrum.getAnalysedFrameSeconds());
-        std::vector<BandFrame> frames;
-        spectrum.reset();
-        spectrum.process (left.data(), right.data(), (int) left.size());
-        spectrum.drainBandFrames ([&] (const BandFrame& f) { frames.push_back (f); });
+        // Loop detection, fast tempo (most 16ths per second), stamped 512-sample blocks.
+        test::HouseOptions house;
+        house.bpm = 175.0;
+        house.sampleRate = rate;
+        juce::Random human (3);
+        const auto music = test::renderHouse ((int) (seconds * 175.0 / 240.0), [] (int bar) { return bar % 3; }, house, human);
 
-        const auto framesPerSecond = (size_t) std::lround (1.0 / spectrum.getAnalysedFrameSeconds());
+        GridLoopDetector loops;
+        loops.prepare (rate);
+        const auto samplesPerQuarter = 60.0 * rate / house.bpm;
         const auto start = juce::Time::getHighResolutionTicks();
 
-        for (size_t i = 0; i < frames.size(); ++i)
+        for (juce::int64 pos = 0; pos + 512 <= (juce::int64) music.size(); pos += 512)
         {
-            repetition.addFrame (frames[i]);
+            BlockStamp stamp;
+            stamp.streamPosition = pos;
+            stamp.ppq = (double) pos / samplesPerQuarter;
+            stamp.bpm = house.bpm;
+            stamp.playing = true;
+            loops.addStamp (stamp);
+            loops.addAudio (music.data() + pos, music.data() + pos, 512, pos);
 
-            if ((i + 1) % framesPerSecond == 0)
-                repetition.update (1.0, false);
+            if ((pos / 512) % (juce::int64) (rate / 512) == 0)
+                loops.update (1.0, false);
         }
 
-        const auto repetitionPercent = 100.0 * juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - start) / seconds;
+        const auto musicSeconds = (double) music.size() / rate;
+        const auto repetitionPercent = 100.0 * juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - start) / musicSeconds;
 
         std::cout << "    loudness (K-filter)  " << loudnessPercent << " % of one core\n"
                   << "    spectrum (FFT)       " << spectrumPercent << " % of one core\n"

@@ -68,16 +68,6 @@ void SpectrumAnalyser::prepare (double sampleRate)
     presenceTable = makeTable (band (2000.0, 5000.0));
     highsTable    = makeTable (band (8000.0, 16000.0));
 
-    // Loop-detection bands: 12 log-spaced bands from 100 Hz to 12 kHz.
-    for (int b = 0; b <= numLoopBands; ++b)
-    {
-        const auto edgeHz = std::min (100.0 * std::pow (120.0, (double) b / numLoopBands), nyquist);
-        bandEdgeBins[(size_t) b] = std::min (numBins, (int) std::ceil (edgeHz * fftSize / sampleRate));
-    }
-
-    analysedFrameSeconds = fftSize * frameStride / sampleRate;
-    bandFrames.reserve (64);
-
     reset();
 }
 
@@ -86,7 +76,6 @@ void SpectrumAnalyser::reset() noexcept
     fill = 0;
     frameCounter = 0;
     totals = {};
-    bandFrames.clear();
 }
 
 void SpectrumAnalyser::process (const float* left, const float* right, int numSamples)
@@ -112,7 +101,7 @@ void SpectrumAnalyser::process (const float* left, const float* right, int numSa
     }
 }
 
-void SpectrumAnalyser::analyseFrame()
+void SpectrumAnalyser::analyseFrame() noexcept
 {
     const auto numBins = fftSize / 2 + 1;
     auto first = true;
@@ -140,14 +129,6 @@ void SpectrumAnalyser::analyseFrame()
     totals.presence  += weightedSum (presenceTable);
     totals.highs     += weightedSum (highsTable);
     ++totals.frames;
-
-    BandFrame bands {};
-
-    for (int b = 0; b < numLoopBands; ++b)
-        for (int k = bandEdgeBins[(size_t) b]; k < bandEdgeBins[(size_t) b + 1]; ++k)
-            bands[(size_t) b] += power[(size_t) k];
-
-    bandFrames.push_back (bands);
 }
 
 double SpectrumAnalyser::weightedSum (const std::vector<float>& table) const noexcept

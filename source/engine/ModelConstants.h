@@ -73,15 +73,16 @@ inline constexpr double loopMinutesNeutral     = 2.0;  // Heuristic: continuous 
 inline constexpr double loopMinutesFull        = 12.0;
 inline constexpr double repetitionFactorMax    = 1.5;
 
-// Audio loop detection
-inline constexpr double loopWindowSeconds      = 4.0;  // this much must match one period earlier
-inline constexpr double loopMinLengthSeconds   = 1.5;
-inline constexpr double loopMaxLengthSeconds   = 32.0;
-inline constexpr float  loopMinSimilarity      = 0.80f; // Heuristic: band-wise correlation (calibrated by tests)
-inline constexpr float  loopMinMovementDb      = 1.0f; // Heuristic: drones and static noise never "loop"
-inline constexpr int    loopSmoothingFrames    = 8;    // ~370 ms: robust to sub-frame misalignment
-inline constexpr double loopSearchIntervalSeconds = 2.0;
-inline constexpr double loopGraceSeconds = 8.0; // Heuristic: fader moves / quick edits pause, not reset, a loop
+// Audio loop detection on the host's tempo grid (see GridLoopDetector)
+inline constexpr double loopSlotQuarters     = 0.25;  // one FFT per 16th note
+inline constexpr int    loopMaxBars          = 16;    // loops of 1–16 whole bars
+inline constexpr int    loopMinWindowBars    = 4;     // compare at least 4 bars: LFO level drift averages out
+inline constexpr float  loopMinRhythm        = 0.85f; // Heuristic: tests: loops 0.88–1.0 (heavy humanisation 0.88), new material median 0.7
+inline constexpr float  loopMaxShiftDb       = 1.5f;  // Heuristic: tests: loops ≤ 0.54 dB, new chords median 2 dB
+inline constexpr double loopRhythmMinChangeDb = 1.5; // a band has rhythm if its 16th-to-16th change is ≥ this (RMS); LFOs stay below
+inline constexpr int    loopMinMovingBands   = 3;     // fewer rhythmic bands (a drone, a pad) is never a loop
+inline constexpr double loopAudibleRangeDb   = 50.0;  // bands this far below the loudest are noise
+inline constexpr double loopGraceSeconds     = 8.0;   // Heuristic: quick edits pause, not reset, a loop
 
 // Night: circadian fatigue, ramps up from 22:00, full from 01:00 until the day starts.
 inline constexpr double nightStartHour     = 22.0; // Heuristic

@@ -31,9 +31,11 @@ struct Snapshot
     float  drainFactor       = 1.0f; // factors × daily load, capped: what the battery sees
     float  barPlays          = 0.0f; // playhead: recent plays of the current bar
     double loopingSeconds    = 0.0;  // audio: continuous identical repetition
-    float  loopLengthSeconds = 0.0f;
-    float  loopBestSimilarity = 0.0f; // diagnostics: best match of the last check (1 = identical)
-    float  loopBestLagSeconds = 0.0f;
+    int    loopBars          = 0;    // length of the current loop, 0 = none
+    float  loopBestRhythm    = 0.0f; // diagnostics: rhythm match of the last check (1 = identical)
+    float  loopBestShiftDb   = 0.0f; // diagnostics: band-level change, dB
+    int    loopBestBars      = 0;
+    bool   loopHasGrid       = false; // tempo grid available (transport running)
     float  levelCreepDb      = std::numeric_limits<float>::quiet_NaN(); // last 10 min vs 1 h ago
     bool   transportPlaying  = false;
     bool   transportRecording = false;

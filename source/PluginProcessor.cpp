@@ -56,11 +56,27 @@ void BrearkProcessor::process (juce::AudioBuffer<SampleType>& buffer) noexcept
     if (brain->isActive (this))
     {
         const auto exporting = isNonRealtime();
-        brain->push (std::as_const (buffer), exporting);
+        breark::BlockStamp stamp; // no grid unless the host provides one
 
         if (auto* playHead = getPlayHead(); playHead != nullptr && ! exporting)
+        {
             if (const auto position = playHead->getPosition())
+            {
                 brain->updateTransport (*position);
+
+                const auto ppq = position->getPpqPosition();
+                const auto bpm = position->getBpm();
+                const auto signature = position->getTimeSignature();
+
+                stamp.playing = position->getIsPlaying() && ppq.hasValue() && bpm.hasValue();
+                stamp.ppq = ppq.orFallback (0.0);
+                stamp.bpm = bpm.orFallback (0.0);
+                stamp.barLengthQuarters = signature && signature->denominator > 0
+                                            ? 4.0 * signature->numerator / signature->denominator : 4.0;
+            }
+        }
+
+        brain->push (std::as_const (buffer), exporting, stamp);
     }
 
 #if BREARK_DEV_METRICS

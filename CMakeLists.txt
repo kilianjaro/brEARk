@@ -45,7 +45,7 @@ set(BREARK_ENGINE_SOURCES
     source/engine/FatigueFactors.cpp
     source/engine/LoudnessMeter.cpp
     source/engine/Persistence.cpp
-    source/engine/RepetitionDetector.cpp
+    source/engine/GridLoopDetector.cpp
     source/engine/SpectrumAnalyser.cpp)
 
 option(BREARK_DEV_METRICS "Measure audio-thread time per block (shown in the debug view)" ON)
@@ -56,6 +56,15 @@ target_sources(brEARk PRIVATE
     ${BREARK_ENGINE_SOURCES})
 
 target_include_directories(brEARk PRIVATE source)
+
+# Build ID (git commit + time) shown in the debug view.
+set(BREARK_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
+add_custom_target(breark_build_info
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DOUTPUT=${BREARK_GENERATED_DIR}/BuildInfo.h
+            -P ${CMAKE_SOURCE_DIR}/cmake/BuildInfo.cmake
+    BYPRODUCTS ${BREARK_GENERATED_DIR}/BuildInfo.h)
+add_dependencies(brEARk breark_build_info)
+target_include_directories(brEARk PRIVATE ${BREARK_GENERATED_DIR})
 
 target_compile_definitions(brEARk PUBLIC
     JUCE_WEB_BROWSER=0
@@ -91,6 +100,7 @@ if(BREARK_BUILD_TOOLS)
         tests/ExposureModelTests.cpp
         tests/PersistenceTests.cpp
         tests/FactorTests.cpp
+        tests/LoopDetectorTests.cpp
         ${BREARK_ENGINE_SOURCES})
 
     target_include_directories(brEARk_Tests PRIVATE source)

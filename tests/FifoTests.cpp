@@ -56,6 +56,34 @@ public:
             expectEquals ((int) fifo.getDroppedSamples(), 600);
         }
 
+        beginTest ("Each block's stamp carries its position in the stream");
+        {
+            SampleFifo fifo (1000);
+            juce::AudioBuffer<float> block (2, 300);
+            block.clear();
+
+            for (int i = 0; i < 3; ++i)
+            {
+                BlockStamp stamp;
+                stamp.ppq = i;
+                expect (fifo.push (block, stamp));
+            }
+
+            std::vector<juce::int64> positions;
+            fifo.pullStamps ([&] (const BlockStamp& s) { positions.push_back (s.streamPosition); });
+
+            expectEquals ((int) positions.size(), 3);
+            expectEquals ((int) positions[2], 600);
+
+            juce::int64 firstAudioPosition = -1;
+            fifo.pull ([&] (const float*, const float*, int, juce::int64 position)
+            {
+                if (firstAudioPosition < 0)
+                    firstAudioPosition = position;
+            });
+            expectEquals ((int) firstAudioPosition, 0);
+        }
+
         beginTest ("64-bit input is converted, mono input leaves the right channel silent");
         {
             SampleFifo fifo (100);
@@ -78,7 +106,7 @@ public:
 private:
     static void collect (SampleFifo& fifo, std::vector<float>& left, std::vector<float>& right)
     {
-        fifo.pull ([&] (const float* l, const float* r, int n)
+        fifo.pull ([&] (const float* l, const float* r, int n, juce::int64)
         {
             left.insert (left.end(), l, l + n);
             right.insert (right.end(), r, r + n);

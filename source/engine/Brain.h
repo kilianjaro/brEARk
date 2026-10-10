@@ -5,7 +5,7 @@
 #include "LoudnessMeter.h"
 #include "Persistence.h"
 #include "PlayheadTracker.h"
-#include "RepetitionDetector.h"
+#include "GridLoopDetector.h"
 #include "SampleFifo.h"
 #include "Snapshot.h"
 #include "SpectrumAnalyser.h"
@@ -55,7 +55,7 @@ public:
     }
 
     template <typename SampleType>
-    void push (const juce::AudioBuffer<SampleType>& buffer, bool hostIsNonRealtime) noexcept
+    void push (const juce::AudioBuffer<SampleType>& buffer, bool hostIsNonRealtime, const BlockStamp& stamp = {}) noexcept
     {
         samplesProcessed.fetch_add (buffer.getNumSamples(), std::memory_order_relaxed);
 
@@ -66,7 +66,7 @@ public:
             return;
         }
 
-        fifo.push (buffer);
+        fifo.push (buffer, stamp);
     }
 
     // Playhead position for the bar-repetition count; a few atomic stores.
@@ -122,7 +122,7 @@ private:
     // Worker thread only
     LoudnessMeter loudness;
     SpectrumAnalyser spectrum;
-    RepetitionDetector repetition;
+    GridLoopDetector loops;
     PlayheadTracker playhead;
     LevelCreepTracker creep;
     double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed

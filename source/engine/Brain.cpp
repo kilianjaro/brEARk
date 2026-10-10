@@ -200,7 +200,7 @@ void Brain::updateModel (double wallSeconds)
         smooth (smoothedPsr, (double) loudness.getShortTermPeakDb() - lufs);
     }
 
-    repetition.update (wallSeconds, silent);
+    loops.update (wallSeconds, silent);
     creep.add (lufs, wallSeconds, silent);
 
     FactorInputs inputs;
@@ -208,7 +208,7 @@ void Brain::updateModel (double wallSeconds)
     inputs.highsToBodyDb = smoothedHighs;
     inputs.psrDb = smoothedPsr;
     inputs.barPlays = playhead.getCurrentPlays (juce::Time::getMillisecondCounterHiRes() / 1000.0);
-    inputs.loopingSeconds = repetition.getLoopingSeconds();
+    inputs.loopingSeconds = loops.getLoopingSeconds();
     inputs.localHour = now.getHours() + now.getMinutes() / 60.0;
 
     const auto factors = silent ? FatigueFactors {} : computeFatigueFactors (inputs);
@@ -246,9 +246,11 @@ void Brain::updateModel (double wallSeconds)
     working.drainFactor = silent ? 1.0f : (float) exposure.combinedFactor (factors.product());
     working.barPlays = (float) inputs.barPlays;
     working.loopingSeconds = inputs.loopingSeconds;
-    working.loopLengthSeconds = (float) repetition.getLoopLengthSeconds();
-    working.loopBestSimilarity = repetition.getBestSimilarity();
-    working.loopBestLagSeconds = (float) repetition.getBestLagSeconds();
+    working.loopBars = loops.getLoopBars();
+    working.loopBestRhythm = loops.getBestRhythm();
+    working.loopBestShiftDb = loops.getBestShiftDb();
+    working.loopBestBars = loops.getBestBars();
+    working.loopHasGrid = loops.hasGrid();
     working.levelCreepDb = (float) creep.getCreepDb();
     working.transportPlaying = transportPlaying.load (std::memory_order_relaxed);
     working.transportRecording = transportRecording.load (std::memory_order_relaxed);
@@ -263,10 +265,13 @@ void Brain::updateConfiguration()
 
     loudness.prepare (rate);
     spectrum.prepare (rate);
-    repetition.prepare (spectrum.getAnalysedFrameSeconds());
+    loops.prepare (rate);
     preparedRate = rate;
     lastSamplesProcessed = samplesProcessed.load();
-    fifo.pull ([] (const float*, const float*, int) {}); // audio at the old rate is stale
+
+    // Audio at the old rate is stale.
+    fifo.pullStamps ([] (const BlockStamp&) {});
+    fifo.pull ([] (const float*, const float*, int, juce::int64) {});
 }
 
 void Brain::updateRenderState (double wallSeconds)
@@ -314,16 +319,22 @@ void Brain::analyseAvailable()
 {
     const auto discard = rendering || preparedRate <= 0.0;
 
-    fifo.pull ([this, discard] (const float* left, const float* right, int numFrames)
+    // Stamps first: they always precede the audio they describe.
+    fifo.pullStamps ([this, discard] (const BlockStamp& stamp)
+    {
+        if (! discard)
+            loops.addStamp (stamp);
+    });
+
+    fifo.pull ([this, discard] (const float* left, const float* right, int numFrames, juce::int64 streamPosition)
     {
         if (discard)
             return;
 
         loudness.process (left, right, numFrames);
         spectrum.process (left, right, numFrames);
+        loops.addAudio (left, right, numFrames, streamPosition);
     });
-
-    spectrum.drainBandFrames ([this] (const BandFrame& frame) { repetition.addFrame (frame); });
 }
 
 void Brain::summariseSecond (double wallSeconds)

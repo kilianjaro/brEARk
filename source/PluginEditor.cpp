@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "BuildInfo.h"
 
 namespace
 {
@@ -32,10 +33,18 @@ juce::String yesNo (bool value)
     return value ? "YES" : "NO";
 }
 
+// Hours:minutes, for durations measured in hours.
 juce::String clock (double seconds)
 {
     const auto minutes = juce::roundToInt (seconds / 60.0);
     return juce::String (minutes / 60).paddedLeft ('0', 2) + ":" + juce::String (minutes % 60).paddedLeft ('0', 2);
+}
+
+// Minutes:seconds, for loops.
+juce::String minutesSeconds (double seconds)
+{
+    const auto total = (int) seconds;
+    return juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2);
 }
 } // namespace
 
@@ -135,11 +144,14 @@ void BrearkEditor::paint (juce::Graphics& g)
         "",
         "HARSHNESS     PRESENCE " + db (s.presenceToBody) + " dB   HIGHS " + db (s.highsToBody) + " dB  (VS 250-2K)   " + times (f.harshness),
         "DYNAMICS      PSR " + db (s.psr) + " dB   " + times (f.dynamics),
-        "REPETITION    BAR PLAYS " + juce::String (s.barPlays, 1) + "   LOOPING " + clock (s.loopingSeconds)
-            + (s.loopLengthSeconds > 0.0f ? " (" + juce::String (s.loopLengthSeconds, 1) + " S LOOP)" : juce::String())
+        "REPETITION    BAR PLAYS " + juce::String (s.barPlays, 1) + "   LOOPING " + minutesSeconds (s.loopingSeconds)
+            + (s.loopBars > 0 ? " (" + juce::String (s.loopBars) + "-BAR LOOP)" : juce::String())
             + "   " + times (f.repetition),
-        "LOOP CHECK    BEST MATCH " + juce::String (s.loopBestSimilarity, 2) + " @ " + juce::String (s.loopBestLagSeconds, 1)
-            + " S   (LOOP FROM " + juce::String (breark::model::loopMinSimilarity, 2) + ")",
+        "LOOP CHECK    " + (s.loopHasGrid ? "RHYTHM " + juce::String (s.loopBestRhythm, 2) + "  SHIFT " + juce::String (s.loopBestShiftDb, 1)
+                                               + " dB @ " + juce::String (s.loopBestBars) + " BARS   (LOOP: RHYTHM >= "
+                                               + juce::String (breark::model::loopMinRhythm, 2) + ", SHIFT <= "
+                                               + juce::String (breark::model::loopMaxShiftDb, 1) + " dB)"
+                                             : juce::String ("NO TEMPO GRID (TRANSPORT STOPPED)")),
         "NIGHT         " + juce::Time::getCurrentTime().formatted ("%H:%M") + "   " + times (f.night),
         "DRAIN         " + times (s.drainFactor) + "  (FACTORS x DAILY LOAD, MAX " + times (breark::model::maxCombinedFactor) + ")   CREEP " + signedDb (s.levelCreepDb) + " dB / 1 H",
         "",
@@ -166,4 +178,8 @@ void BrearkEditor::paint (juce::Graphics& g)
 
     g.drawText ("> M3. Weighing what you hear: harsh, squashed, repeated, late.",
                 area.removeFromBottom (rowHeight), juce::Justification::centredLeft, false);
+
+    g.setColour (ink.withAlpha (0.5f));
+    g.drawText ("BUILD " BREARK_BUILD_ID, getLocalBounds().reduced (24, 8).removeFromTop (16),
+                juce::Justification::topRight, false);
 }

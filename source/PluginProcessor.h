@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/Brain.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 //==============================================================================
@@ -12,7 +14,10 @@ class BrearkProcessor final : public juce::AudioProcessor
 {
 public:
     BrearkProcessor();
-    ~BrearkProcessor() override = default;
+    ~BrearkProcessor() override;
+
+    breark::Brain& getBrain() noexcept { return *brain; }
+    bool isActiveInstance() const noexcept { return brain->isActive (this); }
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
@@ -49,6 +54,8 @@ public:
 private:
     template <typename SampleType>
     void process (juce::AudioBuffer<SampleType>& buffer) noexcept;
+
+    juce::SharedResourcePointer<breark::Brain> brain;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkProcessor)
 };

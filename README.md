@@ -21,9 +21,10 @@ Universal binary (Apple Silicon + Intel) for release builds: add `-DCMAKE_OSX_AR
 ## Verify
 
 ```bash
+./build/brEARk_Tests_artefacts/Release/brEARk_Tests
 ./build/brEARk_NullTest_artefacts/Release/brEARk_NullTest
 auval -v aufx Brek Totm
 /Applications/pluginval.app/Contents/MacOS/pluginval --strictness-level 10 --validate ~/Library/Audio/Plug-Ins/VST3/brEARk.vst3
 ```
 
-`brEARk_NullTest` hosts the installed VST3 and AU like a DAW and requires the output to be **bit-identical** to the input (mono/stereo, 44.1–192 kHz, 32/64-bit, irregular block sizes).
+`brEARk_Tests` checks the engine (BS.1770 / EBU Tech 3341, A-weighting, FIFO, end-to-end Brain, CPU budget). `brEARk_NullTest` hosts the installed VST3 and AU like a DAW and requires the output to be **bit-identical** to the input (mono/stereo, 44.1–192 kHz, 32/64-bit, irregular block sizes).

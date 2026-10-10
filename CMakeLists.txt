@@ -38,27 +38,69 @@ juce_add_plugin(brEARk
     AU_MAIN_TYPE                kAudioUnitType_Effect
     COPY_PLUGIN_AFTER_BUILD     TRUE)
 
+# Engine sources are shared by the plugin and the unit tests.
+set(BREARK_ENGINE_SOURCES
+    source/engine/Brain.cpp
+    source/engine/LoudnessMeter.cpp
+    source/engine/SpectrumAnalyser.cpp)
+
+option(BREARK_DEV_METRICS "Measure audio-thread time per block (shown in the debug view)" ON)
+
 target_sources(brEARk PRIVATE
     source/PluginProcessor.cpp
-    source/PluginEditor.cpp)
+    source/PluginEditor.cpp
+    ${BREARK_ENGINE_SOURCES})
+
+target_include_directories(brEARk PRIVATE source)
 
 target_compile_definitions(brEARk PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0)
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    BREARK_DEV_METRICS=$<BOOL:${BREARK_DEV_METRICS}>)
 
 target_link_libraries(brEARk
     PRIVATE
         juce::juce_audio_utils
+        juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
 # ── Developer tools ───────────────────────────────────────────────────────────
-option(BREARK_BUILD_TOOLS "Build developer tools (null test)" ON)
+option(BREARK_BUILD_TOOLS "Build developer tools (unit tests, null test)" ON)
 
 if(BREARK_BUILD_TOOLS)
+    enable_testing()
+
+    # Engine unit tests: BS.1770 / EBU Tech 3341, A-weighting, FIFO.
+    juce_add_console_app(brEARk_Tests PRODUCT_NAME "brEARk_Tests")
+
+    target_sources(brEARk_Tests PRIVATE
+        tests/TestMain.cpp
+        tests/LoudnessTests.cpp
+        tests/SpectrumTests.cpp
+        tests/FifoTests.cpp
+        tests/BrainTests.cpp
+        tests/PerformanceTests.cpp
+        ${BREARK_ENGINE_SOURCES})
+
+    target_include_directories(brEARk_Tests PRIVATE source)
+
+    target_compile_definitions(brEARk_Tests PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+
+    target_link_libraries(brEARk_Tests
+        PRIVATE
+            juce::juce_dsp
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    add_test(NAME brEARk_Tests COMMAND brEARk_Tests)
+
     # Hosts the installed VST3 + AU and proves output == input, bit for bit.
     juce_add_console_app(brEARk_NullTest PRODUCT_NAME "brEARk_NullTest")
 

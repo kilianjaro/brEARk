@@ -74,9 +74,9 @@ processBlock(buffer)                     every ~50 ms:                          
 
 | From → To | Mechanism |
 |---|---|
-| Audio → Worker | `SampleFifo`: `juce::AbstractFifo` over a pre-allocated buffer, ~0.5 s capacity |
+| Audio → Worker | `SampleFifo`: `juce::AbstractFifo` over a pre-allocated buffer, 96 000 frames (2 s @ 48 kHz, 750 KB). Sized for macOS coalescing background-thread wakes to ~150 ms (measured) |
 | Audio → Worker | Atomics: isPlaying, isRecording, ppq / bar, isNonRealtime, dropped-sample counter |
-| Worker → UI | `Snapshot` struct via a lock-free triple buffer; the UI only ever reads the newest one |
+| Worker → UI | `Snapshot` struct copied under a mutex. Both sides are non-realtime; the audio thread never touches it |
 | Worker → Message thread | Events (WARN, DUE, UNPLUG, BREAK_DONE, LEVEL_CREEP, …) via a lock-free queue, drained by a message-thread timer |
 | UI → Worker | Atomics: BREAK pressed, SNOOZE, strictness, setup, preset |
 | Worker → Audio | Atomic `powerState` target. The audio thread performs the ramps itself, sample-accurately |
@@ -241,7 +241,7 @@ brEARk/
 | Export integrity | Export with brEARk UNPLUGGED vs. without brEARk | Files null to −∞ |
 | Plugin robustness | **pluginval** strictness 10 (VST3 + AU), **auval** (AU) | No failures |
 | Realtime safety | Code rule + review; Clang RealtimeSanitizer if available in Xcode 26 | No alloc/lock on the audio thread |
-| CPU | Live CPU meter + Instruments Time Profiler | Audio thread unmeasurable; worker < 0.1 % of one core |
+| CPU | `PerformanceTests` benchmark, debug view, Live CPU meter, Instruments | Audio thread unmeasurable; analysis < 0.1 % of one core. *Measured M1: K-filter 0.041 % + FFT 0.043 % = 0.085 % on a P-core; 0.15–0.2 % of an efficiency core inside the background worker* |
 | Memory | Instruments Allocations | < 6 MB, flat over a 1 h run |
 | Loudness accuracy | EBU Tech 3341 test signals + comparison with Live / Youlean | ±0.3 LU |
 | Model behaviour | Unit tests + **debug time-warp** (model clock ×60: a 70 min session runs in 70 s) | Matches the tables in §4 |
@@ -259,7 +259,7 @@ Each milestone has the same rhythm:
 | # | Milestone | You'll see / test | Gate |
 |---|---|---|---|
 | **M0** ✅ | Setup: brew cmake/ninja, git + private GitHub, CMake skeleton (VST3/AU/Standalone), pure pass-through with the 64-bit path, pluginval | Empty brEARk loads in Live | **Null test −∞**, pluginval passes. *Automated gates all green 2026-10-10; Live null test by Kilian* |
-| **M1** | Analysis engine: Brain, FIFO, worker, LUFS, FFT features, export detection (+ debug UI with raw numbers) | Live numbers in a debug view | LUFS ±0.3 LU, CPU unmeasurable, Live 11 export flag verified |
+| **M1** | Analysis engine: Brain, FIFO, worker, LUFS, FFT features, export detection (+ debug UI with raw numbers) | Live numbers in a debug view | LUFS ±0.3 LU, CPU unmeasurable, Live 11 export flag verified. *Automated: 95 checks incl. EBU Tech 3341 at 44.1–192 kHz, end-to-end Brain test, null test 24/24, pluginval 10, auval. Pending: Live check by Kilian* |
 | **M2** | Exposure model + persistence: battery, dose, recovery, silence, day rollover, presets, time-warp | The battery drains and recovers | Unit tests, behaviour matches §4 tables |
 | **M3** | Factors: harshness, PLR, hybrid repetition, time of day, level creep | Factor readouts react to test material | Factors behave on your own loops |
 | **M4** | Break controller + alerts: strictness modes, escalation, BREAK button, toast window, mp3 via system output, recording guard | Full escalation run (time-warped) | Toast never steals focus; alerts never in exports |

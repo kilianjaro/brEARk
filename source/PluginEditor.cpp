@@ -36,7 +36,20 @@ juce::String phaseName (breark::BreakPhase phase)
         case breark::BreakPhase::warned:    return "HEADS UP GIVEN (20 %)";
         case breark::BreakPhase::due:       return "BREAK DUE";
         case breark::BreakPhase::onBreak:   return "ON A BREAK";
-        case breark::BreakPhase::unplugged: return "UNPLUG REQUESTED (POWER-DOWN IS M5)";
+        case breark::BreakPhase::unplugged: return "UNPLUGGED";
+    }
+
+    return {};
+}
+
+juce::String stageName (breark::PowerDown::Stage stage)
+{
+    switch (stage)
+    {
+        case breark::PowerDown::Stage::run:          return "RUN (UNTOUCHED)";
+        case breark::PowerDown::Stage::spinningDown: return "SPINNING DOWN";
+        case breark::PowerDown::Stage::stopped:      return "MUTED";
+        case breark::PowerDown::Stage::spinningUp:   return "SPINNING UP";
     }
 
     return {};
@@ -100,7 +113,7 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
         brain.setSettings (settings);
     };
 
-    for (auto* button : { &breakButton, &testAlertButton })
+    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton })
     {
         button->setColour (juce::TextButton::buttonColourId, ink);
         button->setColour (juce::TextButton::textColourOffId, paper);
@@ -109,6 +122,7 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
     }
 
     breakButton.onClick = [&brain] { brain.toggleBreak(); };
+    snoozeButton.onClick = [&brain] { brain.snooze(); };
 
     testAlertButton.onClick = [this]
     {
@@ -141,6 +155,7 @@ void BrearkEditor::timerCallback()
     strictnessSwitch.setSelectedIndex ((int) settings.strictness);
     warpSwitch.setSelectedIndex (snapshot.timeWarp > 1 ? 1 : 0);
     breakButton.setButtonText (snapshot.breakPhase == breark::BreakPhase::onBreak ? "END BREAK" : "BREAK");
+    snoozeButton.setEnabled (snapshot.breakPhase == breark::BreakPhase::unplugged);
 
     repaint();
 }
@@ -158,10 +173,12 @@ void BrearkEditor::resized()
     top.removeFromLeft (12);
     warpSwitch.setBounds (top);
 
-    strictnessSwitch.setBounds (bottom.removeFromLeft (360));
+    strictnessSwitch.setBounds (bottom.removeFromLeft (330));
     bottom.removeFromLeft (12);
-    breakButton.setBounds (bottom.removeFromLeft (120));
-    bottom.removeFromLeft (12);
+    breakButton.setBounds (bottom.removeFromLeft (100));
+    bottom.removeFromLeft (8);
+    snoozeButton.setBounds (bottom.removeFromLeft (90));
+    bottom.removeFromLeft (8);
     testAlertButton.setBounds (bottom);
 }
 
@@ -218,6 +235,10 @@ void BrearkEditor::paint (juce::Graphics& g)
             + (s.breakPhase == breark::BreakPhase::onBreak ? "   " + minutesSeconds (s.breakSecondsLeft) + " LEFT" : juce::String())
             + (s.breakPhase == breark::BreakPhase::due || s.breakPhase == breark::BreakPhase::unplugged
                    ? "   " + minutesSeconds (s.secondsSinceDue) + " LISTENED SINCE EMPTY" : juce::String()),
+        "POWER         " + stageName (brearkProcessor.getPowerStage())
+            + (s.breakPhase == breark::BreakPhase::unplugged ? "   " + minutesSeconds (s.unpluggedSeconds) + " OF 5:00" : juce::String())
+            + (s.snoozeSecondsLeft > 0.0 ? "   SNOOZE " + minutesSeconds (s.snoozeSecondsLeft) + " LEFT" : juce::String())
+            + "   TODAY " + juce::String (s.powerDownsToday) + " POWER-DOWNS, " + juce::String (s.snoozesToday) + " SNOOZES",
         "",
         "ENGINE        " + juce::String (s.sampleRate, 0) + " HZ  " + wrapper.toUpperCase()
             + "  " + (processor.isUsingDoublePrecision() ? "64" : "32") + "-BIT  FFT " + juce::String (s.fftSize),
@@ -234,7 +255,7 @@ void BrearkEditor::paint (juce::Graphics& g)
     for (const auto& row : rows)
         g.drawText (row, area.removeFromTop (rowHeight), juce::Justification::centredLeft, false);
 
-    g.drawText ("> M4. Watching the clock for you. Press BREAK when you go.",
+    g.drawText ("> M5. Ignore me in Hard mode and I pull the plug.",
                 area.removeFromBottom (rowHeight), juce::Justification::centredLeft, false);
 
     g.setColour (ink.withAlpha (0.5f));

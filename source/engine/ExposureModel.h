@@ -37,6 +37,8 @@ struct DayRecord
     double dose = 0.0;      // % of the WHO daily allowance
     double listeningSeconds = 0.0;
     int breaks = 0;
+    int powerDowns = 0; // HARD: times the plug was pulled
+    int snoozes = 0;
 };
 
 // Everything that survives a restart of Live.
@@ -49,6 +51,8 @@ struct ExposureState
     double silenceSeconds = 0.0;         // current continuous silence
     double secondsSinceBreak = 0.0;
     int breaksToday = 0;
+    int powerDownsToday = 0;
+    int snoozesToday = 0;
     double referenceLufs = model::initialReferenceLufs;
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
     std::vector<DayRecord> history;      // previous days, oldest first
@@ -85,6 +89,9 @@ public:
     double weeklyDose() const noexcept; // % of the WHO weekly allowance
     double suggestedBreakMinutes() const noexcept;
     bool isRecovering() const noexcept { return state.silenceSeconds >= model::recoveryOnsetSeconds; }
+
+    void countPowerDown() noexcept { ++state.powerDownsToday; }
+    void countSnooze() noexcept { ++state.snoozesToday; }
 
     // Days since 1970-01-01 in local time, with the day starting at 05:00.
     static int dayNumber (juce::Time localTime) noexcept;

@@ -16,7 +16,7 @@ ToastWindow::ToastWindow()
     setWantsKeyboardFocus (false);
     setOpaque (true);
 
-    for (auto* button : { &breakButton, &closeButton })
+    for (auto* button : { &breakButton, &snoozeButton, &closeButton })
     {
         button->setWantsKeyboardFocus (false);
         button->setColour (juce::TextButton::buttonColourId, paper);
@@ -33,6 +33,14 @@ ToastWindow::ToastWindow()
         dismiss();
     };
 
+    snoozeButton.onClick = [this]
+    {
+        if (onSnooze != nullptr)
+            onSnooze();
+
+        dismiss();
+    };
+
     closeButton.onClick = [this] { dismiss(); };
     setSize (width, height);
 }
@@ -45,7 +53,8 @@ ToastWindow::~ToastWindow()
 void ToastWindow::show (const ToastContent& newContent)
 {
     content = newContent;
-    breakButton.setVisible (content.offerBreak);
+    breakButton.setVisible (content.offerBreak && ! content.offerSnooze);
+    snoozeButton.setVisible (content.offerSnooze);
 
     if (! isOnDesktop())
     {
@@ -80,7 +89,9 @@ void ToastWindow::resized()
 {
     auto area = getLocalBounds().reduced (margin, 12);
     closeButton.setBounds (area.removeFromTop (22).removeFromRight (28));
-    breakButton.setBounds (area.removeFromBottom (26).removeFromRight (130));
+    const auto buttonRow = area.removeFromBottom (26).removeFromRight (130);
+    breakButton.setBounds (buttonRow);
+    snoozeButton.setBounds (buttonRow);
 }
 
 void ToastWindow::paint (juce::Graphics& g)

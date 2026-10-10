@@ -10,11 +10,19 @@ BrearkProcessor::BrearkProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
     brain->attach (this);
+    startTimerHz (2);
 }
 
 BrearkProcessor::~BrearkProcessor()
 {
+    stopTimer();
     brain->detach (this);
+}
+
+void BrearkProcessor::timerCallback()
+{
+    const auto hardMode = brain->getSettings().strictness == breark::Strictness::hard;
+    powerDown.manageBuffer (hardMode && isActiveInstance(), getSampleRate());
 }
 
 void BrearkProcessor::prepareToPlay (double sampleRate, int)
@@ -22,6 +30,7 @@ void BrearkProcessor::prepareToPlay (double sampleRate, int)
     // brEARk never delays audio, so Live's delay compensation never changes.
     setLatencySamples (0);
     brain->prepare (sampleRate);
+    powerDown.prepare (sampleRate);
 }
 
 void BrearkProcessor::releaseResources() {}
@@ -77,6 +86,10 @@ void BrearkProcessor::process (juce::AudioBuffer<SampleType>& buffer) noexcept
         }
 
         brain->push (std::as_const (buffer), exporting, stamp);
+
+        // The only code that may change the audio: Hard mode pulling the plug.
+        // Untouched unless unplugged; exports always pass untouched.
+        powerDown.process (buffer, brain->isUnplugRequested(), exporting || brain->isExportDetected());
     }
 
 #if BREARK_DEV_METRICS

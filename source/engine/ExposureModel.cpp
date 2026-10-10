@@ -130,7 +130,8 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
 
     if (state.day != 0)
     {
-        state.history.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday });
+        state.history.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday,
+                                   state.powerDownsToday, state.snoozesToday });
 
         if ((int) state.history.size() > model::historyDays)
             state.history.erase (state.history.begin(), state.history.end() - model::historyDays);
@@ -140,6 +141,8 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
     state.doseToday = 0.0;
     state.listeningSecondsToday = 0.0;
     state.breaksToday = 0;
+    state.powerDownsToday = 0;
+    state.snoozesToday = 0;
 }
 
 //==============================================================================

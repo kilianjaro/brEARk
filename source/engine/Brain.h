@@ -51,6 +51,9 @@ public:
     // The BREAK button (toast or plugin window): starts a guided break, or ends it.
     void toggleBreak() noexcept { breakToggleRequested.store (true); }
 
+    // HARD, unplugged: 10 more minutes.
+    void snooze() noexcept { snoozeRequested.store (true); }
+
     // Alerts produced since the last call, for the message thread to present.
     std::vector<Alert> takeAlerts();
 
@@ -91,6 +94,11 @@ public:
 
     void addAudioThreadTicks (juce::int64 ticks) noexcept;
 
+    // HARD mode: should the power-down be engaged? And is an export running
+    // (detected by speed, for hosts that don't flag it)? Wait-free reads.
+    bool isUnplugRequested() const noexcept { return unplugTarget.load (std::memory_order_relaxed); }
+    bool isExportDetected() const noexcept { return exportDetected.load (std::memory_order_relaxed); }
+
     //==============================================================================
     // Any non-realtime thread
     Snapshot getSnapshot() const;
@@ -126,7 +134,8 @@ private:
     std::atomic<int> presetSetting { (int) LevelPreset::normal };
     std::atomic<int> strictnessSetting { (int) Strictness::escalating };
     std::atomic<int> timeWarp { 1 };
-    std::atomic<bool> breakToggleRequested { false };
+    std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false };
+    std::atomic<bool> unplugTarget { false }, exportDetected { false };
 
     // Worker thread only
     LoudnessMeter loudness;

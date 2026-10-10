@@ -102,6 +102,12 @@ inline constexpr double firstReminderSeconds = 10.0 * 60.0; // listening time af
 inline constexpr double reminderIntervalSeconds = 5.0 * 60.0;
 inline constexpr double hardGraceSeconds = 10.0 * 60.0;     // HARD: unplug after this
 
+//── Hard mode: pulling the plug (CONCEPT.md §7) ───────────────────────────────
+inline constexpr double spinDownSeconds = 3.5;        // Heuristic: a turntable losing power
+inline constexpr double spinUpSeconds = 0.8;          // Heuristic: back on, with a brief over-speed
+inline constexpr double minimumBreakSeconds = 5.0 * 60.0; // the mute lifts after this, battery full or not
+inline constexpr double snoozeSeconds = 10.0 * 60.0;  // exactly 10 more minutes, then the plug comes out again
+
 //── History ───────────────────────────────────────────────────────────────────
 inline constexpr int historyDays = 14;
 } // namespace breark::model

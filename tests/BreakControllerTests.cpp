@@ -65,6 +65,69 @@ public:
             expectEquals (count (alerts, AlertKind::unplug), 1);
         }
 
+        beginTest ("HARD, unplugged: stays off for the 5 min minimum break, then plugs back in");
+        {
+            BreakController breaks;
+            drain (breaks, Strictness::hard);
+            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
+            expect (breaks.isUnplugRequested());
+
+            // Pressing BREAK changes nothing: this already is a (forced) break.
+            breaks.toggleBreak (12.0);
+            // (The unplug fired ~2 s before the 10 min of listening above ended.)
+            auto alerts = listen (breaks, Strictness::hard, 10.0, 4.0 * 60.0 + 50.0, false, true);
+            expect (alerts.empty() && breaks.isUnplugRequested(), "the mute lifted too early");
+
+            alerts = listen (breaks, Strictness::hard, 55.0, 10.0, false, true);
+            expectEquals (count (alerts, AlertKind::replugged), 1);
+            expect (! breaks.isUnplugRequested());
+            expect (breaks.getPhase() == BreakPhase::listening, "recovered past 30 %: start over");
+        }
+
+        beginTest ("HARD, unplugged, still drained after the minimum break: the ladder runs again");
+        {
+            BreakController breaks;
+            drain (breaks, Strictness::hard);
+            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
+
+            auto alerts = listen (breaks, Strictness::hard, 5.0, 5.0 * 60.0 + 1.0);
+            expectEquals (count (alerts, AlertKind::replugged), 1);
+            expect (breaks.getPhase() == BreakPhase::due);
+
+            alerts = listen (breaks, Strictness::hard, 5.0, 10.0 * 60.0 + 1.0);
+            expectEquals (count (alerts, AlertKind::unplug), 1);
+        }
+
+        beginTest ("SNOOZE buys exactly 10 minutes, then the plug comes out again");
+        {
+            BreakController breaks;
+            drain (breaks, Strictness::hard);
+            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
+
+            breaks.snooze();
+            auto alerts = breaks.advance (inputs (Strictness::hard, 0.0, false));
+            expectEquals (count (alerts, AlertKind::snoozed), 1);
+            expect (! breaks.isUnplugRequested());
+
+            alerts = listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 - 2.0);
+            expect (alerts.empty() && ! breaks.isUnplugRequested(), "unplugged before the snooze ran out");
+
+            alerts = listen (breaks, Strictness::hard, 0.0, 3.0);
+            expectEquals (count (alerts, AlertKind::unplug), 1);
+        }
+
+        beginTest ("Leaving HARD mode plugs back in at once (the escape hatch)");
+        {
+            BreakController breaks;
+            drain (breaks, Strictness::hard);
+            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
+            expect (breaks.isUnplugRequested());
+
+            const auto alerts = breaks.advance (inputs (Strictness::escalating, 0.0, false));
+            expectEquals (count (alerts, AlertKind::replugged), 1);
+            expect (! breaks.isUnplugRequested());
+        }
+
         beginTest ("Silence pauses the escalation clock");
         {
             BreakController breaks;

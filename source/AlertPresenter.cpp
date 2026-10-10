@@ -29,7 +29,13 @@ ToastContent describe (const breark::Alert& alert)
             return { "BREAK.", "Still listening. Your judgement is drifting. Take " + minutes + " min.", withBreak, false, true };
 
         case AlertKind::unplug:
-            return { "UNPLUGGED.", "You ignored it. Hard mode pulls the plug.", withBreak, true, true };
+            return { "UNPLUGGED.", "You ignored it. Hard mode pulled the plug: 5 min of silence.", battery, true, false, true };
+
+        case AlertKind::replugged:
+            return { "BACK ON.", "Five minutes of silence. Listen with fresh ears.", battery, false, false };
+
+        case AlertKind::snoozed:
+            return { "SNOOZED.", "10 more minutes. Then the plug comes out again.", battery, false, false };
 
         case AlertKind::unplugAfterTake:
             return { "AFTER THIS TAKE.", "Finish the take. Then: unplug.", battery, false, false };
@@ -68,6 +74,7 @@ void AlertPresenter::present (const breark::Alert& alert)
     {
         toast = std::make_unique<ToastWindow>();
         toast->onBreak = [this] { brain->toggleBreak(); };
+        toast->onSnooze = [this] { brain->snooze(); };
     }
 
     toast->show (describe (alert));

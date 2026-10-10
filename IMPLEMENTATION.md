@@ -211,6 +211,12 @@ Escalation timing per strictness mode follows CONCEPT.md §6.
   - The ~2 s stereo buffer is allocated on the message thread when Hard mode is switched on, and freed when it's switched off.
 - **Exports:** the effect is always bypassed.
 - **Fallback:** a plain gain fade, if the vinyl effect proves troublesome.
+- **As built (M5):**
+  - The speed curves are a raised cosine down, and `t + (π/4)·sin(πt)` up; that curve's integral is exactly 1, so the read head catches up.
+  - The read head trails the live signal by 3 samples, giving room for interpolation; a 5 ms crossfade in from dry and a 10 ms crossfade out to dry hide the switch.
+  - The ring is 2 s, a power of two (1 MB at 48 kHz). The message thread creates and deletes it; the audio thread adopts and retires it through atomics and never waits.
+  - While unplugged, the model counts the time as silence.
+  - Exports pass untouched via the host flag or the speed heuristic.
 
 ---
 
@@ -280,7 +286,7 @@ Each milestone has the same rhythm:
 | **M2** | Exposure model + persistence: battery, dose, recovery, silence, day rollover, presets, time-warp | The battery drains and recovers | Unit tests, behaviour matches §4 tables. *Automated: 166 checks (drain table, recovery curve, WHO dose, rollover, weekly, persistence, save/restore), null test 24/24, pluginval 10, auval. Dev tools redirect state via `BREARK_STATE_FILE`. Pending: Live check by Kilian* |
 | **M3** | Factors: harshness, PSR, hybrid repetition, time of day, level creep | Factor readouts react to test material | Factors behave on your own loops. *Automated: 188 checks incl. synthetic loops, fader move, drone, playhead loop brace and restarts, night ramp, creep. CPU: loop detection worst case 0.006 % of one core. Pending: Live check by Kilian* |
 | **M4** | Break controller + alerts: strictness modes, escalation, BREAK button, toast window, mp3 via system output, recording guard | Full escalation run (time-warped) | Toast never steals focus; alerts never in exports. *Automated: BreakController tests for every rung of the ladder (GENTLE/ESCALATING/HARD), recording guard, silence pausing the clock, re-arm at 30 %, guided break (2036 checks); null test, pluginval (no leaks), auval. Toast: JUCE `windowIgnoresKeyPresses`, so it can never become key; pop-up level; all Spaces and full screen. Sound: `AVAudioPlayer` on the embedded mp3 (1.5 s, −24 dBFS RMS). Pending: Live check by Kilian* |
-| **M5** | Hard mode: PowerDown DSP, minimum break, snooze, export bypass | Vinyl power-down/up by ear | Export nulls; pluginval; no clicks |
+| **M5** | Hard mode: PowerDown DSP, minimum break, snooze, export bypass | Vinyl power-down/up by ear | Export nulls; pluginval; no clicks. *Automated: PowerDown tests (untouched while plugged in, 32/64-bit; spin-down to exact zeros; click detector mutation-checked: catches a missing 5 ms crossfade; spin-up back to bit-exact; waits for sound; exports untouched while muted; plain-fade fallback; buffer handover). BreakController: minimum break, snooze exactly 10 min, escape by leaving HARD, ladder again if still drained (2071 checks). pluginval with HARD selected: no leaks. Pending: by ear + export test in Live* |
 | **M6** | Coach: line format, triggers, tone shift, no-repeat, user file, ~150 lines | The coach talks | Lines fit the UI; no repeats within a session |
 | **M7** | Final UI: brutalist COMPACT / POSTER, fonts, history overlay | The real brEARk | 4 Hz refresh; looks right at both sizes |
 | **M8** | Hardening: sample-rate/buffer changes, multi-instance, 3 h soak test, Instruments, universal build | — | All gates in §8 green |

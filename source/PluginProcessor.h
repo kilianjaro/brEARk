@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AlertPresenter.h"
+#include "dsp/PowerDown.h"
 #include "engine/Brain.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -9,9 +10,10 @@
 // brEARk's audio processor.
 //
 // Audio rule #1 (IMPLEMENTATION.md §1): the audio thread never writes to the
-// buffer, so the output is bit-identical to the input. The only planned
-// exception is the Hard-mode PowerDown effect (milestone M5).
-class BrearkProcessor final : public juce::AudioProcessor
+// buffer, so the output is bit-identical to the input. The only exception is
+// Hard mode's PowerDown, and only while the plug is pulled.
+class BrearkProcessor final : public juce::AudioProcessor,
+                              private juce::Timer
 {
 public:
     BrearkProcessor();
@@ -20,6 +22,7 @@ public:
     breark::Brain& getBrain() noexcept { return *brain; }
     AlertPresenter& getAlertPresenter() noexcept { return *alertPresenter; }
     bool isActiveInstance() const noexcept { return brain->isActive (this); }
+    breark::PowerDown::Stage getPowerStage() const noexcept { return powerDown.getStage(); }
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
@@ -57,8 +60,12 @@ private:
     template <typename SampleType>
     void process (juce::AudioBuffer<SampleType>& buffer) noexcept;
 
+    // Message thread: gives the power-down its buffer while HARD is selected.
+    void timerCallback() override;
+
     juce::SharedResourcePointer<breark::Brain> brain;
     juce::SharedResourcePointer<AlertPresenter> alertPresenter; // toast + sound, one per process
+    breark::PowerDown powerDown;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkProcessor)
 };

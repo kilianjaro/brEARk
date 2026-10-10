@@ -9,6 +9,7 @@ struct ToastContent
     juce::String detail;    // small data line
     bool urgent = false;    // signal red instead of black
     bool offerBreak = true; // show the BREAK button
+    bool offerSnooze = false; // show SNOOZE instead (HARD, unplugged)
 };
 
 //==============================================================================
@@ -25,7 +26,7 @@ public:
     void show (const ToastContent& newContent);
     void dismiss();
 
-    std::function<void()> onBreak;
+    std::function<void()> onBreak, onSnooze;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -34,7 +35,7 @@ private:
     void timerCallback() override;
 
     ToastContent content;
-    juce::TextButton breakButton { "BREAK NOW" }, closeButton { "X" };
+    juce::TextButton breakButton { "BREAK NOW" }, snoozeButton { "SNOOZE 10 MIN" }, closeButton { "X" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToastWindow)
 };

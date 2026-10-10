@@ -14,7 +14,7 @@ void BreakController::startOver() noexcept
 {
     phase = BreakPhase::listening;
     warned = due = deferAnnounced = false;
-    secondsSinceDue = nextReminderAt = 0.0;
+    secondsSinceDue = nextReminderAt = unpluggedSeconds = snoozeSecondsLeft = 0.0;
 }
 
 BreakPhase BreakController::phaseFromFlags() const noexcept
@@ -30,6 +30,49 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
     {
         alerts.push_back ({ kind, tone, withSound, in.battery, in.suggestedBreakMinutes });
     };
+
+    // HARD, unplugged: the sound stays off for the minimum break. Leaving
+    // HARD mode is the escape hatch; SNOOZE buys 10 minutes.
+    if (phase == BreakPhase::unplugged)
+    {
+        unpluggedSeconds += in.seconds;
+        toggleRequested = false; // already on a (forced) break
+
+        const auto snooze = std::exchange (snoozeRequested, false);
+
+        if (! snooze && in.strictness == Strictness::hard && unpluggedSeconds < model::minimumBreakSeconds)
+            return alerts;
+
+        unpluggedSeconds = 0.0;
+        deferAnnounced = false;
+
+        if (snooze)
+        {
+            snoozeSecondsLeft = model::snoozeSeconds;
+            phase = BreakPhase::due;
+            alert (AlertKind::snoozed, Tone::firm, false);
+            return alerts;
+        }
+
+        alert (AlertKind::replugged, Tone::calm, false);
+
+        if (in.battery >= model::rearmBattery)
+        {
+            startOver();
+        }
+        else
+        {
+            // Still drained: the ladder runs again from "empty".
+            phase = BreakPhase::due;
+            secondsSinceDue = 0.0;
+            nextReminderAt = model::firstReminderSeconds;
+        }
+
+        return alerts;
+    }
+
+    snoozeRequested = false; // only meaningful while unplugged
+    snoozeSecondsLeft = std::max (0.0, snoozeSecondsLeft - in.seconds);
 
     // The BREAK button.
     if (std::exchange (toggleRequested, false))
@@ -72,11 +115,6 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
         return alerts;
     }
 
-    // HARD mode stays unplugged until the ears have recovered (M5 adds the
-    // minimum break and the snooze).
-    if (phase == BreakPhase::unplugged)
-        return alerts;
-
     // Nothing plays: the ears are resting, the escalation clock pauses.
     if (in.silent)
         return alerts;
@@ -111,7 +149,7 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
         nextReminderAt += model::reminderIntervalSeconds;
     }
 
-    if (in.strictness == Strictness::hard && secondsSinceDue >= model::hardGraceSeconds)
+    if (in.strictness == Strictness::hard && secondsSinceDue >= model::hardGraceSeconds && snoozeSecondsLeft <= 0.0)
     {
         if (in.recording)
         {

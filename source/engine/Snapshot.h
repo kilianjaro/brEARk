@@ -60,6 +60,10 @@ struct Snapshot
     BreakPhase breakPhase       = BreakPhase::listening;
     double     secondsSinceDue  = 0.0; // listening time since the battery ran out
     double     breakSecondsLeft = 0.0; // guided break countdown
+    double     unpluggedSeconds = 0.0; // HARD: time since the plug was pulled
+    double     snoozeSecondsLeft = 0.0;
+    int        powerDownsToday  = 0;
+    int        snoozesToday     = 0;
 
     // Engine
     double sampleRate = 0.0;

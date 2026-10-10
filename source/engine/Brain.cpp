@@ -188,7 +188,9 @@ void Brain::updateModel (double wallSeconds)
 
     const auto lufs = loudness.getShortTermLufs();
     const auto now = juce::Time::getCurrentTime();
-    const auto silent = rendering || ! (lufs > model::silenceThresholdLufs); // exports never reach the ears
+    // Exports never reach the ears, and neither does sound while unplugged.
+    const auto muted = breaks.getPhase() == BreakPhase::unplugged;
+    const auto silent = rendering || muted || ! (lufs > model::silenceThresholdLufs);
 
     // Factor inputs, averaged over ~10 s of playback.
     auto smooth = [wallSeconds] (double& smoothed, double value)
@@ -233,6 +235,9 @@ void Brain::updateModel (double wallSeconds)
     if (breakToggleRequested.exchange (false))
         breaks.toggleBreak (exposure.suggestedBreakMinutes());
 
+    if (snoozeRequested.exchange (false))
+        breaks.snooze();
+
     BreakInputs breakInputs;
     breakInputs.seconds = period.seconds;
     breakInputs.battery = exposure.getState().battery;
@@ -243,9 +248,17 @@ void Brain::updateModel (double wallSeconds)
 
     if (auto alerts = breaks.advance (breakInputs); ! alerts.empty())
     {
+        for (const auto& alert : alerts)
+        {
+            if (alert.kind == AlertKind::unplug)  exposure.countPowerDown();
+            if (alert.kind == AlertKind::snoozed) exposure.countSnooze();
+        }
+
         const std::scoped_lock lock (alertsMutex);
         pendingAlerts.insert (pendingAlerts.end(), alerts.begin(), alerts.end());
     }
+
+    unplugTarget.store (breaks.isUnplugRequested(), std::memory_order_relaxed);
 
     if ((secondsSinceSave += wallSeconds) >= saveIntervalSeconds)
         saveState();
@@ -279,6 +292,10 @@ void Brain::updateModel (double wallSeconds)
     working.loopHasGrid = loops.hasGrid();
     working.levelCreepDb = (float) creep.getCreepDb();
     working.breakPhase = breaks.getPhase();
+    working.unpluggedSeconds = breaks.getUnpluggedSeconds();
+    working.snoozeSecondsLeft = breaks.getSnoozeSecondsLeft();
+    working.powerDownsToday = exposure.getState().powerDownsToday;
+    working.snoozesToday = exposure.getState().snoozesToday;
     working.secondsSinceDue = breaks.getSecondsSinceDue();
     working.breakSecondsLeft = breaks.getBreakSecondsLeft();
     working.transportPlaying = transportPlaying.load (std::memory_order_relaxed);
@@ -342,6 +359,8 @@ void Brain::updateRenderState (double wallSeconds)
         rendering = false;
         working.lastRenderHadHostFlag = currentRenderHadHostFlag;
     }
+
+    exportDetected.store (rendering, std::memory_order_relaxed);
 }
 
 void Brain::analyseAvailable()

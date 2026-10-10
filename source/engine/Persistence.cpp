@@ -15,12 +15,15 @@ juce::var toVar (const DayRecord& record)
     object->setProperty ("dose", record.dose);
     object->setProperty ("listeningSeconds", record.listeningSeconds);
     object->setProperty ("breaks", record.breaks);
+    object->setProperty ("powerDowns", record.powerDowns);
+    object->setProperty ("snoozes", record.snoozes);
     return object.release();
 }
 
 DayRecord dayRecordFromVar (const juce::var& v)
 {
-    return { (int) v["day"], (double) v["dose"], (double) v["listeningSeconds"], (int) v["breaks"] };
+    return { (int) v["day"], (double) v["dose"], (double) v["listeningSeconds"], (int) v["breaks"],
+             (int) v["powerDowns"], (int) v["snoozes"] };
 }
 
 template <typename Enum>
@@ -64,6 +67,8 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("silenceSeconds", e.silenceSeconds);
     exposure->setProperty ("secondsSinceBreak", e.secondsSinceBreak);
     exposure->setProperty ("breaksToday", e.breaksToday);
+    exposure->setProperty ("powerDownsToday", e.powerDownsToday);
+    exposure->setProperty ("snoozesToday", e.snoozesToday);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
     exposure->setProperty ("history", history);
@@ -110,6 +115,8 @@ std::optional<PersistedState> load (const juce::File& file)
     x.silenceSeconds = (double) e["silenceSeconds"];
     x.secondsSinceBreak = (double) e["secondsSinceBreak"];
     x.breaksToday = (int) e["breaksToday"];
+    x.powerDownsToday = (int) e["powerDownsToday"];
+    x.snoozesToday = (int) e["snoozesToday"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly
 

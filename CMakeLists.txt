@@ -40,6 +40,7 @@ juce_add_plugin(brEARk
 
 # Engine sources are shared by the plugin and the unit tests.
 set(BREARK_ENGINE_SOURCES
+    source/dsp/PowerDown.cpp
     source/engine/Brain.cpp
     source/engine/BreakController.cpp
     source/engine/ExposureModel.cpp
@@ -112,6 +113,7 @@ if(BREARK_BUILD_TOOLS)
         tests/FactorTests.cpp
         tests/LoopDetectorTests.cpp
         tests/BreakControllerTests.cpp
+        tests/PowerDownTests.cpp
         ${BREARK_ENGINE_SOURCES})
 
     target_include_directories(brEARk_Tests PRIVATE source)

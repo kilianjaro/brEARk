@@ -15,14 +15,14 @@ public:
 
         // With the reference equal to the playback loudness, the perceived level
         // equals the preset level: 70 / 80 / 90 dB, +3 dB on headphones.
-        beginTest ("Battery drain times match the plan (IMPLEMENTATION.md §4.3)");
+        beginTest ("Battery drain times match the plan (IMPLEMENTATION.md §4.3, 5 dB rule)");
         {
             struct Case { LevelPreset preset; Setup setup; double expectedMinutes; };
 
-            for (const auto& c : { Case { LevelPreset::quiet,  Setup::monitors,   193.1 },
+            for (const auto& c : { Case { LevelPreset::quiet,  Setup::monitors,   149.3 },
                                    Case { LevelPreset::normal, Setup::monitors,    70.0 },
-                                   Case { LevelPreset::normal, Setup::headphones,  41.1 },
-                                   Case { LevelPreset::loud,   Setup::monitors,     9.5 } })
+                                   Case { LevelPreset::normal, Setup::headphones,  51.3 },
+                                   Case { LevelPreset::loud,   Setup::monitors,    22.4 } })
             {
                 auto model = modelAt (-14.0, { c.setup, c.preset });
                 expectWithinAbsoluteError (minutesToEmpty (model, -14.0f, noon), c.expectedMinutes, 0.6);
@@ -84,11 +84,29 @@ public:
             expectEquals (model.getState().doseToday, 0.0);
         }
 
-        beginTest ("Hybrid reference follows playback loudness over ~2 h");
+        beginTest ("A fresh reference learns your loudness within minutes");
         {
             auto model = modelAt (-14.0);
+            playFor (model, -8.0f, 10.0 * 60.0, noon); // a running average: 6 dB off → 0.22 dB after 10 min
+            expectWithinAbsoluteError (model.getState().referenceLufs, -8.0, 0.3);
+        }
+
+        beginTest ("An experienced reference follows playback loudness over ~2 h (hybrid)");
+        {
+            ExposureState state;
+            state.referenceLufs = -14.0;
+            state.referencePlaybackSeconds = 10.0 * 3600.0;
+            ExposureModel model (state);
+
             playFor (model, -8.0f, 2.0 * 3600.0, noon);
             expectWithinAbsoluteError (model.getState().referenceLufs, -8.0 - 6.0 * std::exp (-1.0), 0.1);
+        }
+
+        beginTest ("The combined drain factor is capped");
+        {
+            auto model = modelAt (-14.0);
+            expectWithinAbsoluteError (model.combinedFactor (1.2), 1.2, 1.0e-9);
+            expectWithinAbsoluteError (model.combinedFactor (3.0), model::maxCombinedFactor, 1.0e-9);
         }
 
         beginTest ("The day rolls over at 05:00 and keeps a history");

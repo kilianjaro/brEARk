@@ -98,7 +98,9 @@ void ExposureModel::listen (const ListeningPeriod& period)
     // Battery: time-only drain plus an energy part relative to the reference level.
     const auto timeOnly = 100.0 / model::minutesToEmptyTimeOnly;
     const auto atReference = 100.0 / model::minutesToEmptyAtReference;
-    const auto energy = energyRatio (perceivedSpl (period.lufsShortTerm), model::batteryReferenceSpl);
+    // Fatigue doubles every 5 dB (gentler than the 3 dB rule used for the dose).
+    const auto energy = std::pow (2.0, (perceivedSpl (period.lufsShortTerm) - model::batteryReferenceSpl)
+                                         / model::batteryExchangeRateDb);
 
     const auto drainPerMinute = (timeOnly + (atReference - timeOnly) * energy) * combinedFactor (period.fatigueFactor);
     state.battery = std::max (0.0, state.battery - drainPerMinute * dt / 60.0);
@@ -108,9 +110,13 @@ void ExposureModel::listen (const ListeningPeriod& period)
         state.doseToday += 100.0 * energyRatio (doseSpl (period.levelA), model::doseReferenceDbA)
                          * dt / model::doseReferenceSecondsPerDay;
 
-    // Hybrid level model: the reference follows your playback loudness slowly.
-    state.referenceLufs += ((double) period.lufsShortTerm - state.referenceLufs)
-                         * std::min (1.0, dt / model::referenceTimeConstantSeconds);
+    // Hybrid level model: a running average of your playback loudness at first,
+    // then a slow (~2 h) follower once enough playback has been heard.
+    state.referencePlaybackSeconds += dt;
+    const auto timeConstant = std::clamp (state.referencePlaybackSeconds,
+                                          model::referenceFastLearningSeconds,
+                                          model::referenceTimeConstantSeconds);
+    state.referenceLufs += ((double) period.lufsShortTerm - state.referenceLufs) * std::min (1.0, dt / timeConstant);
 }
 
 void ExposureModel::rollOverIfNewDay (juce::Time now)

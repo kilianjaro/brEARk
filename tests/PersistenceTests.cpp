@@ -29,6 +29,7 @@ public:
             e.secondsSinceBreak = 1800.0;
             e.breaksToday = 3;
             e.referenceLufs = -9.75;
+            e.referencePlaybackSeconds = 4321.0;
             e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2 } };
 
             expect (persistence::save (file, original));
@@ -50,6 +51,7 @@ public:
                 expectEquals (x.secondsSinceBreak, e.secondsSinceBreak);
                 expectEquals (x.breaksToday, e.breaksToday);
                 expectEquals (x.referenceLufs, e.referenceLufs);
+                expectEquals (x.referencePlaybackSeconds, e.referencePlaybackSeconds);
                 expectEquals ((int) x.history.size(), 2);
                 expectEquals (x.history[1].day, 20370);
                 expectEquals (x.history[1].dose, 81.5);

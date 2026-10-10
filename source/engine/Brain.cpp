@@ -247,7 +247,8 @@ void Brain::updateModel (double wallSeconds)
     working.barPlays = (float) inputs.barPlays;
     working.loopingSeconds = inputs.loopingSeconds;
     working.loopLengthSeconds = (float) repetition.getLoopLengthSeconds();
-    working.loopDeviationDb = repetition.getLastDeviationDb();
+    working.loopBestSimilarity = repetition.getBestSimilarity();
+    working.loopBestLagSeconds = (float) repetition.getBestLagSeconds();
     working.levelCreepDb = (float) creep.getCreepDb();
     working.transportPlaying = transportPlaying.load (std::memory_order_relaxed);
     working.transportRecording = transportRecording.load (std::memory_order_relaxed);

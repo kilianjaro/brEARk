@@ -32,7 +32,8 @@ struct Snapshot
     float  barPlays          = 0.0f; // playhead: recent plays of the current bar
     double loopingSeconds    = 0.0;  // audio: continuous identical repetition
     float  loopLengthSeconds = 0.0f;
-    float  loopDeviationDb   = std::numeric_limits<float>::infinity(); // diagnostics
+    float  loopBestSimilarity = 0.0f; // diagnostics: best match of the last check (1 = identical)
+    float  loopBestLagSeconds = 0.0f;
     float  levelCreepDb      = std::numeric_limits<float>::quiet_NaN(); // last 10 min vs 1 h ago
     bool   transportPlaying  = false;
     bool   transportRecording = false;

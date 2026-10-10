@@ -63,6 +63,7 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("secondsSinceBreak", e.secondsSinceBreak);
     exposure->setProperty ("breaksToday", e.breaksToday);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
+    exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
     exposure->setProperty ("history", history);
 
     auto root = std::make_unique<juce::DynamicObject>();
@@ -107,6 +108,7 @@ std::optional<PersistedState> load (const juce::File& file)
     x.secondsSinceBreak = (double) e["secondsSinceBreak"];
     x.breaksToday = (int) e["breaksToday"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
+    x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly
 
     if (const auto* history = e["history"].getArray())
         for (const auto& record : *history)

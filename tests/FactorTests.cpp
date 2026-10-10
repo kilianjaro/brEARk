@@ -14,9 +14,16 @@ namespace
 {
 constexpr double rate = 48000.0;
 
+struct MusicOptions
+{
+    double toneGain = 0.3; // the melodic layer (an "EQ tweak" changes only this)
+    double jitterDb = 0.0; // humanisation: random level per hit, ± this many dB
+};
+
 // A crude "track": 140 BPM kick, 16th hats, random 8th-note tones.
-// The same seed gives the same audio; a fresh Random gives new material.
-std::vector<float> makeMusic (double seconds, juce::Random& rng)
+// `pattern` decides the notes and hat noise (same seed = same material),
+// `jitter` the per-hit humanisation.
+std::vector<float> makeMusic (double seconds, juce::Random& pattern, juce::Random& jitter, MusicOptions options = {})
 {
     std::vector<float> out ((size_t) (seconds * rate), 0.0f);
     const auto beat = 60.0 / 140.0;
@@ -24,24 +31,43 @@ std::vector<float> makeMusic (double seconds, juce::Random& rng)
     for (double t = 0.0; t < seconds; t += beat / 2.0)
     {
         const auto start = (size_t) (t * rate);
-        const auto frequency = 200.0 + rng.nextDouble() * 1800.0;
+        const auto frequency = 200.0 + pattern.nextDouble() * 1800.0;
         const auto isBeat = std::fmod (t, beat) < 1.0e-6;
+        const auto hitGain = std::pow (10.0, (jitter.nextDouble() * 2.0 - 1.0) * options.jitterDb / 20.0);
 
         for (size_t i = 0; i < (size_t) (0.2 * rate) && start + i < out.size(); ++i)
         {
             const auto s = (double) i / rate;
-            auto sample = 0.3 * std::sin (juce::MathConstants<double>::twoPi * frequency * s) * std::exp (-s / 0.08);
+            auto sample = options.toneGain * std::sin (juce::MathConstants<double>::twoPi * frequency * s) * std::exp (-s / 0.08);
 
             if (isBeat)
                 sample += 0.6 * std::sin (juce::MathConstants<double>::twoPi * 55.0 * s) * std::exp (-s / 0.12);
 
             if (i < (size_t) (0.03 * rate))
-                sample += 0.1 * (rng.nextDouble() * 2.0 - 1.0);
+                sample += 0.1 * (pattern.nextDouble() * 2.0 - 1.0);
 
-            out[start + i] += (float) sample;
+            out[start + i] += (float) (hitGain * sample);
         }
     }
 
+    return out;
+}
+
+// A clip of `loopSeconds` playing for `totalSeconds`: every pass has the same
+// notes, but its own humanisation. Options switch to `later` halfway through.
+std::vector<float> loopClip (double loopSeconds, double totalSeconds, MusicOptions first, MusicOptions later)
+{
+    std::vector<float> out;
+    juce::Random jitter (99);
+
+    while ((double) out.size() < totalSeconds * rate)
+    {
+        juce::Random pattern (7);
+        const auto pass = makeMusic (loopSeconds, pattern, jitter, (double) out.size() < totalSeconds * rate / 2.0 ? first : later);
+        out.insert (out.end(), pass.begin(), pass.end());
+    }
+
+    out.resize ((size_t) (totalSeconds * rate));
     return out;
 }
 
@@ -50,7 +76,7 @@ struct LoopRun
     double finalLoopingSeconds = 0.0;
     double maxLoopingSeconds = 0.0;
     double loopLengthSeconds = 0.0;
-    float  lastDeviationDb = 0.0f;
+    float  bestSimilarity = 0.0f; // highest seen during the run
 };
 
 // Feeds audio through the spectrum analyser into the detector, one update per second.
@@ -72,22 +98,19 @@ LoopRun runDetector (const std::vector<float>& audio)
 
         run.maxLoopingSeconds = std::max (run.maxLoopingSeconds, detector.getLoopingSeconds());
         run.loopLengthSeconds = std::max (run.loopLengthSeconds, detector.getLoopLengthSeconds());
+        run.bestSimilarity = std::max (run.bestSimilarity, detector.getBestSimilarity());
     }
 
     run.finalLoopingSeconds = detector.getLoopingSeconds();
-    run.lastDeviationDb = detector.getLastDeviationDb();
     return run;
 }
 
-std::vector<float> repeat (const std::vector<float>& loop, double seconds)
+void report (const char* name, const LoopRun& run)
 {
-    std::vector<float> out ((size_t) (seconds * rate));
-
-    for (size_t i = 0; i < out.size(); ++i)
-        out[i] = loop[i % loop.size()];
-
-    return out;
+    std::cout << "    " << name << ": looping " << run.finalLoopingSeconds << " s (max " << run.maxLoopingSeconds
+              << "), best similarity " << run.bestSimilarity << ", loop length " << run.loopLengthSeconds << " s\n";
 }
+
 } // namespace
 
 //==============================================================================
@@ -185,24 +208,30 @@ public:
             expectEquals (once.getCurrentPlays (401.0), 0.0);
         }
 
-        beginTest ("Audio loop: a 3.37 s clip looping for 3 min is detected");
+        beginTest ("Audio loop: an identical 3.37 s clip looping for 3 min is detected");
         {
-            juce::Random rng (7);
-            auto loop = makeMusic (3.37, rng);
-            const auto run = runDetector (repeat (loop, 180.0));
-
-            std::cout << "    loop: " << run.finalLoopingSeconds << " s looping, length " << run.loopLengthSeconds
-                      << " s, deviation " << run.lastDeviationDb << " dB\n";
-
+            const auto run = runDetector (loopClip (3.37, 180.0, {}, {}));
+            report ("identical loop", run);
             expect (run.finalLoopingSeconds > 150.0, "looping only " + juce::String (run.finalLoopingSeconds) + " s");
             expectWithinAbsoluteError (std::fmod (run.loopLengthSeconds + 0.1, 3.37), 0.1, 0.1);
         }
 
+        beginTest ("Audio loop: a humanised loop (every hit ±3 dB at random) is detected");
+        {
+            MusicOptions humanised;
+            humanised.jitterDb = 3.0;
+            const auto run = runDetector (loopClip (3.37, 180.0, humanised, humanised));
+            report ("humanised loop", run);
+            expect (run.finalLoopingSeconds > 150.0, "looping only " + juce::String (run.finalLoopingSeconds) + " s");
+        }
+
         beginTest ("Audio loop: new material with the same groove is not a loop");
         {
-            juce::Random rng (11);
-            const auto run = runDetector (makeMusic (180.0, rng));
-            std::cout << "    no loop: max " << run.maxLoopingSeconds << " s looping\n";
+            juce::Random pattern (11), jitter (12);
+            MusicOptions humanised;
+            humanised.jitterDb = 3.0;
+            const auto run = runDetector (makeMusic (180.0, pattern, jitter, humanised));
+            report ("new material", run);
             expect (run.maxLoopingSeconds < 10.0, "looping " + juce::String (run.maxLoopingSeconds) + " s");
         }
 
@@ -216,16 +245,24 @@ public:
             expectEquals (runDetector (drone).maxLoopingSeconds, 0.0);
         }
 
-        beginTest ("Audio loop: a +3 dB fader move mid-loop pauses, but doesn't reset, the count");
+        beginTest ("Audio loop: a +3 dB fader move mid-loop doesn't reset the count");
         {
-            juce::Random rng (7);
-            auto audio = repeat (makeMusic (3.37, rng), 180.0);
+            auto audio = loopClip (3.37, 180.0, {}, {});
 
             for (size_t i = audio.size() / 2; i < audio.size(); ++i)
                 audio[i] *= 1.4125f; // +3 dB
 
             const auto run = runDetector (audio);
-            std::cout << "    fader move: " << run.finalLoopingSeconds << " s looping\n";
+            report ("fader move", run);
+            expect (run.finalLoopingSeconds > 150.0, "looping only " + juce::String (run.finalLoopingSeconds) + " s");
+        }
+
+        beginTest ("Audio loop: an EQ tweak mid-loop (melody +6 dB) doesn't reset the count");
+        {
+            MusicOptions louderMelody;
+            louderMelody.toneGain = 0.6;
+            const auto run = runDetector (loopClip (3.37, 180.0, {}, louderMelody));
+            report ("EQ tweak", run);
             expect (run.finalLoopingSeconds > 150.0, "looping only " + juce::String (run.finalLoopingSeconds) + " s");
         }
 

@@ -19,6 +19,9 @@ inline constexpr double headphoneOffsetDb = 3.0; // Heuristic: no room, sound at
 // counts as louder, while a whole day at master loudness becomes the new normal.
 inline constexpr double initialReferenceLufs = -14.0;               // Heuristic: typical work in progress
 inline constexpr double referenceTimeConstantSeconds = 2.0 * 3600.0; // Heuristic: ~2 h of playback
+// Until ~2 h of playback have been heard, the reference is a running average
+// (it knows your level within minutes); afterwards it moves with the 2 h constant.
+inline constexpr double referenceFastLearningSeconds = 60.0;
 inline constexpr float  silenceThresholdLufs = -55.0f;               // Heuristic: inaudible at sane levels
 
 //── Daily / weekly dose: WHO safe listening (ITU-T H.870) ─────────────────────
@@ -30,10 +33,11 @@ inline constexpr int    dayStartHour = 5;                          // Heuristic:
 
 //── EAR BATTERY (short-term fatigue, driven by perceived loudness) ────────────
 inline constexpr double batteryReferenceSpl = 80.0;       // Heuristic: typical mixing level
+inline constexpr double batteryExchangeRateDb = 5.0;      // Heuristic: +5 dB doubles the drain (fatigue, gentler than the 3 dB damage rule)
 inline constexpr double minutesToEmptyAtReference = 70.0; // Heuristic: "10 min break per hour"
 inline constexpr double minutesToEmptyTimeOnly = 240.0;   // Heuristic: attention fades even at whisper level
 inline constexpr double dailyLoadFactorMax = 0.5;         // Heuristic: drain ×1.5 after a full daily dose
-inline constexpr double maxCombinedFactor = 2.0;          // Heuristic: all factors together cap at ×2
+inline constexpr double maxCombinedFactor = 1.6;          // Heuristic: all factors together cap at ×1.6 (M3 Live test: ×2 was too harsh)
 
 //── Recovery & breaks ─────────────────────────────────────────────────────────
 inline constexpr double recoveryOnsetSeconds = 60.0;         // Heuristic: editing pauses don't count
@@ -49,10 +53,11 @@ inline constexpr double factorSmoothingSeconds = 10.0; // Heuristic: inputs are 
 // Harshness: energy at the ear's sensitivity peak (ISO 226) and in the sharp
 // highs, relative to the 250 Hz–2 kHz body (not the total, so bass-heavy
 // mixes aren't automatically "smooth").
-inline constexpr double presenceToBodyNeutralDb = -14.0; // Heuristic: ≈ −4 dB/oct balanced mix
-inline constexpr double presenceToBodyHarshDb   = -6.0;  // Heuristic
-inline constexpr double highsToBodyNeutralDb    = -20.0; // Heuristic
-inline constexpr double highsToBodyHarshDb      = -12.0; // Heuristic
+// Neutral = a typical modern master (M3 Live test: −9…−11 / −12…−14 dB).
+inline constexpr double presenceToBodyNeutralDb = -10.0; // Heuristic
+inline constexpr double presenceToBodyHarshDb   = -4.0;  // Heuristic
+inline constexpr double highsToBodyNeutralDb    = -12.0; // Heuristic
+inline constexpr double highsToBodyHarshDb      = -6.0;  // Heuristic
 inline constexpr double harshnessFactorMax      = 1.3;
 
 // Dynamics: PSR = sample peak (3 s) − short-term loudness.
@@ -72,7 +77,7 @@ inline constexpr double repetitionFactorMax    = 1.5;
 inline constexpr double loopWindowSeconds      = 4.0;  // this much must match one period earlier
 inline constexpr double loopMinLengthSeconds   = 1.5;
 inline constexpr double loopMaxLengthSeconds   = 32.0;
-inline constexpr float  loopMatchThresholdDb   = 1.0f; // Heuristic: level-invariant mean deviation
+inline constexpr float  loopMinSimilarity      = 0.80f; // Heuristic: band-wise correlation (calibrated by tests)
 inline constexpr float  loopMinMovementDb      = 1.0f; // Heuristic: drones and static noise never "loop"
 inline constexpr int    loopSmoothingFrames    = 8;    // ~370 ms: robust to sub-frame misalignment
 inline constexpr double loopSearchIntervalSeconds = 2.0;

@@ -92,7 +92,7 @@ processBlock(buffer)                     every ~50 ms:                          
 | **dB(A) (dose)** | FFT power × A-weighting table (IEC 61672), window-power corrected | ~23 Hz | A table lookup, so it's free |
 | **Harshness** | Energy at 2–5 kHz and 8–16 kHz **relative to the 250 Hz–2 kHz body** (not the total, so bass-heavy mixes aren't automatically "smooth") → index 0–1 | ~23 Hz, smoothed 10 s | The ear's sensitivity peak (ISO 226) |
 | **Dynamics** | PSR = sample peak over 3 s − LUFS-S (matches Youlean's PSR within ~0.5 dB) | 10 Hz, smoothed 10 s | ≥ 14 dB = dynamic, ≤ 7 dB = brickwalled |
-| **Repetition, audio** | *Changed in M3:* **periodicity detection** instead of a hash fingerprint. Exact 32-bit hashes break when the loop length isn't a whole number of frames. Does the last 4 s match the audio one period earlier (1.5–32 s)? Uses 12 log bands, smoothed 370 ms, level-invariant; drones are excluded; an 8 s grace period covers fader moves | ~23 Hz frames, search every 2 s | ~20 KB. Works in Session View. Test: 3.37 s loop detected with 0.18 dB deviation; new material with the same groove → 0 s |
+| **Repetition, audio** | *Changed in M3/M3.1:* **periodicity detection** instead of a hash fingerprint. Does the last 4 s resemble the audio one period earlier (1.5–32 s)? Uses **band-wise correlation** of 12 log bands smoothed 370 ms; each band's mean is removed, so fader and EQ moves don't matter. Drones are excluded; an 8 s grace covers edits. Threshold 0.80 | ~23 Hz frames, search every 2 s | ~20 KB. Works in Session View. Tests: identical 0.9998, humanised ±3 dB 0.993, EQ tweak 0.9998, new material with the same groove 0.49 |
 | **Repetition, playhead** | Bar index from `ppqPosition` → decaying play-count per bar | per block, via atomics | Exact in Arrangement; catches loop-brace cycling |
 | **Silence** | LUFS-S < −55 or transport stopped with no signal | 10 Hz | Recovery starts after **60 s** of continuous silence (micro-pauses while editing don't count) |
 
@@ -148,8 +148,8 @@ dose_week[%]  = Σ dose_day(last 7 days) / 5                 → 100 % = WHO 40 
 ### 4.3 EAR BATTERY
 
 ```
-drain[%/min] = ( 100/240  +  (100/70 − 100/240) · 10^((L_perceived − 80)/10) ) · F
-F = F_harsh(1.0–1.3) · F_dyn(1.0–1.2) · F_rep(1.0–1.5) · F_night(1.0–1.25) · F_day(1 + 0.5·min(dose_day,1)) ;  F capped at 2.0
+drain[%/min] = ( 100/240  +  (100/70 − 100/240) · 2^((L_perceived − 80)/5) ) · F      ← 5 dB rule (M3.1; was 3 dB)
+F = F_harsh(1.0–1.3) · F_dyn(1.0–1.2) · F_rep(1.0–1.5) · F_night(1.0–1.25) · F_day(1 + 0.5·min(dose_day,1)) ;  F capped at 1.6 (M3.1; was 2.0)
 ```
 
 The first term is a time-only drain: even at whisper level, the battery empties within 4 h.
@@ -158,7 +158,15 @@ With neutral factors, the battery empties after:
 
 | L_perceived | 74 dB | 77 dB | **80 dB** | 83 dB | 86 dB | 89 dB |
 |---|---|---|---|---|---|---|
-| Battery empty after | 149 min | 108 min | **70 min** | 41 min | 22 min | 12 min |
+| Battery empty after | 117 min | 92 min | **70 min** | 51 min | 37 min | 25 min |
+
+**M3.1 tuning (Kilian's Live test: battery empty after ~6 min of headphone work on a −7.5 LUFS master):**
+1. A fresh reference now learns like a running average: within ~0.2 dB after 10 min instead of 2 h.
+2. The battery follows a 5 dB rule. The 3 dB rule stays for the dose, where it belongs.
+3. The harshness neutral point is moved to typical modern masters.
+4. The combined factor cap drops from ×2.0 to ×1.6.
+
+The same session now lasts ~40 min on headphones and ~57 min on monitors.
 
 **Recovery:** after 60 s of continuous silence (or on BREAK / UNPLUGGED), the battery moves towards 100 % on an exponential curve:
 

@@ -10,7 +10,11 @@ constexpr int rowHeight = 19;
 // Values below −100 dB are numerical decay, not signal.
 juce::String db (float value, int decimals = 1)
 {
-    return (std::isfinite (value) && value > -100.0f) ? juce::String (value, decimals) : juce::String ("-inf");
+    if (! std::isfinite (value) || value <= -100.0f)
+        return "-inf";
+
+    // JUCE treats 0 decimal places as "as many as needed".
+    return decimals == 0 ? juce::String (juce::roundToInt (value)) : juce::String (value, decimals);
 }
 
 juce::String signedDb (float value)
@@ -64,7 +68,7 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
 
     warpSwitch.onChange = [&brain] (int index) { brain.setTimeWarp (index == 1 ? 60 : 1); };
 
-    setSize (720, 740);
+    setSize (720, 760);
     timerCallback();
     startTimerHz (4);
 }
@@ -132,10 +136,12 @@ void BrearkEditor::paint (juce::Graphics& g)
         "HARSHNESS     PRESENCE " + db (s.presenceToBody) + " dB   HIGHS " + db (s.highsToBody) + " dB  (VS 250-2K)   " + times (f.harshness),
         "DYNAMICS      PSR " + db (s.psr) + " dB   " + times (f.dynamics),
         "REPETITION    BAR PLAYS " + juce::String (s.barPlays, 1) + "   LOOPING " + clock (s.loopingSeconds)
-            + (s.loopLengthSeconds > 0.0f ? " (" + juce::String (s.loopLengthSeconds, 1) + " S LOOP, " + db (s.loopDeviationDb, 2) + " dB)" : juce::String())
+            + (s.loopLengthSeconds > 0.0f ? " (" + juce::String (s.loopLengthSeconds, 1) + " S LOOP)" : juce::String())
             + "   " + times (f.repetition),
+        "LOOP CHECK    BEST MATCH " + juce::String (s.loopBestSimilarity, 2) + " @ " + juce::String (s.loopBestLagSeconds, 1)
+            + " S   (LOOP FROM " + juce::String (breark::model::loopMinSimilarity, 2) + ")",
         "NIGHT         " + juce::Time::getCurrentTime().formatted ("%H:%M") + "   " + times (f.night),
-        "DRAIN         " + times (s.drainFactor) + "  (FACTORS x DAILY LOAD, MAX x2.00)   CREEP " + signedDb (s.levelCreepDb) + " dB / 1 H",
+        "DRAIN         " + times (s.drainFactor) + "  (FACTORS x DAILY LOAD, MAX " + times (breark::model::maxCombinedFactor) + ")   CREEP " + signedDb (s.levelCreepDb) + " dB / 1 H",
         "",
         "EAR BATTERY   " + juce::String (s.battery, 1) + " %",
         "DOSE          " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",

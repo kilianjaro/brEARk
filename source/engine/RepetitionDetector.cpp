@@ -27,7 +27,8 @@ void RepetitionDetector::endLoop() noexcept
 {
     currentLag = 0;
     loopingSeconds = secondsSinceSearch = missSeconds = 0.0;
-    lastDeviationDb = std::numeric_limits<float>::infinity();
+    bestSimilarity = 0.0f;
+    bestLag = 0;
 }
 
 void RepetitionDetector::addFrame (const BandFrame& bandPowers)
@@ -56,24 +57,43 @@ const BandFrame& RepetitionDetector::framesAgo (int frames) const noexcept
     return features[(size_t) ((writePosition - 1 - frames + 2 * size) % size)];
 }
 
-float RepetitionDetector::deviationDb (int lag, int step) const noexcept
+float RepetitionDetector::similarity (int lag, int step) const noexcept
 {
-    // Mean absolute difference after removing the mean difference (level-invariant).
-    double sum = 0.0;
+    // Pooled correlation of "now" and "one period ago" after removing each
+    // band's mean: 1 = same movement in every band, ~0 = unrelated.
+    BandFrame meanNow {}, meanThen {};
     int count = 0;
 
-    for (int i = 0; i < window; i += step)
-        for (size_t b = 0; b < (size_t) numLoopBands; ++b, ++count)
-            sum += framesAgo (i)[b] - framesAgo (i + lag)[b];
-
-    const auto mean = sum / count;
-    double deviation = 0.0;
-
-    for (int i = 0; i < window; i += step)
+    for (int i = 0; i < window; i += step, ++count)
+    {
         for (size_t b = 0; b < (size_t) numLoopBands; ++b)
-            deviation += std::abs (framesAgo (i)[b] - framesAgo (i + lag)[b] - mean);
+        {
+            meanNow[b] += framesAgo (i)[b];
+            meanThen[b] += framesAgo (i + lag)[b];
+        }
+    }
 
-    return (float) (deviation / count);
+    for (size_t b = 0; b < (size_t) numLoopBands; ++b)
+    {
+        meanNow[b] /= (float) count;
+        meanThen[b] /= (float) count;
+    }
+
+    double cross = 0.0, energyNow = 0.0, energyThen = 0.0;
+
+    for (int i = 0; i < window; i += step)
+    {
+        for (size_t b = 0; b < (size_t) numLoopBands; ++b)
+        {
+            const auto x = (double) (framesAgo (i)[b] - meanNow[b]);
+            const auto y = (double) (framesAgo (i + lag)[b] - meanThen[b]);
+            cross += x * y;
+            energyNow += x * x;
+            energyThen += y * y;
+        }
+    }
+
+    return (energyNow > 0.0 && energyThen > 0.0) ? (float) (cross / std::sqrt (energyNow * energyThen)) : 0.0f;
 }
 
 bool RepetitionDetector::hasMovement() const noexcept
@@ -98,28 +118,29 @@ bool RepetitionDetector::hasMovement() const noexcept
     return total / numLoopBands >= model::loopMinMovementDb;
 }
 
-int RepetitionDetector::search() const noexcept
+int RepetitionDetector::search()
 {
-    // Coarse pass on every 4th frame finds the best lag, then a full check
-    // around it. Prefers the shortest period that matches as well as the best.
+    // Coarse pass on every 4th frame finds the best lag; then a full check of
+    // every lag nearly as good, preferring the shortest period.
     const auto longest = std::min (maxLag, filled - window - 1);
-    auto bestLag = 0;
-    auto bestDeviation = std::numeric_limits<float>::infinity();
+    auto coarseBest = -1.0f;
 
     for (int lag = minLag; lag <= longest; ++lag)
     {
-        if (const auto d = deviationDb (lag, 4); d < bestDeviation)
+        if (const auto s = similarity (lag, 4); s > coarseBest)
         {
-            bestDeviation = d;
+            coarseBest = s;
             bestLag = lag;
         }
     }
 
-    if (bestLag == 0 || bestDeviation > 2.0f * model::loopMatchThresholdDb)
+    bestSimilarity = coarseBest;
+
+    if (coarseBest < model::loopMinSimilarity - 0.1f)
         return 0;
 
     for (int lag = minLag; lag <= longest; ++lag)
-        if (deviationDb (lag, 4) <= bestDeviation + 0.2f)
+        if (similarity (lag, 4) >= coarseBest - 0.03f)
             if (auto candidate = lag; verify (candidate))
                 return candidate;
 
@@ -129,25 +150,25 @@ int RepetitionDetector::search() const noexcept
 bool RepetitionDetector::verify (int& lag) const noexcept
 {
     // The loop length is rarely a whole number of frames: check the neighbours too.
-    auto best = std::numeric_limits<float>::infinity();
-    auto bestLag = lag;
+    auto best = -1.0f;
+    auto bestCandidate = lag;
 
     for (int candidate = lag - 1; candidate <= lag + 1; ++candidate)
     {
         if (candidate < minLag || candidate + window >= filled)
             continue;
 
-        if (const auto d = deviationDb (candidate, 1); d < best)
+        if (const auto s = similarity (candidate, 1); s > best)
         {
-            best = d;
-            bestLag = candidate;
+            best = s;
+            bestCandidate = candidate;
         }
     }
 
-    if (best > model::loopMatchThresholdDb)
+    if (best < model::loopMinSimilarity)
         return false;
 
-    lag = bestLag;
+    lag = bestCandidate;
     return true;
 }
 
@@ -169,7 +190,8 @@ void RepetitionDetector::update (double seconds, bool silent)
     {
         loopingSeconds += seconds;
         missSeconds = 0.0;
-        lastDeviationDb = deviationDb (currentLag, 1);
+        bestLag = currentLag;
+        bestSimilarity = similarity (currentLag, 1);
         return;
     }
 
@@ -183,15 +205,14 @@ void RepetitionDetector::update (double seconds, bool silent)
     {
         // A fresh detection has already been repeating for one period plus the window.
         loopingSeconds = loopingSeconds > 0.0 ? loopingSeconds + seconds : (found + window) * frameSeconds;
-        currentLag = found;
+        currentLag = bestLag = found;
         missSeconds = 0.0;
-        lastDeviationDb = deviationDb (found, 1);
+        bestSimilarity = similarity (found, 1);
         return;
     }
 
     // No match: a fader move or quick edit pauses the count; a real change ends it.
     currentLag = 0;
-    lastDeviationDb = std::numeric_limits<float>::infinity();
 
     if ((missSeconds += seconds) > model::loopGraceSeconds)
     {

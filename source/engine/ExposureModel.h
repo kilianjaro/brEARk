@@ -47,14 +47,15 @@ struct ExposureState
     double secondsSinceBreak = 0.0;
     int breaksToday = 0;
     double referenceLufs = model::initialReferenceLufs;
+    double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
     std::vector<DayRecord> history;      // previous days, oldest first
 };
 
 //==============================================================================
 // The exposure model: pure and deterministic, no clock or threads inside.
 //
-//   EAR BATTERY  drains with *perceived* loudness (LUFS → estimated SPL),
-//                recovers exponentially after 60 s of continuous silence.
+//   EAR BATTERY  drains with *perceived* loudness (LUFS → estimated SPL,
+//                5 dB exchange rate), recovers exponentially after 60 s of silence.
 //   DAILY DOSE   accumulates A-weighted energy (WHO, 3 dB exchange rate),
 //                never recovers during the day, resets at 05:00.
 class ExposureModel

@@ -100,10 +100,7 @@ void ExposureModel::listen (const ListeningPeriod& period)
     const auto atReference = 100.0 / model::minutesToEmptyAtReference;
     const auto energy = energyRatio (perceivedSpl (period.lufsShortTerm), model::batteryReferenceSpl);
 
-    const auto dayLoad = 1.0 + model::dailyLoadFactorMax * std::min (state.doseToday / 100.0, 1.0);
-    const auto factor = std::min (model::maxCombinedFactor, period.fatigueFactor * dayLoad);
-
-    const auto drainPerMinute = (timeOnly + (atReference - timeOnly) * energy) * factor;
+    const auto drainPerMinute = (timeOnly + (atReference - timeOnly) * energy) * combinedFactor (period.fatigueFactor);
     state.battery = std::max (0.0, state.battery - drainPerMinute * dt / 60.0);
 
     // Dose: A-weighted energy against the WHO daily allowance.
@@ -138,6 +135,12 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
 }
 
 //==============================================================================
+double ExposureModel::combinedFactor (double fatigueFactor) const noexcept
+{
+    const auto dayLoad = 1.0 + model::dailyLoadFactorMax * std::min (state.doseToday / 100.0, 1.0);
+    return std::min (model::maxCombinedFactor, fatigueFactor * dayLoad);
+}
+
 double ExposureModel::weeklyDose() const noexcept
 {
     auto total = state.doseToday;

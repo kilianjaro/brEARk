@@ -116,6 +116,12 @@ void Brain::run()
 
         analyseAvailable();
 
+        PlayheadTracker::Transport transport;
+        transport.playing = transportPlaying.load (std::memory_order_relaxed) && ! rendering;
+        transport.ppq = transportPpq.load (std::memory_order_relaxed);
+        transport.barLengthQuarters = barLengthQuarters.load (std::memory_order_relaxed);
+        playhead.update (transport, nowMs / 1000.0);
+
         if (nowMs - secondStartMs >= 1000.0)
         {
             summariseSecond ((nowMs - secondStartMs) / 1000.0);
@@ -174,13 +180,46 @@ void Brain::updateModel (double wallSeconds)
     exposure.setSettings (getSettings());
 
     const auto lufs = loudness.getShortTermLufs();
+    const auto now = juce::Time::getCurrentTime();
+    const auto silent = rendering || ! (lufs > model::silenceThresholdLufs); // exports never reach the ears
+
+    // Factor inputs, averaged over ~10 s of playback.
+    auto smooth = [wallSeconds] (double& smoothed, double value)
+    {
+        if (! std::isfinite (value))
+            return;
+
+        smoothed = std::isfinite (smoothed) ? smoothed + (value - smoothed) * std::min (1.0, wallSeconds / model::factorSmoothingSeconds)
+                                            : value;
+    };
+
+    if (! silent)
+    {
+        smooth (smoothedPresence, secondPresenceToBody);
+        smooth (smoothedHighs, secondHighsToBody);
+        smooth (smoothedPsr, (double) loudness.getShortTermPeakDb() - lufs);
+    }
+
+    repetition.update (wallSeconds, silent);
+    creep.add (lufs, wallSeconds, silent);
+
+    FactorInputs inputs;
+    inputs.presenceToBodyDb = smoothedPresence;
+    inputs.highsToBodyDb = smoothedHighs;
+    inputs.psrDb = smoothedPsr;
+    inputs.barPlays = playhead.getCurrentPlays (juce::Time::getMillisecondCounterHiRes() / 1000.0);
+    inputs.loopingSeconds = repetition.getLoopingSeconds();
+    inputs.localHour = now.getHours() + now.getMinutes() / 60.0;
+
+    const auto factors = silent ? FatigueFactors {} : computeFatigueFactors (inputs);
 
     ListeningPeriod period;
     period.seconds = wallSeconds * activeWarp;
     period.lufsShortTerm = lufs;
     period.levelA = working.levelA;
-    period.silent = rendering || ! (lufs > model::silenceThresholdLufs); // exports never reach the ears
-    exposure.advance (period, juce::Time::getCurrentTime());
+    period.silent = silent;
+    period.fatigueFactor = factors.product();
+    exposure.advance (period, now);
 
     if ((secondsSinceSave += wallSeconds) >= saveIntervalSeconds)
         saveState();
@@ -199,6 +238,19 @@ void Brain::updateModel (double wallSeconds)
     working.suggestedBreakMinutes = (float) exposure.suggestedBreakMinutes();
     working.settings = exposure.getSettings();
     working.timeWarp = activeWarp;
+
+    working.presenceToBody = (float) smoothedPresence;
+    working.highsToBody = (float) smoothedHighs;
+    working.psr = (float) smoothedPsr;
+    working.factors = factors;
+    working.drainFactor = silent ? 1.0f : (float) exposure.combinedFactor (factors.product());
+    working.barPlays = (float) inputs.barPlays;
+    working.loopingSeconds = inputs.loopingSeconds;
+    working.loopLengthSeconds = (float) repetition.getLoopLengthSeconds();
+    working.loopDeviationDb = repetition.getLastDeviationDb();
+    working.levelCreepDb = (float) creep.getCreepDb();
+    working.transportPlaying = transportPlaying.load (std::memory_order_relaxed);
+    working.transportRecording = transportRecording.load (std::memory_order_relaxed);
 }
 
 void Brain::updateConfiguration()
@@ -210,6 +262,7 @@ void Brain::updateConfiguration()
 
     loudness.prepare (rate);
     spectrum.prepare (rate);
+    repetition.prepare (spectrum.getAnalysedFrameSeconds());
     preparedRate = rate;
     lastSamplesProcessed = samplesProcessed.load();
     fifo.pull ([] (const float*, const float*, int) {}); // audio at the old rate is stale
@@ -268,6 +321,8 @@ void Brain::analyseAvailable()
         loudness.process (left, right, numFrames);
         spectrum.process (left, right, numFrames);
     });
+
+    spectrum.drainBandFrames ([this] (const BandFrame& frame) { repetition.addFrame (frame); });
 }
 
 void Brain::summariseSecond (double wallSeconds)
@@ -275,8 +330,8 @@ void Brain::summariseSecond (double wallSeconds)
     const auto totals = spectrum.takeTotals();
 
     working.levelA   = totals.frames > 0 ? powerToDb (totals.aWeighted / totals.frames) : Snapshot::minusInfinity;
-    working.presence = totals.flat > 0.0 ? powerToDb (totals.presence / totals.flat) : Snapshot::minusInfinity;
-    working.highs    = totals.flat > 0.0 ? powerToDb (totals.highs / totals.flat) : Snapshot::minusInfinity;
+    secondPresenceToBody = totals.body > 0.0 ? (double) powerToDb (totals.presence / totals.body) : (double) Snapshot::minusInfinity;
+    secondHighsToBody    = totals.body > 0.0 ? (double) powerToDb (totals.highs / totals.body) : (double) Snapshot::minusInfinity;
     working.framesAnalysed += totals.frames;
 
     const auto ticksPerSecond = (double) juce::Time::getHighResolutionTicksPerSecond();

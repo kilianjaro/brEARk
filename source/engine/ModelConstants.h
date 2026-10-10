@@ -43,6 +43,51 @@ inline constexpr double suggestedBreakTargetBattery = 90.0;  // Heuristic: a bre
 inline constexpr double suggestedBreakMinMinutes = 5.0;
 inline constexpr double suggestedBreakMaxMinutes = 25.0;
 
+//── Fatigue factors (multiply the battery drain) ──────────────────────────────
+inline constexpr double factorSmoothingSeconds = 10.0; // Heuristic: inputs are averaged over ~10 s
+
+// Harshness: energy at the ear's sensitivity peak (ISO 226) and in the sharp
+// highs, relative to the 250 Hz–2 kHz body (not the total, so bass-heavy
+// mixes aren't automatically "smooth").
+inline constexpr double presenceToBodyNeutralDb = -14.0; // Heuristic: ≈ −4 dB/oct balanced mix
+inline constexpr double presenceToBodyHarshDb   = -6.0;  // Heuristic
+inline constexpr double highsToBodyNeutralDb    = -20.0; // Heuristic
+inline constexpr double highsToBodyHarshDb      = -12.0; // Heuristic
+inline constexpr double harshnessFactorMax      = 1.3;
+
+// Dynamics: PSR = sample peak (3 s) − short-term loudness.
+inline constexpr double psrDynamicDb      = 14.0; // Heuristic: no extra fatigue
+inline constexpr double psrBrickwalledDb  = 7.0;  // Heuristic: full extra fatigue
+inline constexpr double dynamicsFactorMax = 1.2;
+
+// Repetition ("loop blindness"): affects freshness, not the hearing dose.
+inline constexpr double barPlaysNeutral        = 10.0; // Heuristic: playhead plays of the current bar (~30 min)
+inline constexpr double barPlaysFull           = 60.0;
+inline constexpr double barPlaysDecaySeconds   = 30.0 * 60.0;
+inline constexpr double loopMinutesNeutral     = 2.0;  // Heuristic: continuous identical audio
+inline constexpr double loopMinutesFull        = 12.0;
+inline constexpr double repetitionFactorMax    = 1.5;
+
+// Audio loop detection
+inline constexpr double loopWindowSeconds      = 4.0;  // this much must match one period earlier
+inline constexpr double loopMinLengthSeconds   = 1.5;
+inline constexpr double loopMaxLengthSeconds   = 32.0;
+inline constexpr float  loopMatchThresholdDb   = 1.0f; // Heuristic: level-invariant mean deviation
+inline constexpr float  loopMinMovementDb      = 1.0f; // Heuristic: drones and static noise never "loop"
+inline constexpr int    loopSmoothingFrames    = 8;    // ~370 ms: robust to sub-frame misalignment
+inline constexpr double loopSearchIntervalSeconds = 2.0;
+inline constexpr double loopGraceSeconds = 8.0; // Heuristic: fader moves / quick edits pause, not reset, a loop
+
+// Night: circadian fatigue, ramps up from 22:00, full from 01:00 until the day starts.
+inline constexpr double nightStartHour     = 22.0; // Heuristic
+inline constexpr double nightRampHours     = 3.0;  // Heuristic
+inline constexpr double nightFactorMax     = 1.25;
+
+//── Level creep (coach input, not a factor) ───────────────────────────────────
+inline constexpr int creepWindowMinutes = 10;  // compare the last 10 playback minutes …
+inline constexpr int creepSpanMinutes   = 60;  // … with the same window one hour ago
+inline constexpr double creepMinPlaybackSeconds = 180.0; // each window needs 3 min of playback
+
 //── History ───────────────────────────────────────────────────────────────────
 inline constexpr int historyDays = 14;
 } // namespace breark::model

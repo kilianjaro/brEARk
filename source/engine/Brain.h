@@ -1,8 +1,11 @@
 #pragma once
 
 #include "ExposureModel.h"
+#include "LevelCreepTracker.h"
 #include "LoudnessMeter.h"
 #include "Persistence.h"
+#include "PlayheadTracker.h"
+#include "RepetitionDetector.h"
 #include "SampleFifo.h"
 #include "Snapshot.h"
 #include "SpectrumAnalyser.h"
@@ -21,7 +24,7 @@ namespace breark
 // feeds audio in, so nothing is ever counted twice.
 //
 // Threads:
-//   audio thread  → isActive(), push(), addAudioThreadTicks()   (lock-free)
+//   audio thread  → isActive(), push(), updateTransport(), addAudioThreadTicks()   (lock-free)
 //   worker thread → run(): analysis on a background-priority thread
 //   message / UI  → attach(), detach(), prepare(), getSnapshot()
 class Brain final : private juce::Thread
@@ -66,6 +69,19 @@ public:
         fifo.push (buffer);
     }
 
+    // Playhead position for the bar-repetition count; a few atomic stores.
+    void updateTransport (const juce::AudioPlayHead::PositionInfo& position) noexcept
+    {
+        transportPlaying.store (position.getIsPlaying(), std::memory_order_relaxed);
+        transportRecording.store (position.getIsRecording(), std::memory_order_relaxed);
+
+        if (const auto ppq = position.getPpqPosition())
+            transportPpq.store (*ppq, std::memory_order_relaxed);
+
+        if (const auto signature = position.getTimeSignature(); signature && signature->denominator > 0)
+            barLengthQuarters.store (4.0 * signature->numerator / signature->denominator, std::memory_order_relaxed);
+    }
+
     void addAudioThreadTicks (juce::int64 ticks) noexcept;
 
     //==============================================================================
@@ -92,6 +108,9 @@ private:
     std::atomic<juce::int64> samplesProcessed { 0 };
     std::atomic<bool> hostNonRealtimeSeen { false };
     std::atomic<juce::int64> audioTicksTotal { 0 }, audioBlocks { 0 }, audioTicksMax { 0 };
+    std::atomic<bool> transportPlaying { false }, transportRecording { false };
+    std::atomic<double> transportPpq { 0.0 }, barLengthQuarters { 4.0 };
+    static_assert (std::atomic<double>::is_always_lock_free);
 
     // Message thread → worker
     std::mutex instancesMutex;
@@ -103,6 +122,13 @@ private:
     // Worker thread only
     LoudnessMeter loudness;
     SpectrumAnalyser spectrum;
+    RepetitionDetector repetition;
+    PlayheadTracker playhead;
+    LevelCreepTracker creep;
+    double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed
+    double smoothedPresence = -std::numeric_limits<double>::infinity();
+    double smoothedHighs = -std::numeric_limits<double>::infinity();
+    double smoothedPsr = std::numeric_limits<double>::infinity();
     double preparedRate = 0.0;
     juce::int64 lastSamplesProcessed = 0;
     double windowAudioSeconds = 0.0, windowWallSeconds = 0.0, windowSpeed = 0.0;

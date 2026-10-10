@@ -42,8 +42,10 @@ juce_add_plugin(brEARk
 set(BREARK_ENGINE_SOURCES
     source/engine/Brain.cpp
     source/engine/ExposureModel.cpp
+    source/engine/FatigueFactors.cpp
     source/engine/LoudnessMeter.cpp
     source/engine/Persistence.cpp
+    source/engine/RepetitionDetector.cpp
     source/engine/SpectrumAnalyser.cpp)
 
 option(BREARK_DEV_METRICS "Measure audio-thread time per block (shown in the debug view)" ON)
@@ -88,6 +90,7 @@ if(BREARK_BUILD_TOOLS)
         tests/PerformanceTests.cpp
         tests/ExposureModelTests.cpp
         tests/PersistenceTests.cpp
+        tests/FactorTests.cpp
         ${BREARK_ENGINE_SOURCES})
 
     target_include_directories(brEARk_Tests PRIVATE source)

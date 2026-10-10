@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "ui/SegmentedControl.h"
 
 //==============================================================================
 // Debug view: raw measurements, model state and performance, refreshed at 4 Hz.
@@ -17,12 +18,13 @@ public:
 
 private:
     void timerCallback() override;
-    void updateButtons();
 
     BrearkProcessor& brearkProcessor;
     breark::Snapshot snapshot;
 
-    juce::TextButton setupButton, presetButton, warpButton;
+    SegmentedControl setupSwitch { { "MONITORS", "HEADPHONES" } };
+    SegmentedControl presetSwitch { { "QUIET ~70", "NORMAL ~80", "LOUD ~90" } };
+    SegmentedControl warpSwitch { { "TIME x1", "x60 TEST" } };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkEditor)
 };

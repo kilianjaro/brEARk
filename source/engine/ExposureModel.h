@@ -75,6 +75,9 @@ public:
     double perceivedSpl (float lufsShortTerm) const noexcept; // drives the battery
     double doseSpl (float levelA) const noexcept;             // dB(A), drives the dose
 
+    // Fatigue factors × the daily-load factor, capped: the multiplier on the drain.
+    double combinedFactor (double fatigueFactor) const noexcept;
+
     double weeklyDose() const noexcept; // % of the WHO weekly allowance
     double suggestedBreakMinutes() const noexcept;
     bool isRecovering() const noexcept { return state.silenceSeconds >= model::recoveryOnsetSeconds; }

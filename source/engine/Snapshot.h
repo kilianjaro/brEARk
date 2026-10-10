@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ExposureModel.h"
+#include "FatigueFactors.h"
 
 #include <juce_core/juce_core.h>
 
@@ -20,9 +21,21 @@ struct Snapshot
     float lufsShortTerm = minusInfinity; // BS.1770, 3 s
     float peakShortTerm = minusInfinity; // sample peak dBFS, 3 s
     float levelA        = minusInfinity; // A-weighted mean square dBFS, last second
-    float presence      = minusInfinity; // 2–5 kHz share of 20 Hz–20 kHz energy, dB
-    float highs         = minusInfinity; // 8–16 kHz share, dB
-    bool  silent        = true;
+    float presenceToBody = minusInfinity; // 2–5 kHz vs 250 Hz–2 kHz, dB, smoothed ~10 s
+    float highsToBody    = minusInfinity; // 8–16 kHz vs 250 Hz–2 kHz, dB, smoothed ~10 s
+    float psr            = minusInfinity; // peak − short-term loudness, dB, smoothed ~10 s
+    bool  silent         = true;
+
+    // Fatigue factors
+    FatigueFactors factors;
+    float  drainFactor       = 1.0f; // factors × daily load, capped: what the battery sees
+    float  barPlays          = 0.0f; // playhead: recent plays of the current bar
+    double loopingSeconds    = 0.0;  // audio: continuous identical repetition
+    float  loopLengthSeconds = 0.0f;
+    float  loopDeviationDb   = std::numeric_limits<float>::infinity(); // diagnostics
+    float  levelCreepDb      = std::numeric_limits<float>::quiet_NaN(); // last 10 min vs 1 h ago
+    bool   transportPlaying  = false;
+    bool   transportRecording = false;
 
     // Exposure model
     float    battery               = 100.0f;        // EAR BATTERY %

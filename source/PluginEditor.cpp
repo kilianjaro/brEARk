@@ -13,6 +13,16 @@ juce::String db (float value, int decimals = 1)
     return (std::isfinite (value) && value > -100.0f) ? juce::String (value, decimals) : juce::String ("-inf");
 }
 
+juce::String signedDb (float value)
+{
+    return std::isfinite (value) ? (value >= 0.0f ? "+" : "") + juce::String (value, 1) : juce::String ("-");
+}
+
+juce::String times (double factor)
+{
+    return "x" + juce::String (factor, 2);
+}
+
 juce::String yesNo (bool value)
 {
     return value ? "YES" : "NO";
@@ -23,13 +33,6 @@ juce::String clock (double seconds)
     const auto minutes = juce::roundToInt (seconds / 60.0);
     return juce::String (minutes / 60).paddedLeft ('0', 2) + ":" + juce::String (minutes % 60).paddedLeft ('0', 2);
 }
-
-void styleButton (juce::TextButton& button)
-{
-    button.setColour (juce::TextButton::buttonColourId, ink);
-    button.setColour (juce::TextButton::textColourOffId, paper);
-    button.setWantsKeyboardFocus (false);
-}
 } // namespace
 
 //==============================================================================
@@ -37,31 +40,31 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
     : AudioProcessorEditor (p),
       brearkProcessor (p)
 {
-    for (auto* button : { &setupButton, &presetButton, &warpButton })
-    {
-        styleButton (*button);
-        addAndMakeVisible (*button);
-    }
-
     auto& brain = brearkProcessor.getBrain();
 
-    setupButton.onClick = [&brain]
+    for (auto* control : { &setupSwitch, &presetSwitch, &warpSwitch })
+    {
+        control->setColours (ink, paper);
+        addAndMakeVisible (*control);
+    }
+
+    setupSwitch.onChange = [&brain] (int index)
     {
         auto settings = brain.getSettings();
-        settings.setup = settings.setup == breark::Setup::monitors ? breark::Setup::headphones : breark::Setup::monitors;
+        settings.setup = (breark::Setup) index;
         brain.setSettings (settings);
     };
 
-    presetButton.onClick = [&brain]
+    presetSwitch.onChange = [&brain] (int index)
     {
         auto settings = brain.getSettings();
-        settings.preset = (breark::LevelPreset) (((int) settings.preset + 1) % 3);
+        settings.preset = (breark::LevelPreset) index;
         brain.setSettings (settings);
     };
 
-    warpButton.onClick = [this, &brain] { brain.setTimeWarp (snapshot.timeWarp == 1 ? 60 : 1); };
+    warpSwitch.onChange = [&brain] (int index) { brain.setTimeWarp (index == 1 ? 60 : 1); };
 
-    setSize (560, 640);
+    setSize (720, 740);
     timerCallback();
     startTimerHz (4);
 }
@@ -74,30 +77,25 @@ BrearkEditor::~BrearkEditor()
 void BrearkEditor::timerCallback()
 {
     snapshot = brearkProcessor.getBrain().getSnapshot();
-    updateButtons();
-    repaint();
-}
 
-void BrearkEditor::updateButtons()
-{
-    // Show the requested settings immediately; the model follows within a second.
+    // Requested settings show immediately; the model follows within a second.
     const auto settings = brearkProcessor.getBrain().getSettings();
-    const char* presetNames[] = { "QUIET (~70 dB)", "NORMAL (~80 dB)", "LOUD (~90 dB)" };
+    setupSwitch.setSelectedIndex ((int) settings.setup);
+    presetSwitch.setSelectedIndex ((int) settings.preset);
+    warpSwitch.setSelectedIndex (snapshot.timeWarp > 1 ? 1 : 0);
 
-    setupButton.setButtonText (settings.setup == breark::Setup::monitors ? "MONITORS" : "HEADPHONES");
-    presetButton.setButtonText (presetNames[(int) settings.preset]);
-    warpButton.setButtonText (snapshot.timeWarp == 1 ? "TIME x1" : "TIME x" + juce::String (snapshot.timeWarp) + " (NOT SAVED)");
+    repaint();
 }
 
 void BrearkEditor::resized()
 {
     auto row = getLocalBounds().reduced (24).removeFromBottom (rowHeight + 34).removeFromTop (28);
 
-    setupButton.setBounds (row.removeFromLeft (120));
-    row.removeFromLeft (8);
-    presetButton.setBounds (row.removeFromLeft (150));
-    row.removeFromLeft (8);
-    warpButton.setBounds (row.removeFromLeft (190));
+    setupSwitch.setBounds (row.removeFromLeft (220));
+    row.removeFromLeft (12);
+    presetSwitch.setBounds (row.removeFromLeft (260));
+    row.removeFromLeft (12);
+    warpSwitch.setBounds (row);
 }
 
 void BrearkEditor::paint (juce::Graphics& g)
@@ -114,6 +112,7 @@ void BrearkEditor::paint (juce::Graphics& g)
     area.removeFromTop (14);
 
     const auto& s = snapshot;
+    const auto& f = s.factors;
     const auto micro = juce::String::fromUTF8 ("\xc2\xb5s");
     const auto wrapper = juce::String (juce::AudioProcessor::getWrapperTypeDescription (processor.wrapperType));
 
@@ -123,19 +122,26 @@ void BrearkEditor::paint (juce::Graphics& g)
                       : s.silent                            ? juce::String ("SILENCE")
                                                             : juce::String ("LISTENING");
 
+    const auto transport = juce::String (s.transportRecording ? "RECORDING" : s.transportPlaying ? "PLAYING" : "STOPPED");
+
     const juce::StringArray rows {
-        "STATUS        " + status,
+        "STATUS        " + status + "   (" + transport + ")",
         "LOUDNESS      M " + db (s.lufsMomentary) + "   S " + db (s.lufsShortTerm) + " LUFS   REF " + db (s.referenceLufs),
-        "LEVEL (A)     " + db (s.levelA) + " dBFS(A)",
-        "PEAK / PSR    " + db (s.peakShortTerm) + " dBFS   PSR " + (s.silent ? juce::String ("-") : db (s.peakShortTerm - s.lufsShortTerm)) + " dB",
-        "SPECTRUM      PRESENCE " + db (s.presence) + " dB   HIGHS " + db (s.highs) + " dB",
+        "LEVEL (A)     " + db (s.levelA) + " dBFS(A)   PEAK " + db (s.peakShortTerm) + " dBFS",
+        "",
+        "HARSHNESS     PRESENCE " + db (s.presenceToBody) + " dB   HIGHS " + db (s.highsToBody) + " dB  (VS 250-2K)   " + times (f.harshness),
+        "DYNAMICS      PSR " + db (s.psr) + " dB   " + times (f.dynamics),
+        "REPETITION    BAR PLAYS " + juce::String (s.barPlays, 1) + "   LOOPING " + clock (s.loopingSeconds)
+            + (s.loopLengthSeconds > 0.0f ? " (" + juce::String (s.loopLengthSeconds, 1) + " S LOOP, " + db (s.loopDeviationDb, 2) + " dB)" : juce::String())
+            + "   " + times (f.repetition),
+        "NIGHT         " + juce::Time::getCurrentTime().formatted ("%H:%M") + "   " + times (f.night),
+        "DRAIN         " + times (s.drainFactor) + "  (FACTORS x DAILY LOAD, MAX x2.00)   CREEP " + signedDb (s.levelCreepDb) + " dB / 1 H",
         "",
         "EAR BATTERY   " + juce::String (s.battery, 1) + " %",
         "DOSE          " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",
         "EST. LEVEL    ~" + db (s.perceivedSpl, 0) + " dB PERCEIVED   ~" + db (s.doseSpl, 0) + " dB(A) DOSE",
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)
-            + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS",
-        "NEXT BREAK    " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN SUGGESTED",
+            + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",
         "",
         "ENGINE        " + juce::String (s.sampleRate, 0) + " HZ  " + wrapper.toUpperCase()
             + "  " + (processor.isUsingDoublePrecision() ? "64" : "32") + "-BIT  FFT " + juce::String (s.fftSize),
@@ -152,6 +158,6 @@ void BrearkEditor::paint (juce::Graphics& g)
     for (const auto& row : rows)
         g.drawText (row, area.removeFromTop (rowHeight), juce::Justification::centredLeft, false);
 
-    g.drawText ("> M2. Counting. The battery drains as you listen.",
+    g.drawText ("> M3. Weighing what you hear: harsh, squashed, repeated, late.",
                 area.removeFromBottom (rowHeight), juce::Justification::centredLeft, false);
 }

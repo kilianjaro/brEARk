@@ -54,7 +54,14 @@ void BrearkProcessor::process (juce::AudioBuffer<SampleType>& buffer) noexcept
 
     // Analysis gets a read-only view: a copy goes into the lock-free FIFO.
     if (brain->isActive (this))
-        brain->push (std::as_const (buffer), isNonRealtime());
+    {
+        const auto exporting = isNonRealtime();
+        brain->push (std::as_const (buffer), exporting);
+
+        if (auto* playHead = getPlayHead(); playHead != nullptr && ! exporting)
+            if (const auto position = playHead->getPosition())
+                brain->updateTransport (*position);
+    }
 
 #if BREARK_DEV_METRICS
     brain->addAudioThreadTicks (juce::Time::getHighResolutionTicks() - startTicks);

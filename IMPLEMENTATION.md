@@ -12,7 +12,7 @@
 | Formats | **VST3 + AU** for Ableton Live 11.3, plus a **Standalone** app for development |
 | Identity | Company *Totemphonia Studio Berlin* · bundle `com.totemphonia.brEARk` · manufacturer code `Totm` · plugin code `Brek` · category *Fx / Analyzer* |
 | Workflow | Claude writes code in milestones; Kilian builds, loads in Live, listens and tests |
-| Version control | git with a private GitHub repo (`kilianfx/brEARk`), one commit per milestone |
+| Version control | git with a private GitHub repo ([`kilianjaro/brEARk`](https://github.com/kilianjaro/brEARk)), one commit per milestone |
 | Audio path | **Bit-transparent pass-through, 0 latency.** The only exception is the Hard-mode vinyl power-down/up |
 | Alert sound | The user's mp3 is played via **macOS system output** (AVAudioPlayer), outside Live's audio stream |
 | Banner | brEARk's **own toast window**: always on top, never steals focus, has BREAK / SNOOZE buttons |

@@ -37,6 +37,10 @@ public:
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     void processBlock (juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
 
+    // Switched off in Live: untouched audio, and the model freezes.
+    void processBlockBypassed (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlockBypassed (juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
+
     // A 64-bit host gets a native 64-bit path instead of a float round trip.
     bool supportsDoublePrecisionProcessing() const override { return true; }
 
@@ -63,6 +67,9 @@ public:
 private:
     template <typename SampleType>
     void process (juce::AudioBuffer<SampleType>& buffer) noexcept;
+
+    template <typename SampleType>
+    void bypass (juce::AudioBuffer<SampleType>& buffer) noexcept;
 
     // Message thread: gives the power-down its buffer while HARD is selected.
     void timerCallback() override;

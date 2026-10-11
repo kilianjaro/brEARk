@@ -2,6 +2,7 @@
 
 #include "BreakController.h"
 #include "ExposureModel.h"
+#include "HostActivity.h"
 #include "LevelCreepTracker.h"
 #include "LoudnessMeter.h"
 #include "Persistence.h"
@@ -25,7 +26,8 @@ namespace breark
 // feeds audio in, so nothing is ever counted twice.
 //
 // Threads:
-//   audio thread  → isActive(), push(), updateTransport(), addAudioThreadTicks()   (lock-free)
+//   audio thread  → isActive(), push(), pushBypassed(), updateTransport(),
+//                   addAudioThreadTicks()                                         (lock-free)
 //   worker thread → run(): analysis on a background-priority thread
 //   message / UI  → attach(), detach(), prepare(), getSnapshot()
 class Brain final : private juce::Thread
@@ -79,6 +81,13 @@ public:
         fifo.push (buffer, stamp);
     }
 
+    // Switched off in Live (the host calls processBlockBypassed): the model
+    // freezes while this keeps coming. Only the count is needed.
+    void pushBypassed (int numSamples) noexcept
+    {
+        samplesBypassed.fetch_add (numSamples, std::memory_order_relaxed);
+    }
+
     // Playhead position for the bar-repetition count; a few atomic stores.
     void updateTransport (const juce::AudioPlayHead::PositionInfo& position) noexcept
     {
@@ -118,9 +127,11 @@ private:
 
     void updateConfiguration();
     void updateRenderState (double wallSeconds);
+    void updateHostState (double wallSeconds);
     void analyseAvailable();
     void summariseSecond (double wallSeconds);
-    void updateModel (double wallSeconds);
+    void updateModel (double wallSeconds, double offSeconds, double sleptSeconds);
+    void advanceBreaks (const BreakInputs& inputs);
     void publishSnapshot();
     void loadState();
     void saveState();
@@ -130,7 +141,7 @@ private:
     SampleFifo fifo;
     std::atomic<const void*> active { nullptr };
     std::atomic<double> sampleRate { 0.0 };
-    std::atomic<juce::int64> samplesProcessed { 0 };
+    std::atomic<juce::int64> samplesProcessed { 0 }, samplesBypassed { 0 };
     std::atomic<bool> hostNonRealtimeSeen { false };
     std::atomic<juce::int64> audioTicksTotal { 0 }, audioBlocks { 0 }, audioTicksMax { 0 };
     std::atomic<bool> transportPlaying { false }, transportRecording { false };
@@ -159,6 +170,10 @@ private:
     double smoothedPsr = std::numeric_limits<double>::infinity();
     double preparedRate = 0.0;
     juce::int64 lastSamplesProcessed = 0;
+    HostActivity host;
+    SleepDetector sleepDetector;
+    juce::int64 hostProcessedSeen = 0, hostBypassedSeen = 0;
+    double secondOffSeconds = 0.0, secondSleptSeconds = 0.0; // collected until the next model tick
     double windowAudioSeconds = 0.0, windowWallSeconds = 0.0, windowSpeed = 0.0;
     double secondsSinceRenderEvidence = 0.0;
     bool rendering = false, currentRenderHadHostFlag = false;

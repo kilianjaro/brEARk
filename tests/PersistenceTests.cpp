@@ -30,8 +30,9 @@ public:
             e.breaksToday = 3;
             e.referenceLufs = -9.75;
             e.referencePlaybackSeconds = 4321.0;
-            e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2 } };
-            e.todayCurve = { { 270, 100 }, { 271, 99 }, { 400, 31 } };
+            e.offSecondsToday = 900.0;
+            e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2, 0, 0, 1500.0 } };
+            e.todayCurve = { { 270, 100 }, { 271, 99 }, { 300, 60, true }, { 400, 31 } };
 
             expect (persistence::save (file, original));
 
@@ -54,9 +55,13 @@ public:
                 expectEquals (x.referenceLufs, e.referenceLufs);
                 expectEquals (x.referencePlaybackSeconds, e.referencePlaybackSeconds);
                 expectEquals ((int) x.history.size(), 2);
-                expectEquals ((int) x.todayCurve.size(), 3);
-                expectEquals (x.todayCurve[2].minute, 400);
-                expectEquals (x.todayCurve[2].battery, 31);
+                expectEquals ((int) x.todayCurve.size(), 4);
+                expect (x.todayCurve[2].off && ! x.todayCurve[3].off && ! x.todayCurve[0].off);
+                expectEquals (x.todayCurve[3].minute, 400);
+                expectEquals (x.todayCurve[3].battery, 31);
+                expectEquals (x.offSecondsToday, 900.0);
+                expectEquals (x.history[1].offSeconds, 1500.0);
+                expectEquals (x.history[0].offSeconds, 0.0);
                 expectEquals (x.history[1].day, 20370);
                 expectEquals (x.history[1].dose, 81.5);
                 expectEquals (x.history[1].breaks, 2);
@@ -73,6 +78,23 @@ public:
 
             file.replaceWithText (R"({ "version": 999, "settings": {}, "exposure": {} })");
             expect (! persistence::load (file).has_value());
+        }
+
+        beginTest ("Files from before M8 (no OFF fields) still load");
+        {
+            file.replaceWithText (R"({ "version": 1, "savedAtMs": 1, "settings": { "setup": "monitors" },
+                                       "exposure": { "day": 20370, "battery": 55.0, "todayCurve": [ 270, 100, 271, 99 ],
+                                                     "history": [ { "day": 20369, "dose": 12.0 } ] } })");
+            const auto loaded = persistence::load (file);
+            expect (loaded.has_value());
+
+            if (loaded)
+            {
+                expectEquals (loaded->exposure.offSecondsToday, 0.0);
+                expectEquals (loaded->exposure.history[0].offSeconds, 0.0);
+                expect (! loaded->exposure.todayCurve[1].off);
+                expectEquals (loaded->exposure.todayCurve[1].battery, 99);
+            }
         }
 
         file.deleteFile();

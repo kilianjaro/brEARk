@@ -131,6 +131,8 @@ if(BREARK_BUILD_TOOLS)
         tests/PowerDownTests.cpp
         tests/CoachTests.cpp
         tests/MeterModelTests.cpp
+        tests/HostActivityTests.cpp
+        tests/RealFftTests.cpp
         source/coach/Coach.cpp
         source/coach/CoachLines.cpp
         source/ui/Look.cpp
@@ -173,6 +175,41 @@ if(BREARK_BUILD_TOOLS)
         BREARK_DEV_METRICS=1)
 
     target_link_libraries(brEARk_RenderUI
+        PRIVATE
+            breark_assets
+            juce::juce_audio_utils
+            juce::juce_dsp
+            "-framework AVFoundation"
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    # Interposes allocation, locks, waits and I/O to catch them on the audio thread.
+    add_library(brEARk_RealtimeCheck SHARED tools/RealtimeCheck.cpp)
+    set_target_properties(brEARk_RealtimeCheck PROPERTIES
+        OUTPUT_NAME brEARk_RealtimeCheck
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/brEARk_Soak_artefacts/$<CONFIG>")
+
+    # Hours of realtime operation: device changes, switch-offs, stalls,
+    # instances coming and going, HARD power-downs; memory and realtime checks.
+    juce_add_console_app(brEARk_Soak PRODUCT_NAME "brEARk_Soak")
+
+    target_sources(brEARk_Soak PRIVATE
+        tools/Soak.cpp
+        ${BREARK_PLUGIN_SOURCES}
+        ${BREARK_ENGINE_SOURCES})
+
+    target_include_directories(brEARk_Soak PRIVATE source ${BREARK_GENERATED_DIR})
+    add_dependencies(brEARk_Soak breark_build_info brEARk_RealtimeCheck)
+
+    target_compile_definitions(brEARk_Soak PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="brEARk"
+        BREARK_DEV_METRICS=$<BOOL:${BREARK_DEV_METRICS}>)
+
+    target_link_libraries(brEARk_Soak
         PRIVATE
             breark_assets
             juce::juce_audio_utils

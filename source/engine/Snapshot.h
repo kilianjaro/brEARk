@@ -26,6 +26,8 @@ struct Snapshot
     float highsToBody    = minusInfinity; // 8–16 kHz vs 250 Hz–2 kHz, dB, smoothed ~10 s
     float psr            = minusInfinity; // peak − short-term loudness, dB, smoothed ~10 s
     bool  silent         = true;
+    bool  hostOff        = false; // switched off in Live: frozen
+    bool  audioStalled   = false; // no audio from the host for over a second: silence
 
     // Fatigue factors
     FatigueFactors factors;
@@ -51,6 +53,7 @@ struct Snapshot
     double   listeningSecondsToday = 0.0;
     double   secondsSinceBreak     = 0.0;
     int      breaksToday           = 0;
+    double   offSecondsToday       = 0.0;
     bool     recovering            = false;
     float    suggestedBreakMinutes = 5.0f;
     Settings settings;

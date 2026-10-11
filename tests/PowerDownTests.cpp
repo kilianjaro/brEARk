@@ -253,6 +253,70 @@ public:
             expect (steps.maxStep <= sineMaxStep * 1.05f);
         }
 
+        beginTest ("Sample rate raised while Hard mode is on: the old, too short ring is never read");
+        {
+            constexpr double highRate = 4.0 * rate;
+            PowerDown power;
+            power.prepare (rate);
+            power.manageBuffer (true, rate);
+            SineSource sine;
+
+            auto buffer = sine.next();
+            power.process (buffer, false, false); // adopts the 44.1 kHz ring (0.5 s too short at 176.4 kHz)
+
+            power.prepare (highRate); // the device changed; the new ring arrives with the next timer tick
+            const auto spinDownSamples = (int) (model::spinDownSeconds * highRate);
+            auto plainFade = true;
+
+            for (int done = 0; done < spinDownSamples; done += block)
+            {
+                buffer = sine.next();
+                const auto original = buffer;
+                power.process (buffer, true, false);
+
+                // The plain fade only scales the live signal by 0…1; ring playback
+                // would play earlier samples instead.
+                for (int i = 0; i < block; ++i)
+                {
+                    const auto in = original.getSample (0, i);
+
+                    if (std::abs (in) > 1.0e-3f)
+                    {
+                        const auto gain = buffer.getSample (0, i) / in;
+                        plainFade = plainFade && gain >= -1.0e-6f && gain <= 1.0f + 1.0e-6f;
+                    }
+                }
+            }
+
+            expect (plainFade, "read from a ring sized for the old rate");
+            expect (power.getStage() == PowerDown::Stage::stopped);
+
+            power.manageBuffer (true, highRate); // the timer catches up: a matching ring
+            buffer = sine.next();
+            power.process (buffer, false, false); // stopped → spin-up armed, nothing breaks
+        }
+
+        beginTest ("Switched off in Live mid-ramp: jumps to the end state, then continues cleanly");
+        {
+            PowerDown power;
+            power.prepare (rate);
+            power.manageBuffer (true, rate);
+            SineSource sine;
+
+            auto buffer = sine.next();
+            power.process (buffer, false, false);
+            buffer = sine.next();
+            power.process (buffer, true, false);
+            expect (power.getStage() == PowerDown::Stage::spinningDown);
+
+            power.skipRamp(); // the host bypasses brEARk
+            expect (power.getStage() == PowerDown::Stage::stopped);
+
+            buffer = sine.next();
+            power.process (buffer, true, false); // switched on again, still unplugged
+            expect (buffer.getMagnitude (0, block) == 0.0f, "still unplugged: exact zeros");
+        }
+
         beginTest ("Hard mode off: the ring buffer is handed back and freed");
         {
             PowerDown power;

@@ -85,6 +85,7 @@ int main (int argc, char* argv[])
         { "8-unplugged", [] (Snapshot& s) { s.battery = 21.0f; s.breakPhase = BreakPhase::unplugged; s.unpluggedSeconds = 190.0; },
                          "SILENCE IS NOT A PUNISHMENT. IT'S MAINTENANCE.", PowerDown::Stage::stopped },
         { "9-inactive",  [] (Snapshot& s) { s.battery = 64.0f; }, "Listening.", PowerDown::Stage::run, false },
+        { "10-off",      [] (Snapshot& s) { s.battery = 47.0f; s.hostOff = true; }, "Listening." },
     };
 
     for (const auto& sample : samples)
@@ -107,16 +108,20 @@ int main (int argc, char* argv[])
     juce::Random random (3);
     auto battery = 100.0;
 
-    for (int minute = 270; minute <= 480; ++minute) // 09:30 – 13:00
+    for (int minute = 270; minute <= 480; ++minute) // 09:30 – 13:00, switched off 11:40 – 12:05
     {
-        battery += (minute > 360 && minute < 375) ? (100.0 - battery) * 0.18 : -0.38 - 0.1 * random.nextDouble();
-        history.today.push_back ({ minute, juce::jlimit (0, 100, juce::roundToInt (battery)) });
+        const auto off = minute >= 400 && minute < 425;
+
+        if (! off)
+            battery += (minute > 360 && minute < 375) ? (100.0 - battery) * 0.18 : -0.38 - 0.1 * random.nextDouble();
+
+        history.today.push_back ({ minute, juce::jlimit (0, 100, juce::roundToInt (battery)), off });
     }
 
     history.nowMinute = 480;
 
     for (auto [day, dose] : std::vector<std::pair<int, double>> { { 20732, 34.0 }, { 20733, 61.0 }, { 20735, 48.0 }, { 20736, 112.0 }, { 20737, 22.0 }, { 20738, 41.0 } })
-        history.lastDays.push_back ({ day, dose, 0.0, 0, 0, 0 });
+        history.lastDays.push_back ({ day, dose, 0.0, 0, 0, 0, day == 20735 ? 80.0 * 60.0 : (day == 20738 ? 25.0 * 60.0 : 0.0) });
 
     save (render (960, 600, [&] (juce::Graphics& g) { ui::paintHistory (g, { 0.0f, 0.0f, 960.0f, 600.0f }, history, *fonts); }),
           folder.getChildFile ("history.png"));

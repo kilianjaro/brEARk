@@ -2,7 +2,9 @@
 
 #include "SampleFifo.h"
 
-#include <juce_dsp/juce_dsp.h>
+#include "RealFft.h"
+
+#include <juce_audio_basics/juce_audio_basics.h>
 
 #include <array>
 #include <memory>
@@ -65,7 +67,7 @@ private:
     Match compare (int lagSlots, int windowSlots) const noexcept;
 
     double sampleRate = 44100.0;
-    std::unique_ptr<juce::dsp::FFT> fft;
+    std::unique_ptr<RealFft> fft;
     int fftSize = 0;
     std::vector<float> window, fftBuffer;
     std::array<int, numLoopBands + 1> bandEdgeBins {};

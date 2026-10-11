@@ -41,8 +41,9 @@ These rules apply to every line of code. Each one is verified by a test (§8).
    
    It never allocates, locks, logs, touches files or the UI, and never waits.
 5. **Exports are sacred.** During offline/non-realtime renders brEARk does not measure, does not alert, and the power-down is forced to pass-through. Even an UNPLUGGED brEARk exports a clean file.
+   **Switched off is switched off.** When the host bypasses brEARk (`processBlockBypassed`), the audio passes untouched (an unplugged power-down too) and the model freezes. *(M8)*
 6. **Graceful degradation.** If the worker falls behind, samples are dropped, never the audio thread's deadline. The model fills the gap with the last known level.
-7. **Memory is pre-allocated.** Everything is allocated in `prepareToPlay` or on the message thread. Target total footprint is **< 6 MB**.
+7. **Memory is pre-allocated.** Everything is allocated in `prepareToPlay` or on the message thread. Target total footprint is **< 6 MB**. *M8: the engine allocates 1.8 MB at 44.1/48 kHz, 2.3 MB at 96 kHz, 3.0 MB at 192 kHz.*
 
 ---
 
@@ -75,7 +76,7 @@ processBlock(buffer)                     every ~50 ms:                          
 | From → To | Mechanism |
 |---|---|
 | Audio → Worker | `SampleFifo`: `juce::AbstractFifo` over a pre-allocated buffer, 96 000 frames (2 s @ 48 kHz, 750 KB). Sized for macOS coalescing background-thread wakes to ~150 ms (measured) |
-| Audio → Worker | Atomics: isPlaying, isRecording, ppq / bar, isNonRealtime, dropped-sample counter |
+| Audio → Worker | Atomics: isPlaying, isRecording, ppq / bar, isNonRealtime, dropped-sample counter, processed and bypassed sample counters (*M8: host state*) |
 | Worker → UI | `Snapshot` struct copied under a mutex. Both sides are non-realtime; the audio thread never touches it |
 | Worker → Message thread | Events (WARN, DUE, UNPLUG, BREAK_DONE, LEVEL_CREEP, …) via a lock-free queue, drained by a message-thread timer |
 | UI → Worker | Atomics: BREAK pressed, SNOOZE, strictness, setup, preset |
@@ -88,13 +89,15 @@ processBlock(buffer)                     every ~50 ms:                          
 | Measure | Method | Rate | Notes |
 |---|---|---|---|
 | **LUFS-M / LUFS-S** | ITU-R BS.1770: K-weighting biquads, per-channel power sum, 400 ms / 3 s windows | 10 Hz | Time-domain filter, so the display matches Live / Youlean meters. Costs ~0.01 % CPU |
-| **Spectrum** | One real FFT per ~43 ms frame (2048 @ 44.1/48 kHz, scaled up at higher rates), Hann window, JUCE `dsp::FFT` → Apple vDSP | ~23 Hz | Feeds the four rows below |
+| **Spectrum** | One real FFT per ~43 ms frame (2048 @ 44.1/48 kHz, scaled up at higher rates), Hann window, `RealFft` → Apple vDSP | ~23 Hz | Feeds the four rows below. *M8: `RealFft` replaces JUCE's `dsp::FFT`, which asks vDSP for a radix-5 setup (`vDSP_create_fftsetup (order, 2)`, 2 = `kFFTRadix5`): 5.4× the memory of the radix-2 setup, 0.86 instead of 0.16 MB per 2048-point FFT, 3.2 instead of 0.6 MB at 8192. Same transform and scale, tested against JUCE's within 1e-6* |
 | **dB(A) (dose)** | FFT power × A-weighting table (IEC 61672), window-power corrected | ~23 Hz | A table lookup, so it's free |
 | **Harshness** | Energy at 2–5 kHz and 8–16 kHz **relative to the 250 Hz–2 kHz body** (not the total, so bass-heavy mixes aren't automatically "smooth") → index 0–1 | ~23 Hz, smoothed 10 s | The ear's sensitivity peak (ISO 226) |
 | **Dynamics** | PSR = sample peak over 3 s − LUFS-S (matches Youlean's PSR within ~0.5 dB) | 10 Hz, smoothed 10 s | ≥ 14 dB = dynamic, ≤ 7 dB = brickwalled |
 | **Repetition, audio** | *M3.2: tempo-grid loop detection.* The audio thread stamps each block with the host's beat position (ppq, tempo); the worker takes **one FFT exactly on every 16th note**, so every pass of a loop is analysed at the same musical moments, with no misalignment and no smoothing. It compares the last ≥ 4 bars with the bars 1–16 bars earlier in played order, which covers Session clips and Arrangement loop braces alike. A loop needs (1) **rhythm**: correlation of 16th-to-16th changes per band ≥ 0.85, so LFO drift and fader/EQ moves are ignored, and (2) **level shift** ≤ 1.5 dB RMS with the fader removed, so 'same drums, new chords' is not a loop. Bands without rhythm (pads, drones) and bands 50 dB below the loudest are skipped. Grace = one loop length + 4 s | 1 FFT per 16th + check once per second | ~180 KB. Tests (realistic house): identical 0.99, humanised 0.95, heavy humanised 0.86–0.94 → correct 2-bar loop; arrangement brace → 8 bars; new chords never; EQ tweak/fader keep counting; 0.008 % CPU. *Root cause of the M3 miss: smoothing over ~1 beat plus frame misalignment; the old detector only matched lucky multiples of the loop length* |
 | **Repetition, playhead** | Bar index from `ppqPosition` → decaying play-count per bar | per block, via atomics | Exact in Arrangement; catches loop-brace cycling |
 | **Silence** | LUFS-S < −55 or transport stopped with no signal | 10 Hz | Recovery starts after **60 s** of continuous silence (micro-pauses while editing don't count) |
+| **Host state** *(M8)* | From the two sample counters, per worker wake: **playing** (processBlock), **off** (processBlockBypassed: the model freezes, OFF in the history), **stalled** (no audio at all for > 1 s: the meter is reset, so it counts as silence instead of repeating the last level) | per wake | `HostActivity.h` |
+| **Sleep** *(M8)* | `mach_absolute_time` stops while the Mac sleeps, the wall clock doesn't: a difference > 5 s is added as rest (like the time Live was closed) | per wake | Without it, a night with the lid closed recovered nothing |
 
 **Sample rates** from 44.1 to 192 kHz are supported:
 - The FFT size scales so frames stay ~43 ms long.
@@ -247,12 +250,14 @@ brEARk/
 │  ├─ DebugView.*            DATA: raw numbers, switches, TEST ALERT, build ID
 │  ├─ engine/                Brain · SampleFifo · AnalysisWorker · Loudness · Spectrum · Fingerprint
 │  │                         ExposureModel · BreakController · ModelConstants · Persistence · Snapshot
+│  │                         HostActivity (playing / off / stalled, sleep)
 │  ├─ dsp/PowerDown.*        vinyl spin-down / spin-up
 │  ├─ coach/Coach.*          event → line, tone by severity, no-repeat shuffle, user file
 │  ├─ platform/              AlertSound_mac.mm · ToastWindow.* (+ _mac.mm)
 │  └─ ui/                    Look (palette, fonts, buttons) · MeterView · HistoryView · ToastWindow · SegmentedControl
 ├─ tests/                    unit tests (model, loudness, fifo, power-down, coach, meter) · NullTest
-└─ tools/RenderUI.cpp       renders every UI state to PNG (design review without Live)
+└─ tools/                    RenderUI (every UI state to PNG) · NullTest (hosts VST3 + AU, bit-exact)
+                             Soak (hours in real time) · RealtimeCheck (interposer: no alloc/lock/I/O on the audio thread)
 ```
 
 ---
@@ -261,14 +266,15 @@ brEARk/
 
 | Gate | Tool | Pass criterion |
 |---|---|---|
-| **Null test (automated)** | `brEARk_NullTest`: hosts the installed VST3 + AU, noise incl. denormals / −0 / >0 dBFS, irregular blocks, mono/stereo, 44.1–192 kHz, 32/64-bit | 24/24 bit-identical. Mutation-checked: catches a 1-ULP gain change and a 64→32-bit truncation |
+| **Null test (automated)** | `brEARk_NullTest`: hosts the installed VST3 + AU, noise incl. denormals / −0 / >0 dBFS, irregular blocks, mono/stereo, 44.1–192 kHz, 32/64-bit, *M8: switched off and on mid-stream through each format's bypass* | 24/24 bit-identical. Mutation-checked: catches a 1-ULP gain change and a 64→32-bit truncation; *M8: a gain change in the bypass path fails all 24* |
 | **Null test (in Live)** | Live: duplicate track, brEARk on one copy, invert polarity on the other | Sum is **−∞ dB**, bit-exact |
 | Export integrity | Export with brEARk UNPLUGGED vs. without brEARk | Files null to −∞ |
-| Plugin robustness | **pluginval** strictness 10 (VST3 + AU), **auval** (AU) | No failures |
-| Realtime safety | Code rule + review; Clang RealtimeSanitizer if available in Xcode 26 | No alloc/lock on the audio thread |
-| CPU | `PerformanceTests` benchmark, debug view, Live CPU meter, Instruments | Audio thread unmeasurable; analysis < 0.1 % of one core. *Measured M1: K-filter 0.041 % + FFT 0.043 % = 0.085 % on a P-core; 0.15–0.2 % of an efficiency core inside the background worker* |
-| Memory | Instruments Allocations | < 6 MB, flat over a 1 h run |
+| Plugin robustness | **pluginval** strictness 10 (VST3 + AU), **auval** (AU) | No failures. *M8: both formats pass; the AU shows one warning ("current program is -1"), JUCE's AU host reading a plugin with a single unnamed program* |
+| Realtime safety | Code rule + review; Clang RealtimeSanitizer if available in Xcode 26. *M8: Apple clang 21 has no `-fsanitize=realtime`, so `RealtimeCheck` does it by hand: an interposed library counts malloc/free, mutex/rwlock/cond/unfair-lock, semaphores, `dispatch_sync`, sleeps and file I/O on the audio thread while it is inside brEARk* | No alloc/lock on the audio thread. *Self-tested at every start; mutation-checked: a `getSnapshot()` + `juce::String` in processBlock is caught with call stacks* |
+| CPU | `PerformanceTests` benchmark, debug view, Live CPU meter, Instruments | Audio thread unmeasurable; analysis < 0.1 % of one core. *Measured M1: K-filter 0.041 % + FFT 0.043 % = 0.085 % on a P-core; 0.15–0.2 % of an efficiency core inside the background worker. M8, Instruments Time Profiler on the soak (60 s, 48 kHz / 512): audio thread inside brEARk **0.017 %** of one core, analysis worker **0.26 %** of an efficiency core, message thread (timers, editor) 0.02 %. Benchmark on a P-core: K-filter 0.047 % + FFT 0.048 % + loop detection 0.008 % = **0.10 %**: at the target, not below it (loop detection came with M3). The soak's per-block maxima are wall-clock times and include preemption under system load* |
+| Memory | Instruments Allocations | < 6 MB, flat over a 1 h run. *M8: measured with the allocator's own statistics (`malloc_zone_statistics`, the numbers Instruments' Allocations shows) and the process footprint. `RealFftTests`: engine 1.8–3.0 MB at 44.1–192 kHz, identical after every rate change (the first M8 measurement found 3.4–8.5 MB, see Spectrum). `leaks`: 0 leaks. Soak: see M8* |
 | Loudness accuracy | EBU Tech 3341 test signals + comparison with Live / Youlean | ±0.3 LU |
+| **Soak test** *(M8)* | `brEARk_Soak`: brEARk in real time for 3 h, ~8 min cycles over 8 audio devices (44.1–192 kHz, 64–2048 samples, 32/64-bit, mono/stereo): play with the editor open, silence, switched off, no audio, a second instance taking over, a time-warped HARD power-down every hour. First the editor alone, opened, painted and closed 100 times | Output bit-identical outside HARD mode; no allocation, lock, wait or I/O inside brEARk on the audio thread; dropped audio < 1 %; engine < 6 MB; memory per hour (mean of all 8 devices) rises < 1 MB after the warm-up hour; the editor doesn't grow over openings 20–100; every state reached |
 | Model behaviour | Unit tests + **debug time-warp** (model clock ×60: a 70 min session runs in 70 s) | Matches the tables in §4 |
 
 ---
@@ -291,7 +297,7 @@ Each milestone has the same rhythm:
 | **M5** | Hard mode: PowerDown DSP, minimum break, snooze, export bypass | Vinyl power-down/up by ear | Export nulls; pluginval; no clicks. *Automated: PowerDown tests (untouched while plugged in, 32/64-bit; spin-down to exact zeros; click detector mutation-checked: catches a missing 5 ms crossfade; spin-up back to bit-exact; waits for sound; exports untouched while muted; plain-fade fallback; buffer handover). BreakController: minimum break, snooze exactly 10 min, escape by leaving HARD, ladder again if still drained (2071 checks). pluginval with HARD selected: no leaks. Pending: by ear + export test in Live* |
 | **M6** | Coach: line format, triggers, tone shift, no-repeat, user file, ~150 lines | The coach talks | Lines fit the UI; no repeats within a session. *Built: 177 lines in 33 sections (`assets/coach/lines.txt`, embedded). Tone = witty (battery > 50 %) / mentor / brutal (brutal alerts). Alerts get coach lines; breaks rotate task/care/fact every minute; hints are silent pop-ups (loud, creep, loop, late, harsh, squashed, dose 50/100), max one per 20 min, each with its own cooldown (squashed: 3 h). User file `coach.txt` adds, `!` replaces, reloaded within ~10 s; `coach.example.txt` template. Tests: coverage per event/tone, placeholders, ≤ 104 chars, shuffle bag, hint rate limits, break rotation (2488 checks)* |
 | **M7** | Final UI: brutalist COMPACT / POSTER, fonts, history overlay | The real brEARk | 4 Hz refresh; looks right at both sizes. *Built: design B chosen from mockups. State words FRESH. / OK. / TIRING. / BREAK. / STOP. / RESTING. / UNPLUGGED. / INACTIVE.; the big word is placed by cap height. Settings are cycling labels; POSTER/COMPACT is saved per instance. POSTER: stats row (dose today, week, listened, since break, level, loudness) + factor line + HISTORY overlay (today's battery curve per minute, saved in state.json; 7 days of WHO dose). DATA keeps the debug view and switches. Toasts restyled. `brEARk_RenderUI` renders all states + the real editor to PNG. Tests 2519 checks, null test 24/24, pluginval 10, auval. Pending: Live check by Kilian* |
-| **M8** | Hardening: sample-rate/buffer changes, multi-instance, 3 h soak test, Instruments, universal build | — | All gates in §8 green |
+| **M8** | Hardening: sample-rate/buffer changes, multi-instance, 3 h soak test, Instruments, universal build | — | All gates in §8 green. *Found and fixed: (1) switched off in Live (host bypass) kept counting the last loudness → now frozen, shown as OFF. and in HISTORY (decision by Kilian); (2) no audio from the host (device stopped, changed, unplugged) also kept counting the last loudness → now silence; (3) the Mac's sleep recovered nothing (monotonic clock) → sleep counts as rest; (4) a power-down within 0.5 s of a sample-rate change could read a ring sized for the old rate → plain fade; (5) JUCE's FFT allocated a radix-5 vDSP setup → `RealFft`, engine 3.4–8.5 MB → 1.8–3.0 MB, and rate changes give vectors fresh storage. Results, both architectures (arm64, and x86_64 under Rosetta): unit tests 2594/2594; null test 24/24 incl. switching off mid-stream via each format's bypass; auval; pluginval 10 for VST3 and AU. 3 h soak (final code, run 2): 26 cycles, 2.68 M blocks, 0 realtime calls, 0 changed blocks outside HARD mode, 0 dropped samples, all states reached; allocated memory per hour 35.21 → 35.11 → 35.33 MB (−0.10, +0.22), process footprint +1.09 then +0.36 MB/h (the first hour is the warm-up). Editor ×100: 33.44 MB after 1 opening, 35.05 after 20, 35.12 after 100 (graphics caches fill, then flat). `leaks`: 0. Run 1 (JUCE FFT) found the FFT memory; both 3 h runs failed the soak's first memory criterion (worst single device, ±1 MB cache swings) and pass the hourly one it was replaced with (computed from their data): run 1 +0.29, +0.18 MB/h, run 2 −0.10, +0.22 MB/h. A quick soak judges no memory growth: its "hours" last 7 minutes (the playhead tracker fills up to its 4096-bar cap, ~0.1 MB/h, in a soak that never loops). Intel soak 2 × 25 min: pass (run 1 dropped 32 ms of audio once at 192 kHz while the worker was starved). The universal build installs over the arm64 one; macOS's Intel AU registry had to be restarted once (`killall -9 AudioComponentRegistrar`) to notice the new Intel half. Pending: Live check by Kilian, above all whether Live bypasses (OFF.) or stops calling (silence) a switched-off plugin* |
 
 **What I need from you:**
 - **Before M4:** `alert.mp3`, ideally under 3 s, normalized to a comfortable level.

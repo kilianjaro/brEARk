@@ -189,6 +189,8 @@ void DebugView::paint (juce::Graphics& g)
     const auto wrapper = juce::String (juce::AudioProcessor::getWrapperTypeDescription (brearkProcessor.wrapperType));
 
     const auto status = ! brearkProcessor.isActiveInstance() ? juce::String ("INACTIVE - ANOTHER brEARk IS LISTENING")
+                      : s.hostOff                           ? juce::String ("OFF - SWITCHED OFF BY THE HOST, FROZEN")
+                      : s.audioStalled                      ? juce::String ("NO AUDIO FROM THE HOST - SILENCE")
                       : s.rendering                         ? juce::String ("EXPORT DETECTED - NOT COUNTING")
                       : s.recovering                        ? juce::String ("RECOVERING")
                       : s.silent                            ? juce::String ("SILENCE")

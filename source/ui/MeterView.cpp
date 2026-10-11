@@ -134,6 +134,11 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
         m.word = "INACTIVE.";
         m.status = "ANOTHER brEARk IS ALREADY LISTENING";
     }
+    else if (s.hostOff)
+    {
+        m.word = "OFF.";
+        m.status = "SWITCHED OFF IN LIVE" + separator + "NOT COUNTING";
+    }
     else if (s.breakPhase == BreakPhase::unplugged)
     {
         m.word = "UNPLUGGED.";
@@ -168,7 +173,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     if (s.snoozeSecondsLeft > 0.0 && s.breakPhase != BreakPhase::unplugged)
         m.status = "SNOOZED" + separator + minutesSeconds (s.snoozeSecondsLeft) + " LEFT";
 
-    if (s.rendering)
+    if (s.rendering && ! s.hostOff)
         m.status = "EXPORT" + separator + "NOT COUNTING";
 
     if (s.timeWarp > 1)

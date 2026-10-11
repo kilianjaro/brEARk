@@ -125,6 +125,99 @@ public:
             expect (std::isinf (s.lufsShortTerm), "exported audio was analysed");
             brain.detach (&token);
         }
+
+        beginTest ("Audio that stops arriving (device stopped or unplugged) is silence, not the last level");
+        {
+            Brain brain (tempStateFile());
+            int token = 0;
+            start (brain, token, rate);
+
+            for (int i = 0; i < 200; ++i)
+            {
+                brain.push (makeBlock (i), false);
+                juce::Thread::sleep (10);
+            }
+
+            expect (! brain.getSnapshot().silent);
+
+            const auto stalled = waitFor (brain, [] (const Snapshot& x) { return x.audioStalled; });
+            expect (stalled.audioStalled, "stall not detected");
+            expect (stalled.silent && std::isinf (stalled.lufsShortTerm), "the last level is still counted");
+
+            juce::Thread::sleep (2500);
+            const auto later = brain.getSnapshot();
+            expectEquals (later.listeningSecondsToday, stalled.listeningSecondsToday, "listening time kept running");
+            brain.detach (&token);
+        }
+
+        beginTest ("Switched off in Live: frozen, counted as OFF, and it carries on when switched on");
+        {
+            Brain brain (tempStateFile());
+            int token = 0;
+            start (brain, token, rate);
+            brain.setSettings ({ Setup::headphones, LevelPreset::loud }); // drains visibly within seconds
+
+            for (int i = 0; i < 200; ++i)
+            {
+                brain.push (makeBlock (i), false);
+                juce::Thread::sleep (10);
+            }
+
+            auto bypassFor = [&brain] (int blocks)
+            {
+                for (int i = 0; i < blocks; ++i)
+                {
+                    brain.pushBypassed (blockSize);
+                    juce::Thread::sleep (10);
+                }
+            };
+
+            bypassFor (50);
+            const auto off = waitFor (brain, [] (const Snapshot& x) { return x.hostOff; });
+            expect (off.hostOff, "switch-off not detected");
+
+            bypassFor (300); // 3 s
+            const auto frozen = brain.getSnapshot();
+            expect (frozen.hostOff);
+            expectEquals (frozen.battery, off.battery, "the battery moved while switched off");
+            expectEquals (frozen.listeningSecondsToday, off.listeningSecondsToday);
+            expect (! frozen.recovering);
+            expect (frozen.offSecondsToday >= 2.0, "off time not counted: " + juce::String (frozen.offSecondsToday));
+
+            const auto history = brain.getHistory();
+            expect (! history.today.empty() && history.today.back().off, "today's curve is not marked OFF");
+            expectEquals (history.lastDays.back().offSeconds, frozen.offSecondsToday);
+
+            for (int i = 0; i < 200; ++i)
+            {
+                brain.push (makeBlock (i), false);
+                juce::Thread::sleep (10);
+            }
+
+            const auto on = waitFor (brain, [&] (const Snapshot& x) { return ! x.hostOff && x.battery < frozen.battery; });
+            expect (! on.hostOff && on.battery < frozen.battery, "did not carry on after switching on");
+            brain.detach (&token);
+        }
+
+        beginTest ("Several instances: the first listens, the next takes over when it is removed");
+        {
+            Brain brain (tempStateFile());
+            int first = 0, second = 0, third = 0;
+            brain.attach (&first);
+            brain.attach (&second);
+            brain.attach (&third);
+
+            expect (brain.isActive (&first) && ! brain.isActive (&second) && ! brain.isActive (&third));
+
+            brain.detach (&second); // an inactive one leaves: nothing changes
+            expect (brain.isActive (&first));
+
+            brain.detach (&first);
+            expect (brain.isActive (&third), "the next instance did not take over");
+
+            brain.detach (&third);
+            expect (! brain.isActive (&third));
+        }
     }
 
 private:
@@ -170,3 +263,4 @@ private:
 static BrainTests brainTests;
 
 } // namespace breark
+

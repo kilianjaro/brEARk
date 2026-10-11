@@ -2,11 +2,19 @@
 
 #include <iostream>
 
-int main()
+// Usage: brEARk_Tests [part of a test name]   (no argument: all tests)
+int main (int argc, char* argv[])
 {
     juce::UnitTestRunner runner;
     runner.setAssertOnFailure (false);
-    runner.runTestsInCategory ("brEARk");
+
+    juce::Array<juce::UnitTest*> selected;
+
+    for (auto* test : juce::UnitTest::getTestsInCategory ("brEARk"))
+        if (argc < 2 || test->getName().containsIgnoreCase (argv[1]))
+            selected.add (test);
+
+    runner.runTests (selected);
 
     int passes = 0, failures = 0;
 

@@ -74,18 +74,30 @@ void ExposureModel::advance (const ListeningPeriod& period, juce::Time now)
     if (state.silenceSeconds < model::breakMinimumSeconds)
         state.secondsSinceBreak += period.seconds;
 
-    recordCurve (now);
+    recordCurve (now, false);
 }
 
-void ExposureModel::recordCurve (juce::Time now)
+void ExposureModel::addOffTime (double seconds, juce::Time now)
+{
+    rollOverIfNewDay (now);
+
+    if (seconds <= 0.0)
+        return;
+
+    state.offSecondsToday += seconds;
+    recordCurve (now, true);
+}
+
+void ExposureModel::recordCurve (juce::Time now, bool off)
 {
     const auto minute = minuteOfDay (now);
     const auto battery = juce::roundToInt (state.battery);
 
+    // One point per minute; within a minute the latest state wins.
     if (state.todayCurve.empty() || state.todayCurve.back().minute != minute)
-        state.todayCurve.push_back ({ minute, battery });
+        state.todayCurve.push_back ({ minute, battery, off });
     else
-        state.todayCurve.back().battery = battery;
+        state.todayCurve.back() = { minute, battery, off };
 }
 
 void ExposureModel::rest (double seconds, bool onBreak) noexcept
@@ -149,7 +161,7 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
     if (state.day != 0)
     {
         state.history.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday,
-                                   state.powerDownsToday, state.snoozesToday });
+                                   state.powerDownsToday, state.snoozesToday, state.offSecondsToday });
 
         if ((int) state.history.size() > model::historyDays)
             state.history.erase (state.history.begin(), state.history.end() - model::historyDays);
@@ -161,6 +173,7 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
     state.breaksToday = 0;
     state.powerDownsToday = 0;
     state.snoozesToday = 0;
+    state.offSecondsToday = 0.0;
     state.todayCurve.clear();
 }
 

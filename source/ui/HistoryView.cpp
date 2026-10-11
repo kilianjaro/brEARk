@@ -10,6 +10,12 @@ juce::String weekdayName (int day)
 
 namespace
 {
+juce::String hoursMinutes (double seconds)
+{
+    const auto minutes = (int) (seconds / 60.0);
+    return juce::String (minutes / 60) + ":" + juce::String (minutes % 60).paddedLeft ('0', 2);
+}
+
 juce::String clockFor (int minuteOfDay)
 {
     const auto total = (minuteOfDay + model::dayStartHour * 60) % (24 * 60);
@@ -37,7 +43,10 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
     area.removeFromTop (10.0f);
 
     //── Today ────────────────────────────────────────────────────────────────
-    sectionTitle (g, area.removeFromTop (30.0f), "TODAY" + separator + "EAR BATTERY", fonts);
+    const auto offToday = history.lastDays.empty() ? 0.0 : history.lastDays.back().offSeconds;
+    sectionTitle (g, area.removeFromTop (30.0f),
+                  "TODAY" + separator + "EAR BATTERY" + (offToday >= 60.0 ? separator + "OFF " + hoursMinutes (offToday) : juce::String()),
+                  fonts);
     auto chart = area.removeFromTop (170.0f).reduced (0.0f, 8.0f);
     auto labels = chart.removeFromBottom (16.0f);
 
@@ -51,11 +60,55 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
     g.setFont (fonts.mono (10.0f));
     g.drawText ("20 %", juce::Rectangle<float> (chart.getRight() - 60.0f, yFor (20) - 16.0f, 60.0f, 14.0f), juce::Justification::centredRight, false);
 
+    // Minutes brEARk was switched off in Live: hatched, labelled OFF.
+    for (size_t i = 0; i < history.today.size();)
+    {
+        if (! history.today[i].off)
+        {
+            ++i;
+            continue;
+        }
+
+        auto end = i;
+
+        while (end + 1 < history.today.size() && history.today[end + 1].off && history.today[end + 1].minute - history.today[end].minute <= 5)
+            ++end;
+
+        const auto band = juce::Rectangle<float>::leftTopRightBottom (xFor (history.today[i].minute), chart.getY(),
+                                                                     std::max (xFor (history.today[end].minute + 1), xFor (history.today[i].minute) + 2.0f),
+                                                                     chart.getBottom());
+        {
+            const juce::Graphics::ScopedSaveState clip (g);
+            g.reduceClipRegion (band.toNearestInt());
+
+            for (auto x = band.getX() - band.getHeight(); x < band.getRight(); x += 6.0f)
+                g.drawLine (x, band.getBottom(), x + band.getHeight(), band.getY(), 1.0f);
+        }
+
+        if (band.getWidth() >= 40.0f)
+        {
+            g.setFont (fonts.mono (10.0f, true));
+            const auto label = band.withSizeKeepingCentre (34.0f, 16.0f);
+            g.setColour (colours::paper);
+            g.fillRect (label);
+            g.setColour (colours::ink);
+            g.drawText ("OFF", label, juce::Justification::centred, false);
+        }
+
+        i = end + 1;
+    }
+
     juce::Path line;
     auto previous = -1000;
 
     for (const auto& point : history.today)
     {
+        if (point.off) // switched off: no battery reading, leave a gap
+        {
+            previous = -1000;
+            continue;
+        }
+
         const auto x = xFor (point.minute), y = yFor (point.battery);
 
         if (point.minute - previous > 5) // Live was closed: leave a gap
@@ -93,6 +146,12 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
             if (record.day == day)
                 dose = record.dose;
 
+        double offSeconds = 0.0;
+
+        for (const auto& record : history.lastDays)
+            if (record.day == day)
+                offSeconds = record.offSeconds;
+
         auto column = juce::Rectangle<float> (bars.getX() + (float) i * (barWidth + gap), bars.getY(), barWidth, bars.getHeight());
         const auto name = column.removeFromBottom (16.0f);
         const auto barHeight = juce::jlimit (0.0f, column.getHeight() - 18.0f, (float) dose * 1.2f);
@@ -104,7 +163,9 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
         g.setFont (fonts.mono (11.0f, true));
         g.drawText (juce::String (juce::roundToInt (dose)) + " %", column.removeFromBottom (18.0f), juce::Justification::centredLeft, false);
         g.setFont (fonts.mono (10.0f));
-        g.drawText (i == 6 ? juce::String ("TODAY") : weekdayName (day), name, juce::Justification::centredLeft, false);
+        g.drawText ((i == 6 ? juce::String ("TODAY") : weekdayName (day))
+                        + (offSeconds >= 60.0 ? separator + "OFF " + hoursMinutes (offSeconds) : juce::String()),
+                    name, juce::Justification::centredLeft, false);
     }
 }
 

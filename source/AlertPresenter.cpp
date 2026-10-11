@@ -151,6 +151,9 @@ void AlertPresenter::present (const breark::Alert& alert)
 
 void AlertPresenter::showToast (const ToastContent& content, bool withSound)
 {
+    if (quiet)
+        return;
+
     if (toast == nullptr)
     {
         toast = std::make_unique<ToastWindow>();

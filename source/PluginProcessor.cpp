@@ -97,6 +97,23 @@ void BrearkProcessor::process (juce::AudioBuffer<SampleType>& buffer) noexcept
 #endif
 }
 
+template <typename SampleType>
+void BrearkProcessor::bypass (juce::AudioBuffer<SampleType>& buffer) noexcept
+{
+    // Exactly what JUCE's default bypass does (brEARk has no latency to match).
+    for (auto ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
+        buffer.clear (ch, 0, buffer.getNumSamples());
+
+    // Nothing is measured; the Brain freezes its clock while this continues.
+    // An unplugged power-down lets the sound through, and comes back when
+    // brEARk is switched on again.
+    if (brain->isActive (this))
+    {
+        brain->pushBypassed (buffer.getNumSamples());
+        powerDown.skipRamp();
+    }
+}
+
 void BrearkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     process (buffer);
@@ -105,6 +122,16 @@ void BrearkProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 void BrearkProcessor::processBlock (juce::AudioBuffer<double>& buffer, juce::MidiBuffer&)
 {
     process (buffer);
+}
+
+void BrearkProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+{
+    bypass (buffer);
+}
+
+void BrearkProcessor::processBlockBypassed (juce::AudioBuffer<double>& buffer, juce::MidiBuffer&)
+{
+    bypass (buffer);
 }
 
 //==============================================================================

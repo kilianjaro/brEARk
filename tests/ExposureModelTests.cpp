@@ -147,6 +147,31 @@ public:
             expectEquals ((int) model.getState().todayCurve.size(), 1, "a new day starts with a fresh curve");
         }
 
+        beginTest ("Switched off in Live: nothing drains or recovers, the time is counted and marked OFF");
+        {
+            auto model = modelAt (-14.0);
+            playFor (model, -14.0f, 600.0, noon, -14.0f);
+            const auto before = model.getState();
+
+            model.addOffTime (1800.0, juce::Time (2026, 9, 10, 12, 11));
+            const auto& after = model.getState();
+
+            expectEquals (after.battery, before.battery);
+            expectEquals (after.doseToday, before.doseToday);
+            expectEquals (after.listeningSecondsToday, before.listeningSecondsToday);
+            expectEquals (after.silenceSeconds, before.silenceSeconds);
+            expectEquals (after.secondsSinceBreak, before.secondsSinceBreak);
+            expectEquals (after.offSecondsToday, 1800.0);
+            expect (after.todayCurve.back().off && after.todayCurve.back().minute == 7 * 60 + 11);
+
+            playFor (model, -14.0f, 1.0, juce::Time (2026, 9, 10, 12, 11, 30));
+            expect (! model.getState().todayCurve.back().off, "within a minute the latest state wins");
+
+            model.advance (silence (60.0), juce::Time (2026, 9, 11, 5, 1));
+            expectEquals (model.getState().history.back().offSeconds, 1800.0);
+            expectEquals (model.getState().offSecondsToday, 0.0, "a new day starts at 0");
+        }
+
         beginTest ("Weekly dose = last 7 days / 5");
         {
             ExposureState state;

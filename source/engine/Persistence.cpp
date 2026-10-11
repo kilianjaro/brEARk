@@ -17,13 +17,14 @@ juce::var toVar (const DayRecord& record)
     object->setProperty ("breaks", record.breaks);
     object->setProperty ("powerDowns", record.powerDowns);
     object->setProperty ("snoozes", record.snoozes);
+    object->setProperty ("offSeconds", record.offSeconds);
     return object.release();
 }
 
 DayRecord dayRecordFromVar (const juce::var& v)
 {
     return { (int) v["day"], (double) v["dose"], (double) v["listeningSeconds"], (int) v["breaks"],
-             (int) v["powerDowns"], (int) v["snoozes"] };
+             (int) v["powerDowns"], (int) v["snoozes"], (double) v["offSeconds"] }; // missing in old files → 0
 }
 
 template <typename Enum>
@@ -59,10 +60,10 @@ bool save (const juce::File& file, const PersistedState& state)
     for (const auto& record : e.history)
         history.add (toVar (record));
 
-    for (const auto& point : e.todayCurve) // flat pairs: minute, battery, minute, battery …
+    for (const auto& point : e.todayCurve) // flat pairs: minute, battery, … (battery −1 = OFF)
     {
         curve.add (point.minute);
-        curve.add (point.battery);
+        curve.add (point.off ? -1 : point.battery);
     }
 
     auto exposure = std::make_unique<juce::DynamicObject>();
@@ -75,6 +76,7 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("breaksToday", e.breaksToday);
     exposure->setProperty ("powerDownsToday", e.powerDownsToday);
     exposure->setProperty ("snoozesToday", e.snoozesToday);
+    exposure->setProperty ("offSecondsToday", e.offSecondsToday);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
     exposure->setProperty ("todayCurve", curve);
@@ -124,12 +126,16 @@ std::optional<PersistedState> load (const juce::File& file)
     x.breaksToday = (int) e["breaksToday"];
     x.powerDownsToday = (int) e["powerDownsToday"];
     x.snoozesToday = (int) e["snoozesToday"];
+    x.offSecondsToday = (double) e["offSecondsToday"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly
 
     if (const auto* curve = e["todayCurve"].getArray())
         for (int i = 0; i + 1 < curve->size(); i += 2)
-            x.todayCurve.push_back ({ (int) (*curve)[i], (int) (*curve)[i + 1] });
+        {
+            const auto battery = (int) (*curve)[i + 1];
+            x.todayCurve.push_back ({ (int) (*curve)[i], juce::jmax (0, battery), battery < 0 });
+        }
 
     if (const auto* history = e["history"].getArray())
         for (const auto& record : *history)

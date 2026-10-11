@@ -20,16 +20,17 @@ void SpectrumAnalyser::prepare (double sampleRate)
 {
     // Frames stay ~43 ms long; the stride keeps analysed frames per second constant.
     const auto order = sampleRate <= 50000.0 ? 11 : (sampleRate <= 100000.0 ? 12 : 13);
-    fft = std::make_unique<juce::dsp::FFT> (order);
+    fft = std::make_unique<RealFft> (order);
     fftSize = fft->getSize();
     frameStride = fftSize / 2048;
 
+    // Fresh vectors: resize() would keep the capacity of a higher rate.
     const auto numBins = fftSize / 2 + 1;
-    window.resize ((size_t) fftSize);
-    frameLeft.assign ((size_t) fftSize, 0.0f);
-    frameRight.assign ((size_t) fftSize, 0.0f);
-    fftBuffer.assign ((size_t) fftSize * 2, 0.0f);
-    power.assign ((size_t) numBins, 0.0f);
+    window = std::vector<float> ((size_t) fftSize);
+    frameLeft = std::vector<float> ((size_t) fftSize, 0.0f);
+    frameRight = std::vector<float> ((size_t) fftSize, 0.0f);
+    fftBuffer = std::vector<float> ((size_t) fftSize * 2, 0.0f);
+    power = std::vector<float> ((size_t) numBins, 0.0f);
 
     double windowEnergy = 0.0;
 
@@ -111,7 +112,7 @@ void SpectrumAnalyser::analyseFrame() noexcept
         juce::FloatVectorOperations::multiply (fftBuffer.data(), frame->data(), window.data(), fftSize);
         std::fill (fftBuffer.begin() + fftSize, fftBuffer.end(), 0.0f);
 
-        fft->performRealOnlyForwardTransform (fftBuffer.data(), true);
+        fft->performRealOnlyForwardTransform (fftBuffer.data());
 
         for (int k = 0; k < numBins; ++k)
         {

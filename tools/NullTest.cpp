@@ -2,13 +2,15 @@
 // ----------------
 // Loads the installed brEARk VST3 and AU the way a host does, streams noise
 // through them in irregular block sizes at several sample rates, layouts and
-// precisions, and requires the output to be bit-identical to the input.
+// precisions, switching the plugin off (host bypass) and on again mid-stream,
+// and requires the output to be bit-identical to the input.
 //
 // Usage: brEARk_NullTest [path/to/brEARk.vst3]
 // Exit code 0 = every pass is bit-exact.
 
 #include <juce_audio_processors_headless/juce_audio_processors_headless.h>
 
+#include <AudioToolbox/AudioUnit.h>
 #include <cstring>
 #include <iostream>
 
@@ -22,6 +24,47 @@ struct Totals
     int passes   = 0;
     int failures = 0;
 };
+
+AudioUnit audioUnitOf (juce::AudioPluginInstance& plugin)
+{
+    const auto* client = plugin.getAudioUnitClient();
+    return client != nullptr ? client->getAudioUnitHandle() : nullptr;
+}
+
+// Switches the plugin off or on the way each format's hosts do it. JUCE's
+// VST3 host uses the plugin's bypass parameter; for an AU without parameters
+// JUCE's host would bypass on its own side, so the AU property is set directly.
+bool canBypass (juce::AudioPluginInstance& plugin)
+{
+    const auto audioUnit = audioUnitOf (plugin);
+
+    if (audioUnit == nullptr)
+        return plugin.getBypassParameter() != nullptr;
+
+    UInt32 size = 0;
+    Boolean writable = false;
+    return AudioUnitGetPropertyInfo (audioUnit, kAudioUnitProperty_BypassEffect, kAudioUnitScope_Global, 0, &size, &writable) == noErr
+        && writable;
+}
+
+template <typename SampleType>
+void process (juce::AudioPluginInstance& plugin, juce::AudioBuffer<SampleType>& block, juce::MidiBuffer& midi, bool bypassed)
+{
+    if (const auto audioUnit = audioUnitOf (plugin))
+    {
+        UInt32 value = bypassed ? 1 : 0;
+        AudioUnitSetProperty (audioUnit, kAudioUnitProperty_BypassEffect, kAudioUnitScope_Global, 0, &value, sizeof (value));
+        plugin.processBlock (block, midi);
+    }
+    else if (bypassed)
+    {
+        plugin.processBlockBypassed (block, midi);
+    }
+    else
+    {
+        plugin.processBlock (block, midi);
+    }
+}
 
 template <typename SampleType>
 void fillTestSignal (juce::AudioBuffer<SampleType>& buffer, juce::Random& rng)
@@ -92,7 +135,8 @@ bool runPass (juce::AudioPluginInstance& plugin, double sampleRate,
         for (int ch = 0; ch < numChannels; ++ch)
             block.copyFrom (ch, 0, input, ch, pos, n);
 
-        plugin.processBlock (block, midi);
+        // Every 50 blocks, 20 go through the host's bypass (brEARk switched off).
+        process (plugin, block, midi, step % 50 >= 30);
 
         for (int ch = 0; ch < numChannels && ok; ++ch)
         {
@@ -140,6 +184,14 @@ void testPlugin (const juce::AudioPluginFormatManager& formats, const juce::Plug
         std::cout << "  FAIL  could not load: " << error << "\n";
         ++totals.failures;
         return;
+    }
+
+    // Without a bypass parameter the host would bypass on its own side and
+    // brEARk's switched-off path would never run.
+    if (! canBypass (*plugin))
+    {
+        std::cout << "  FAIL  no bypass parameter: the host can't switch brEARk off\n";
+        ++totals.failures;
     }
 
     const double rates[] = { 44100.0, 48000.0, 96000.0, 192000.0 };

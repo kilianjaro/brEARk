@@ -38,5 +38,8 @@ private:
     std::unique_ptr<AlertSound> sound;
     std::unique_ptr<ToastWindow> toast;
 
+    // Test tools (the soak test) set BREARK_QUIET: alerts run, but nothing pops up or plays.
+    const bool quiet = juce::SystemStats::getEnvironmentVariable ("BREARK_QUIET", {}).isNotEmpty();
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AlertPresenter)
 };

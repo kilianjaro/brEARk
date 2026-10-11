@@ -52,6 +52,10 @@ public:
 
             expectEquals (wordFor ([] (Snapshot& s) { s.recovering = true; }).word, juce::String ("RESTING."));
             expectEquals (wordFor ([] (Snapshot&) {}, false).word, juce::String ("INACTIVE."));
+
+            const auto off = wordFor ([] (Snapshot& s) { s.hostOff = true; s.breakPhase = BreakPhase::unplugged; });
+            expectEquals (off.word, juce::String ("OFF."), "switched off in Live wins over the frozen break state");
+            expect (! off.alarm && off.status.contains ("NOT COUNTING"));
         }
 
         beginTest ("Exports and test mode show in the status line, with a real middle dot");

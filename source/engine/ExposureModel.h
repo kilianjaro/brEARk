@@ -36,6 +36,7 @@ struct CurvePoint
 {
     int minute = 0;  // minutes since the day started (05:00)
     int battery = 0; // %
+    bool off = false; // brEARk was switched off in Live
 };
 
 struct DayRecord
@@ -46,6 +47,7 @@ struct DayRecord
     int breaks = 0;
     int powerDowns = 0; // HARD: times the plug was pulled
     int snoozes = 0;
+    double offSeconds = 0.0; // switched off in Live
 };
 
 // Everything that survives a restart of Live.
@@ -60,6 +62,7 @@ struct ExposureState
     int breaksToday = 0;
     int powerDownsToday = 0;
     int snoozesToday = 0;
+    double offSecondsToday = 0.0;        // switched off in Live: not measured
     double referenceLufs = model::initialReferenceLufs;
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
     std::vector<CurvePoint> todayCurve;  // battery, one point per minute the plugin ran
@@ -87,6 +90,10 @@ public:
     // hours Live was closed (pass silent = true).
     void advance (const ListeningPeriod& period, juce::Time now);
 
+    // brEARk was switched off in Live for this long: nothing drains or
+    // recovers, the time is only counted and marked OFF in today's curve.
+    void addOffTime (double seconds, juce::Time now);
+
     // Estimated levels at the listening position for the current settings.
     double perceivedSpl (float lufsShortTerm) const noexcept; // drives the battery
     double doseSpl (float levelA) const noexcept;             // dB(A), drives the dose
@@ -112,7 +119,7 @@ private:
     void rollOverIfNewDay (juce::Time now);
     void listen (const ListeningPeriod& period);
     void rest (double seconds, bool onBreak) noexcept;
-    void recordCurve (juce::Time now);
+    void recordCurve (juce::Time now, bool off);
 
     Settings settings;
     ExposureState state;

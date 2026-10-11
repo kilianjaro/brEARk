@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace breark
 {
@@ -119,18 +120,22 @@ void Brain::run()
 
         const auto busyStart = juce::Time::getHighResolutionTicks();
         const auto nowMs = juce::Time::getMillisecondCounterHiRes();
+        const auto wakeSeconds = (nowMs - lastWakeMs) / 1000.0;
 
         ++wakes;
         maxWakeGapMs = std::max (maxWakeGapMs, nowMs - lastWakeMs);
+        secondSleptSeconds += sleepDetector.update (nowMs, juce::Time::currentTimeMillis());
 
         updateConfiguration();
-        updateRenderState ((nowMs - lastWakeMs) / 1000.0);
+        updateRenderState (wakeSeconds);
+        updateHostState (wakeSeconds);
         lastWakeMs = nowMs;
 
         analyseAvailable();
 
         PlayheadTracker::Transport transport;
-        transport.playing = transportPlaying.load (std::memory_order_relaxed) && ! rendering;
+        transport.playing = transportPlaying.load (std::memory_order_relaxed) && ! rendering
+                         && host.getState() == HostState::playing;
         transport.ppq = transportPpq.load (std::memory_order_relaxed);
         transport.barLengthQuarters = barLengthQuarters.load (std::memory_order_relaxed);
         playhead.update (transport, nowMs / 1000.0);
@@ -138,7 +143,7 @@ void Brain::run()
         if (nowMs - secondStartMs >= 1000.0)
         {
             summariseSecond ((nowMs - secondStartMs) / 1000.0);
-            updateModel ((nowMs - secondStartMs) / 1000.0);
+            updateModel ((nowMs - secondStartMs) / 1000.0, std::exchange (secondOffSeconds, 0.0), std::exchange (secondSleptSeconds, 0.0));
             secondStartMs = nowMs;
         }
 
@@ -177,7 +182,7 @@ void Brain::saveState()
     secondsSinceSave = 0.0;
 }
 
-void Brain::updateModel (double wallSeconds)
+void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeconds)
 {
     // Entering time-warp: secure the real state. Leaving it: restore it.
     if (const auto warp = timeWarp.load(); warp != activeWarp)
@@ -191,20 +196,43 @@ void Brain::updateModel (double wallSeconds)
     }
 
     exposure.setSettings (getSettings());
+    const auto now = juce::Time::getCurrentTime();
+
+    // The Mac slept: the ears rested, as when Live is closed.
+    if (sleptSeconds > 0.0)
+    {
+        ListeningPeriod asleep; // silent
+        asleep.seconds = sleptSeconds;
+        exposure.advance (asleep, now);
+
+        BreakInputs restInputs; // silent
+        restInputs.seconds = sleptSeconds;
+        restInputs.battery = exposure.getState().battery;
+        restInputs.suggestedBreakMinutes = exposure.suggestedBreakMinutes();
+        restInputs.strictness = exposure.getSettings().strictness;
+        advanceBreaks (restInputs);
+    }
+
+    // Switched off in Live: that time is frozen (nothing drains, recovers or
+    // escalates) and only counted for the history. Settings and buttons still
+    // apply, in zero time.
+    offSeconds = std::min (offSeconds, wallSeconds);
+    const auto onSeconds = wallSeconds - offSeconds;
+    const auto frozen = onSeconds <= 0.0;
+    exposure.addOffTime (offSeconds * activeWarp, now);
 
     const auto lufs = loudness.getShortTermLufs();
-    const auto now = juce::Time::getCurrentTime();
     // Exports never reach the ears, and neither does sound while unplugged.
     const auto muted = breaks.getPhase() == BreakPhase::unplugged;
-    const auto silent = rendering || muted || ! (lufs > model::silenceThresholdLufs);
+    const auto silent = frozen || rendering || muted || ! (lufs > model::silenceThresholdLufs);
 
     // Factor inputs, averaged over ~10 s of playback.
-    auto smooth = [wallSeconds] (double& smoothed, double value)
+    auto smooth = [onSeconds] (double& smoothed, double value)
     {
         if (! std::isfinite (value))
             return;
 
-        smoothed = std::isfinite (smoothed) ? smoothed + (value - smoothed) * std::min (1.0, wallSeconds / model::factorSmoothingSeconds)
+        smoothed = std::isfinite (smoothed) ? smoothed + (value - smoothed) * std::min (1.0, onSeconds / model::factorSmoothingSeconds)
                                             : value;
     };
 
@@ -215,8 +243,11 @@ void Brain::updateModel (double wallSeconds)
         smooth (smoothedPsr, (double) loudness.getShortTermPeakDb() - lufs);
     }
 
-    loops.update (wallSeconds, silent);
-    creep.add (lufs, wallSeconds, silent);
+    if (! frozen)
+    {
+        loops.update (onSeconds, silent);
+        creep.add (lufs, onSeconds, silent);
+    }
 
     FactorInputs inputs;
     inputs.presenceToBodyDb = smoothedPresence;
@@ -229,7 +260,7 @@ void Brain::updateModel (double wallSeconds)
     const auto factors = silent ? FatigueFactors {} : computeFatigueFactors (inputs);
 
     ListeningPeriod period;
-    period.seconds = wallSeconds * activeWarp;
+    period.seconds = onSeconds * activeWarp;
     period.lufsShortTerm = lufs;
     period.levelA = working.levelA;
     period.silent = silent;
@@ -251,18 +282,7 @@ void Brain::updateModel (double wallSeconds)
     breakInputs.recording = transportRecording.load (std::memory_order_relaxed);
     breakInputs.suggestedBreakMinutes = exposure.suggestedBreakMinutes();
     breakInputs.strictness = exposure.getSettings().strictness;
-
-    if (auto alerts = breaks.advance (breakInputs); ! alerts.empty())
-    {
-        for (const auto& alert : alerts)
-        {
-            if (alert.kind == AlertKind::unplug)  exposure.countPowerDown();
-            if (alert.kind == AlertKind::snoozed) exposure.countSnooze();
-        }
-
-        const std::scoped_lock lock (alertsMutex);
-        pendingAlerts.insert (pendingAlerts.end(), alerts.begin(), alerts.end());
-    }
+    advanceBreaks (breakInputs);
 
     unplugTarget.store (breaks.isUnplugRequested(), std::memory_order_relaxed);
 
@@ -279,6 +299,7 @@ void Brain::updateModel (double wallSeconds)
     working.listeningSecondsToday = state.listeningSecondsToday;
     working.secondsSinceBreak = state.secondsSinceBreak;
     working.breaksToday = state.breaksToday;
+    working.offSecondsToday = state.offSecondsToday;
     working.recovering = exposure.isRecovering();
     working.suggestedBreakMinutes = (float) exposure.suggestedBreakMinutes();
     working.settings = exposure.getSettings();
@@ -316,11 +337,46 @@ void Brain::updateModel (double wallSeconds)
             history.lastDays.push_back (record);
 
     history.lastDays.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday,
-                                  state.powerDownsToday, state.snoozesToday });
+                                  state.powerDownsToday, state.snoozesToday, state.offSecondsToday });
 
     const std::scoped_lock lock (snapshotMutex);
     publishedHistory = std::move (history);
     working.transportRecording = transportRecording.load (std::memory_order_relaxed);
+}
+
+void Brain::advanceBreaks (const BreakInputs& inputs)
+{
+    auto alerts = breaks.advance (inputs);
+
+    if (alerts.empty())
+        return;
+
+    for (const auto& alert : alerts)
+    {
+        if (alert.kind == AlertKind::unplug)  exposure.countPowerDown();
+        if (alert.kind == AlertKind::snoozed) exposure.countSnooze();
+    }
+
+    const std::scoped_lock lock (alertsMutex);
+    pendingAlerts.insert (pendingAlerts.end(), alerts.begin(), alerts.end());
+}
+
+void Brain::updateHostState (double wallSeconds)
+{
+    const auto processed = samplesProcessed.load (std::memory_order_relaxed);
+    const auto bypassed = samplesBypassed.load (std::memory_order_relaxed);
+    const auto before = host.getState();
+    const auto state = host.update (processed - hostProcessedSeen, bypassed - hostBypassedSeen, wallSeconds);
+    hostProcessedSeen = processed;
+    hostBypassedSeen = bypassed;
+
+    // The last audio must neither keep counting after it stopped nor linger
+    // when brEARk is switched back on.
+    if (state != before && state != HostState::playing)
+        loudness.reset();
+
+    if (state == HostState::off)
+        secondOffSeconds += wallSeconds;
 }
 
 void Brain::updateConfiguration()
@@ -442,6 +498,8 @@ void Brain::publishSnapshot()
     working.lufsShortTerm = loudness.getShortTermLufs();
     working.peakShortTerm = loudness.getShortTermPeakDb();
     working.silent = ! (working.lufsShortTerm > model::silenceThresholdLufs);
+    working.hostOff = host.getState() == HostState::off;
+    working.audioStalled = host.getState() == HostState::stalled;
     working.sampleRate = preparedRate;
     working.fftSize = spectrum.getFftSize();
     working.rendering = rendering;

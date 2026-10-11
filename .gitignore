@@ -1,5 +1,7 @@
 # Build output
 build/
+build-*/
+build-*.log
 cmake-build-*/
 
 # IDEs

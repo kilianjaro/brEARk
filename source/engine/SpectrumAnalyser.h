@@ -1,6 +1,8 @@
 #pragma once
 
-#include <juce_dsp/juce_dsp.h>
+#include "RealFft.h"
+
+#include <juce_audio_basics/juce_audio_basics.h>
 
 #include <memory>
 #include <vector>
@@ -44,7 +46,7 @@ private:
     void analyseFrame() noexcept;
     double weightedSum (const std::vector<float>& table) const noexcept;
 
-    std::unique_ptr<juce::dsp::FFT> fft;
+    std::unique_ptr<RealFft> fft;
     int fftSize = 0;
     int frameStride = 1;
     int fill = 0;

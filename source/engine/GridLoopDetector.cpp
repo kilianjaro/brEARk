@@ -18,15 +18,16 @@ void GridLoopDetector::prepare (double newSampleRate)
 
     // ~46 ms window at any sample rate.
     const auto order = sampleRate <= 50000.0 ? 11 : (sampleRate <= 100000.0 ? 12 : 13);
-    fft = std::make_unique<juce::dsp::FFT> (order);
+    fft = std::make_unique<RealFft> (order);
     fftSize = fft->getSize();
 
-    window.resize ((size_t) fftSize);
+    // Fresh vectors: resize() would keep the capacity of a higher rate.
+    window = std::vector<float> ((size_t) fftSize);
 
     for (int n = 0; n < fftSize; ++n)
         window[(size_t) n] = (float) (0.5 - 0.5 * std::cos (juce::MathConstants<double>::twoPi * n / fftSize));
 
-    fftBuffer.assign ((size_t) fftSize * 2, 0.0f);
+    fftBuffer = std::vector<float> ((size_t) fftSize * 2, 0.0f);
 
     const auto numBins = fftSize / 2 + 1;
 
@@ -158,7 +159,7 @@ void GridLoopDetector::analyseReadySlots()
             fftBuffer[(size_t) n] = ring[(size_t) ((first + n) & (ringSize - 1))] * window[(size_t) n];
 
         std::fill (fftBuffer.begin() + fftSize, fftBuffer.end(), 0.0f);
-        fft->performRealOnlyForwardTransform (fftBuffer.data(), true);
+        fft->performRealOnlyForwardTransform (fftBuffer.data());
 
         BandFrame bands {};
 

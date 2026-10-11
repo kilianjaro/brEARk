@@ -60,6 +60,15 @@ public:
     template <typename SampleType>
     void process (juce::AudioBuffer<SampleType>& buffer, bool unplug, bool exporting) noexcept;
 
+    // The audio passes untouched (an export, or brEARk switched off in Live).
+    // A ramp in progress jumps to its end state, so it never resumes on stale
+    // buffer content.
+    void skipRamp() noexcept
+    {
+        if (stage == Stage::spinningDown) setStage (Stage::stopped);
+        if (stage == Stage::spinningUp)   setStage (Stage::run);
+    }
+
 private:
     void adoptBuffers() noexcept;
     void begin (Stage newStage) noexcept;
@@ -106,12 +115,10 @@ bool PowerDown::isAudible (const juce::AudioBuffer<SampleType>& buffer) noexcept
 template <typename SampleType>
 void PowerDown::process (juce::AudioBuffer<SampleType>& buffer, bool unplug, bool exporting) noexcept
 {
-    // An export never reaches the ears: always untouched. A ramp in progress
-    // jumps to its end state, so it never resumes on stale buffer content.
+    // An export never reaches the ears: always untouched.
     if (exporting)
     {
-        if (stage == Stage::spinningDown) setStage (Stage::stopped);
-        if (stage == Stage::spinningUp)   setStage (Stage::run);
+        skipRamp();
         return;
     }
 
@@ -153,7 +160,11 @@ void PowerDown::process (juce::AudioBuffer<SampleType>& buffer, bool unplug, boo
     }
 
     constexpr auto pi = juce::MathConstants<double>::pi;
-    const auto ring = active;
+
+    // Right after a sample-rate change the ring may still be sized for the old
+    // rate (the message thread replaces it within ~0.5 s): too short for the
+    // read head's lag, so such a ramp uses the plain fade instead.
+    const auto ring = active != nullptr && juce::exactlyEqual (active->sampleRate, rate) ? active : nullptr;
 
     for (int i = 0; i < numSamples; ++i)
     {

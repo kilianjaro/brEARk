@@ -57,7 +57,9 @@ Weekly stats complement the daily dose (reference frameworks to evaluate in step
 
 - **Detection, automatic + manual:**
   - Silence on the master or stopped playback counts as recovery automatically.
+  - So does time when nothing reaches the ears: Live closed, the Mac asleep, or no audio from Live at all (audio device stopped, changed or unplugged).
   - A big **BREAK** button starts a guided break with a countdown.
+- **brEARk switched off in Live** (device off): everything **freezes**. Nothing drains, recovers or escalates, and the time shows as **OFF** in the history. *(M8 decision. If Live stops calling a switched-off plugin instead of bypassing it, brEARk can't tell that from a stopped audio device, and it counts as silence.)*
 - **Recovery:** realistic curve. Short breaks count partially.
 - **Break length:** **adaptive**. It scales with how drained the battery is and how heavy the day has been, from ~5 min (light) to 15–20+ min (heavy day). The coach announces it.
 
@@ -140,12 +142,13 @@ Example lines:
 
 - **Hero:** a **one-word poster**, a huge bold state word.
   - Proposal: `FRESH.` → `OK.` → `TIRING.` → `BREAK.` → `STOP.`, plus `RESTING.` and `UNPLUGGED.`
+  - Built (M7/M8): also `INACTIVE.` (a second instance) and `OFF.` (switched off in Live).
 - **Texture:** **raw technical data**, small, monospaced, almost decorative, but true:
   - EAR BATTERY % and DAILY DOSE bar
   - Time stats: listening today, since last break, breaks taken
   - Loudness: short-term LUFS, estimated level band, level creep
   - Factor breakdown: harshness, dynamics, loop count, time of day, i.e. *why* it's draining
-- **History graph** (today's curve + weekly bars) is **hidden behind a button**, not always visible.
+- **History graph** (today's curve + weekly bars) is **hidden behind a button**, not always visible. Time switched off is hatched and labelled **OFF**, with a daily total.
 - **Controls:**
   - `MONITORS/HEADPHONES` · `QUIET/NORMAL/LOUD` · `GENTLE/ESCALATING/HARD`
   - **BREAK** button
@@ -162,7 +165,7 @@ Example lines:
 
 - Exposure is remembered **daily, across Live sessions and projects**. Reopening Live does not reset it.
 - **Weekly history** for long-term awareness.
-- Logged: listening time, dose, breaks, snoozes, power-downs.
+- Logged: listening time, dose, breaks, snoozes, power-downs, time switched off.
 
 ---
 

@@ -31,6 +31,13 @@ struct ListeningPeriod
     double fatigueFactor = 1.0;                                    // M3: harshness · dynamics · repetition · night
 };
 
+// One battery sample per minute of the day, for the history view.
+struct CurvePoint
+{
+    int minute = 0;  // minutes since the day started (05:00)
+    int battery = 0; // %
+};
+
 struct DayRecord
 {
     int day = 0;            // see ExposureModel::dayNumber()
@@ -55,6 +62,7 @@ struct ExposureState
     int snoozesToday = 0;
     double referenceLufs = model::initialReferenceLufs;
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
+    std::vector<CurvePoint> todayCurve;  // battery, one point per minute the plugin ran
     std::vector<DayRecord> history;      // previous days, oldest first
 };
 
@@ -96,11 +104,15 @@ public:
     // Days since 1970-01-01 in local time, with the day starting at 05:00.
     static int dayNumber (juce::Time localTime) noexcept;
 
+    // Minutes since the day started (05:00), 0–1439.
+    static int minuteOfDay (juce::Time localTime) noexcept;
+
 private:
     double presetSpl() const noexcept;
     void rollOverIfNewDay (juce::Time now);
     void listen (const ListeningPeriod& period);
     void rest (double seconds, bool onBreak) noexcept;
+    void recordCurve (juce::Time now);
 
     Settings settings;
     ExposureState state;

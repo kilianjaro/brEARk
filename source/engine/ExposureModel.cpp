@@ -32,6 +32,11 @@ int ExposureModel::dayNumber (juce::Time localTime) noexcept
     return daysFromCivil (shifted.getYear(), shifted.getMonth() + 1, shifted.getDayOfMonth());
 }
 
+int ExposureModel::minuteOfDay (juce::Time localTime) noexcept
+{
+    return ((localTime.getHours() - model::dayStartHour + 24) % 24) * 60 + localTime.getMinutes();
+}
+
 double ExposureModel::presetSpl() const noexcept
 {
     const auto base = settings.preset == LevelPreset::quiet ? model::presetSplQuiet
@@ -68,6 +73,19 @@ void ExposureModel::advance (const ListeningPeriod& period, juce::Time now)
 
     if (state.silenceSeconds < model::breakMinimumSeconds)
         state.secondsSinceBreak += period.seconds;
+
+    recordCurve (now);
+}
+
+void ExposureModel::recordCurve (juce::Time now)
+{
+    const auto minute = minuteOfDay (now);
+    const auto battery = juce::roundToInt (state.battery);
+
+    if (state.todayCurve.empty() || state.todayCurve.back().minute != minute)
+        state.todayCurve.push_back ({ minute, battery });
+    else
+        state.todayCurve.back().battery = battery;
 }
 
 void ExposureModel::rest (double seconds, bool onBreak) noexcept
@@ -143,6 +161,7 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
     state.breaksToday = 0;
     state.powerDownsToday = 0;
     state.snoozesToday = 0;
+    state.todayCurve.clear();
 }
 
 //==============================================================================

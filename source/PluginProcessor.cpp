@@ -108,6 +108,19 @@ void BrearkProcessor::processBlock (juce::AudioBuffer<double>& buffer, juce::Mid
 }
 
 //==============================================================================
+void BrearkProcessor::getStateInformation (juce::MemoryBlock& destination)
+{
+    juce::XmlElement state ("brEARk");
+    state.setAttribute ("poster", posterSize);
+    copyXmlToBinary (state, destination);
+}
+
+void BrearkProcessor::setStateInformation (const void* data, int size)
+{
+    if (const auto state = getXmlFromBinary (data, size); state != nullptr && state->hasTagName ("brEARk"))
+        posterSize = state->getBoolAttribute ("poster", false);
+}
+
 juce::AudioProcessorEditor* BrearkProcessor::createEditor()
 {
     return new BrearkEditor (*this);

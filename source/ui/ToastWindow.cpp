@@ -3,25 +3,44 @@
 
 namespace
 {
-const auto paper  = juce::Colour (0xffededed);
-const auto ink    = juce::Colour (0xff0a0a0a);
-const auto signalRed = juce::Colour (0xffe10600);
+using namespace breark::ui;
 
-constexpr int width = 420, height = 150, margin = 16;
+constexpr int margin = 16;
 constexpr int visibleMs = 20000;
 } // namespace
 
+void paintToast (juce::Graphics& g, juce::Rectangle<float> bounds, const ToastContent& content, const Fonts& fonts)
+{
+    g.setColour (content.urgent ? colours::signal : colours::ink);
+    g.fillRect (bounds);
+    g.setColour (colours::white);
+
+    auto area = bounds.reduced ((float) margin, 12.0f);
+
+    g.setFont (fonts.grotesk (14.0f));
+    g.drawText ("brEARk.", area.removeFromTop (22.0f), juce::Justification::centredLeft, false);
+
+    g.setFont (fonts.grotesk (36.0f));
+    g.drawText (content.headline, area.removeFromTop (44.0f), juce::Justification::centredLeft, true);
+
+    g.setFont (fonts.mono (11.5f));
+    g.drawFittedText (content.message, area.removeFromTop (32.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
+
+    g.setColour (colours::white.withAlpha (0.8f));
+    g.setFont (fonts.mono (10.5f));
+    g.drawText (content.detail, area.removeFromBottom (26.0f).withTrimmedRight (140.0f), juce::Justification::centredLeft, true);
+}
+
+//==============================================================================
 ToastWindow::ToastWindow()
 {
     setWantsKeyboardFocus (false);
     setOpaque (true);
+    setLookAndFeel (&look);
 
     for (auto* button : { &breakButton, &snoozeButton, &closeButton })
     {
-        button->setWantsKeyboardFocus (false);
-        button->setColour (juce::TextButton::buttonColourId, paper);
-        button->setColour (juce::TextButton::textColourOffId, ink);
-        button->setColour (juce::ComboBox::outlineColourId, paper);
+        Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
     }
 
@@ -48,6 +67,7 @@ ToastWindow::ToastWindow()
 ToastWindow::~ToastWindow()
 {
     stopTimer();
+    setLookAndFeel (nullptr);
 }
 
 void ToastWindow::show (const ToastContent& newContent)
@@ -89,6 +109,7 @@ void ToastWindow::resized()
 {
     auto area = getLocalBounds().reduced (margin, 12);
     closeButton.setBounds (area.removeFromTop (22).removeFromRight (28));
+
     const auto buttonRow = area.removeFromBottom (26).removeFromRight (130);
     breakButton.setBounds (buttonRow);
     snoozeButton.setBounds (buttonRow);
@@ -96,22 +117,5 @@ void ToastWindow::resized()
 
 void ToastWindow::paint (juce::Graphics& g)
 {
-    g.fillAll (content.urgent ? signalRed : ink);
-    g.setColour (paper);
-
-    auto area = getLocalBounds().reduced (margin, 12);
-
-    g.setFont (juce::Font (juce::FontOptions (14.0f, juce::Font::bold)));
-    g.drawText ("brEARk.", area.removeFromTop (22), juce::Justification::centredLeft, false);
-
-    g.setFont (juce::Font (juce::FontOptions (38.0f, juce::Font::bold)));
-    g.drawText (content.headline, area.removeFromTop (44), juce::Justification::centredLeft, true);
-
-    const auto mono = juce::Font::getDefaultMonospacedFontName();
-    g.setFont (juce::Font (juce::FontOptions (mono, 12.0f, juce::Font::plain)));
-    g.drawFittedText (content.message, area.removeFromTop (30), juce::Justification::topLeft, 2);
-
-    g.setColour (paper.withAlpha (0.7f));
-    g.setFont (juce::Font (juce::FontOptions (mono, 11.0f, juce::Font::plain)));
-    g.drawText (content.detail, area.removeFromBottom (26), juce::Justification::centredLeft, true);
+    paintToast (g, getLocalBounds().toFloat(), content, *fonts);
 }

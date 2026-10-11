@@ -52,19 +52,32 @@ set(BREARK_ENGINE_SOURCES
 
 option(BREARK_DEV_METRICS "Measure audio-thread time per block (shown in the debug view)" ON)
 
-target_sources(brEARk PRIVATE
+# Everything else in the plugin (also built into the UI render tool).
+set(BREARK_PLUGIN_SOURCES
     source/PluginProcessor.cpp
     source/PluginEditor.cpp
+    source/DebugView.cpp
     source/AlertPresenter.cpp
     source/coach/Coach.cpp
     source/coach/CoachLines.cpp
     source/ui/ToastWindow.cpp
+    source/ui/Look.cpp
+    source/ui/MeterView.cpp
+    source/ui/HistoryView.cpp
     source/platform/AlertSound_mac.mm
-    source/platform/WindowTweaks_mac.mm
+    source/platform/WindowTweaks_mac.mm)
+
+target_sources(brEARk PRIVATE
+    ${BREARK_PLUGIN_SOURCES}
     ${BREARK_ENGINE_SOURCES})
 
 # The alert sound, embedded in the plugin binary (BinaryData::alert_mp3).
-juce_add_binary_data(breark_assets SOURCES assets/alert.mp3 assets/coach/lines.txt)
+juce_add_binary_data(breark_assets SOURCES
+    assets/alert.mp3
+    assets/coach/lines.txt
+    assets/fonts/SpaceGrotesk-Bold.ttf
+    assets/fonts/SpaceMono-Regular.ttf
+    assets/fonts/SpaceMono-Bold.ttf)
 
 target_include_directories(brEARk PRIVATE source)
 
@@ -117,8 +130,11 @@ if(BREARK_BUILD_TOOLS)
         tests/BreakControllerTests.cpp
         tests/PowerDownTests.cpp
         tests/CoachTests.cpp
+        tests/MeterModelTests.cpp
         source/coach/Coach.cpp
         source/coach/CoachLines.cpp
+        source/ui/Look.cpp
+        source/ui/MeterView.cpp
         ${BREARK_ENGINE_SOURCES})
 
     target_include_directories(brEARk_Tests PRIVATE source)
@@ -130,12 +146,41 @@ if(BREARK_BUILD_TOOLS)
 
     target_link_libraries(brEARk_Tests
         PRIVATE
+            breark_assets
+            juce::juce_gui_basics
             juce::juce_dsp
         PUBLIC
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
 
     add_test(NAME brEARk_Tests COMMAND brEARk_Tests)
+
+    # Renders the UI (every state, both sizes, history, pop-ups) to PNG files.
+    juce_add_console_app(brEARk_RenderUI PRODUCT_NAME "brEARk_RenderUI")
+
+    target_sources(brEARk_RenderUI PRIVATE
+        tools/RenderUI.cpp
+        ${BREARK_PLUGIN_SOURCES}
+        ${BREARK_ENGINE_SOURCES})
+
+    target_include_directories(brEARk_RenderUI PRIVATE source ${BREARK_GENERATED_DIR})
+    add_dependencies(brEARk_RenderUI breark_build_info)
+
+    target_compile_definitions(brEARk_RenderUI PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JucePlugin_Name="brEARk"
+        BREARK_DEV_METRICS=1)
+
+    target_link_libraries(brEARk_RenderUI
+        PRIVATE
+            breark_assets
+            juce::juce_audio_utils
+            juce::juce_dsp
+            "-framework AVFoundation"
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
 
     # Hosts the installed VST3 + AU and proves output == input, bit for bit.
     juce_add_console_app(brEARk_NullTest PRODUCT_NAME "brEARk_NullTest")

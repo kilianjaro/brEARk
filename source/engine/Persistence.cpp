@@ -54,10 +54,16 @@ bool save (const juce::File& file, const PersistedState& state)
     settings->setProperty ("preset", presetNames[(int) state.settings.preset]);
     settings->setProperty ("strictness", strictnessNames[(int) state.settings.strictness]);
 
-    juce::Array<juce::var> history;
+    juce::Array<juce::var> history, curve;
 
     for (const auto& record : e.history)
         history.add (toVar (record));
+
+    for (const auto& point : e.todayCurve) // flat pairs: minute, battery, minute, battery …
+    {
+        curve.add (point.minute);
+        curve.add (point.battery);
+    }
 
     auto exposure = std::make_unique<juce::DynamicObject>();
     exposure->setProperty ("day", e.day);
@@ -71,6 +77,7 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("snoozesToday", e.snoozesToday);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
+    exposure->setProperty ("todayCurve", curve);
     exposure->setProperty ("history", history);
 
     auto root = std::make_unique<juce::DynamicObject>();
@@ -119,6 +126,10 @@ std::optional<PersistedState> load (const juce::File& file)
     x.snoozesToday = (int) e["snoozesToday"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly
+
+    if (const auto* curve = e["todayCurve"].getArray())
+        for (int i = 0; i + 1 < curve->size(); i += 2)
+            x.todayCurve.push_back ({ (int) (*curve)[i], (int) (*curve)[i + 1] });
 
     if (const auto* history = e["history"].getArray())
         for (const auto& record : *history)

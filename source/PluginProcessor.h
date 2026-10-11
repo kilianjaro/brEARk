@@ -24,6 +24,10 @@ public:
     bool isActiveInstance() const noexcept { return brain->isActive (this); }
     breark::PowerDown::Stage getPowerStage() const noexcept { return powerDown.getStage(); }
 
+    // The window size (COMPACT or POSTER), saved with the Live set.
+    bool isPosterSize() const noexcept { return posterSize; }
+    void setPosterSize (bool poster) noexcept { posterSize = poster; }
+
     //==============================================================================
     void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
     void releaseResources() override;
@@ -52,9 +56,9 @@ public:
     const juce::String getProgramName (int) override { return {}; }
     void changeProgramName (int, const juce::String&) override {}
 
-    // Settings are global (Application Support), not stored per Live set.
-    void getStateInformation (juce::MemoryBlock&) override {}
-    void setStateInformation (const void*, int) override {}
+    // Settings are global (Application Support); only the window size is per Live set.
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
 
 private:
     template <typename SampleType>
@@ -66,6 +70,7 @@ private:
     juce::SharedResourcePointer<breark::Brain> brain;
     juce::SharedResourcePointer<AlertPresenter> alertPresenter; // toast + sound, one per process
     breark::PowerDown powerDown;
+    bool posterSize = false; // message thread only
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkProcessor)
 };

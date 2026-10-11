@@ -103,6 +103,16 @@ public:
     // Any non-realtime thread
     Snapshot getSnapshot() const;
 
+    // For the history view: today's battery curve and the last 7 days' doses.
+    struct History
+    {
+        std::vector<CurvePoint> today;
+        int nowMinute = 0;
+        std::vector<DayRecord> lastDays; // up to 7, oldest first, today last
+    };
+
+    History getHistory() const;
+
 private:
     void run() override;
 
@@ -165,6 +175,7 @@ private:
     // Worker → UI / message thread
     mutable std::mutex snapshotMutex;
     Snapshot published;
+    History publishedHistory;
     std::mutex alertsMutex;
     std::vector<Alert> pendingAlerts;
 

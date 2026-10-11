@@ -22,7 +22,7 @@
 | Fatigue model | **Energy bucket + tuned factors**, all constants in one documented file |
 | Repetition | **Hybrid**: playhead bar-histogram + audio fingerprint, take the higher value |
 | Hard mode + recording | Never cut while Live is recording; wait until recording stops |
-| UI | **Space Grotesk + Space Mono** (OFL) · two presets: **COMPACT / POSTER** · calm **4 Hz** refresh |
+| UI | **Design B, the window is the meter**: a black mass fills the window to the battery level, the type inverts where it crosses (red mass at ≤ 20 %, whole window red for STOP. / UNPLUGGED.) · **Space Grotesk Bold + Space Mono** (OFL, embedded) · two presets: **COMPACT 520×320 / POSTER 960×600** (POSTER adds the stats row and HISTORY) · calm **4 Hz** refresh |
 | Coach texts | Built in, plus an optional user file `~/Library/Application Support/brEARk/coach.txt` |
 | Settings scope | **Global** (setup, level preset, strictness), shared by all Live sets |
 
@@ -239,18 +239,20 @@ brEARk/
 ├─ CONCEPT.md · IMPLEMENTATION.md
 ├─ assets/
 │  ├─ alert.mp3              ← your notification sound
-│  ├─ fonts/                 SpaceGrotesk-Bold.ttf · SpaceMono-Regular.ttf · SpaceMono-Bold.ttf
+│  ├─ fonts/                 SpaceGrotesk-Bold.ttf (static 700 instance) · SpaceMono-Regular/Bold.ttf · OFL licences
 │  └─ coach/lines.txt        built-in coach lines (tagged by tone/topic/trigger)
 ├─ source/
 │  ├─ PluginProcessor.*      audio thread: pass-through, FIFO push, PowerDown, atomics
-│  ├─ PluginEditor.*         COMPACT / POSTER views, 4 Hz timer
+│  ├─ PluginEditor.*         COMPACT / POSTER window, buttons, 4 Hz timer
+│  ├─ DebugView.*            DATA: raw numbers, switches, TEST ALERT, build ID
 │  ├─ engine/                Brain · SampleFifo · AnalysisWorker · Loudness · Spectrum · Fingerprint
 │  │                         ExposureModel · BreakController · ModelConstants · Persistence · Snapshot
 │  ├─ dsp/PowerDown.*        vinyl spin-down / spin-up
 │  ├─ coach/Coach.*          event → line, tone by severity, no-repeat shuffle, user file
 │  ├─ platform/              AlertSound_mac.mm · ToastWindow.* (+ _mac.mm)
-│  └─ ui/                    LookAndFeel · PosterView · DataView · HistoryView
-└─ tests/                    unit tests (model, loudness, fifo, power-down)
+│  └─ ui/                    Look (palette, fonts, buttons) · MeterView · HistoryView · ToastWindow · SegmentedControl
+├─ tests/                    unit tests (model, loudness, fifo, power-down, coach, meter) · NullTest
+└─ tools/RenderUI.cpp       renders every UI state to PNG (design review without Live)
 ```
 
 ---
@@ -288,9 +290,9 @@ Each milestone has the same rhythm:
 | **M4** | Break controller + alerts: strictness modes, escalation, BREAK button, toast window, mp3 via system output, recording guard | Full escalation run (time-warped) | Toast never steals focus; alerts never in exports. *Automated: BreakController tests for every rung of the ladder (GENTLE/ESCALATING/HARD), recording guard, silence pausing the clock, re-arm at 30 %, guided break (2036 checks); null test, pluginval (no leaks), auval. Toast: JUCE `windowIgnoresKeyPresses`, so it can never become key; pop-up level; all Spaces and full screen. Sound: `AVAudioPlayer` on the embedded mp3 (1.5 s, −24 dBFS RMS). Pending: Live check by Kilian* |
 | **M5** | Hard mode: PowerDown DSP, minimum break, snooze, export bypass | Vinyl power-down/up by ear | Export nulls; pluginval; no clicks. *Automated: PowerDown tests (untouched while plugged in, 32/64-bit; spin-down to exact zeros; click detector mutation-checked: catches a missing 5 ms crossfade; spin-up back to bit-exact; waits for sound; exports untouched while muted; plain-fade fallback; buffer handover). BreakController: minimum break, snooze exactly 10 min, escape by leaving HARD, ladder again if still drained (2071 checks). pluginval with HARD selected: no leaks. Pending: by ear + export test in Live* |
 | **M6** | Coach: line format, triggers, tone shift, no-repeat, user file, ~150 lines | The coach talks | Lines fit the UI; no repeats within a session. *Built: 177 lines in 33 sections (`assets/coach/lines.txt`, embedded). Tone = witty (battery > 50 %) / mentor / brutal (brutal alerts). Alerts get coach lines; breaks rotate task/care/fact every minute; hints are silent pop-ups (loud, creep, loop, late, harsh, squashed, dose 50/100), max one per 20 min, each with its own cooldown (squashed: 3 h). User file `coach.txt` adds, `!` replaces, reloaded within ~10 s; `coach.example.txt` template. Tests: coverage per event/tone, placeholders, ≤ 104 chars, shuffle bag, hint rate limits, break rotation (2488 checks)* |
-| **M7** | Final UI: brutalist COMPACT / POSTER, fonts, history overlay | The real brEARk | 4 Hz refresh; looks right at both sizes |
+| **M7** | Final UI: brutalist COMPACT / POSTER, fonts, history overlay | The real brEARk | 4 Hz refresh; looks right at both sizes. *Built: design B chosen from mockups. State words FRESH. / OK. / TIRING. / BREAK. / STOP. / RESTING. / UNPLUGGED. / INACTIVE.; the big word is placed by cap height. Settings are cycling labels; POSTER/COMPACT is saved per instance. POSTER: stats row (dose today, week, listened, since break, level, loudness) + factor line + HISTORY overlay (today's battery curve per minute, saved in state.json; 7 days of WHO dose). DATA keeps the debug view and switches. Toasts restyled. `brEARk_RenderUI` renders all states + the real editor to PNG. Tests 2519 checks, null test 24/24, pluginval 10, auval. Pending: Live check by Kilian* |
 | **M8** | Hardening: sample-rate/buffer changes, multi-instance, 3 h soak test, Instruments, universal build | — | All gates in §8 green |
 
 **What I need from you:**
 - **Before M4:** `alert.mp3`, ideally under 3 s, normalized to a comfortable level.
-- **Before M7:** the Space Grotesk / Space Mono font files from Google Fonts. I'll give you the link, or fetch them with your OK.
+- **Before M7:** the Space Grotesk / Space Mono font files from Google Fonts. ✅ Fetched (OFL); the Bold was generated from the variable font, see `assets/fonts/README.md`.

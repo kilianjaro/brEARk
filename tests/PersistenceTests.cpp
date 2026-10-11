@@ -31,6 +31,7 @@ public:
             e.referenceLufs = -9.75;
             e.referencePlaybackSeconds = 4321.0;
             e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2 } };
+            e.todayCurve = { { 270, 100 }, { 271, 99 }, { 400, 31 } };
 
             expect (persistence::save (file, original));
 
@@ -53,6 +54,9 @@ public:
                 expectEquals (x.referenceLufs, e.referenceLufs);
                 expectEquals (x.referencePlaybackSeconds, e.referencePlaybackSeconds);
                 expectEquals ((int) x.history.size(), 2);
+                expectEquals ((int) x.todayCurve.size(), 3);
+                expectEquals (x.todayCurve[2].minute, 400);
+                expectEquals (x.todayCurve[2].battery, 31);
                 expectEquals (x.history[1].day, 20370);
                 expectEquals (x.history[1].dose, 81.5);
                 expectEquals (x.history[1].breaks, 2);

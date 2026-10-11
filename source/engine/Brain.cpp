@@ -97,6 +97,12 @@ Snapshot Brain::getSnapshot() const
     return published;
 }
 
+Brain::History Brain::getHistory() const
+{
+    const std::scoped_lock lock (snapshotMutex);
+    return publishedHistory;
+}
+
 //==============================================================================
 void Brain::run()
 {
@@ -299,6 +305,21 @@ void Brain::updateModel (double wallSeconds)
     working.secondsSinceDue = breaks.getSecondsSinceDue();
     working.breakSecondsLeft = breaks.getBreakSecondsLeft();
     working.transportPlaying = transportPlaying.load (std::memory_order_relaxed);
+
+    // History, once per model tick (cheap: at most 1440 points).
+    History history;
+    history.today = state.todayCurve;
+    history.nowMinute = ExposureModel::minuteOfDay (now);
+
+    for (const auto& record : state.history)
+        if (record.day > state.day - 7)
+            history.lastDays.push_back (record);
+
+    history.lastDays.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday,
+                                  state.powerDownsToday, state.snoozesToday });
+
+    const std::scoped_lock lock (snapshotMutex);
+    publishedHistory = std::move (history);
     working.transportRecording = transportRecording.load (std::memory_order_relaxed);
 }
 

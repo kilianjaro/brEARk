@@ -127,6 +127,26 @@ public:
             expectWithinAbsoluteError (model.getState().history.back().dose, dose, 1.0e-9);
         }
 
+        beginTest ("Today's curve: one battery point per minute, cleared when the day rolls over");
+        {
+            expectEquals (ExposureModel::minuteOfDay (juce::Time (2026, 9, 10, 5, 0)), 0);
+            expectEquals (ExposureModel::minuteOfDay (juce::Time (2026, 9, 11, 4, 59)), 1439);
+
+            auto model = modelAt (-14.0);
+
+            for (int minute = 0; minute < 3; ++minute)
+                for (int second = 0; second < 60; ++second)
+                    playFor (model, -14.0f, 1.0, juce::Time (2026, 9, 10, 12, minute, second));
+
+            const auto& curve = model.getState().todayCurve;
+            expectEquals ((int) curve.size(), 3);
+            expectEquals (curve[0].minute, 7 * 60);
+            expectEquals (curve[2].battery, juce::roundToInt (model.getState().battery));
+
+            model.advance (silence (60.0), juce::Time (2026, 9, 11, 5, 1));
+            expectEquals ((int) model.getState().todayCurve.size(), 1, "a new day starts with a fresh curve");
+        }
+
         beginTest ("Weekly dose = last 7 days / 5");
         {
             ExposureState state;

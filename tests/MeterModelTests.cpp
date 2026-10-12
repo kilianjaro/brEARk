@@ -104,6 +104,36 @@ public:
             expect (wordFor ([] (Snapshot& s) { s.silent = true; }).factors[0].text.startsWith ("SILENCE"));
         }
 
+        beginTest ("End of day and time left (M10)");
+        {
+            const auto done = wordFor ([] (Snapshot& s) { s.dayDone = true; s.battery = 60.0f; });
+            expectEquals (done.word, juce::String ("DONE."));
+            expect (! done.alarm && done.status.contains ("CALL IT A DAY"));
+
+            const auto unplugged = wordFor ([] (Snapshot& s) { s.dayDone = true; s.unpluggedForDay = true; s.breakPhase = BreakPhase::unplugged; });
+            expectEquals (unplugged.word, juce::String ("DONE."));
+            expect (unplugged.alarm && unplugged.status.contains ("05:00"));
+
+            const auto playing = wordFor ([] (Snapshot& s)
+            {
+                s.battery = 60.0f;
+                s.minutesToBreak = 25.2;
+                s.minutesToBreakQuieter = 100.0;
+                s.minutesToFullDose = 190.0;
+                s.monitorOffsetDb = -6.0;
+            });
+            expectEquals (playing.timeLine[0].text, juce::String ("BREAK IN ~25 MIN"));
+            expectEquals (playing.timeLine[1].text, juce::String ("-6 dB: ~1:40 H"));
+            expectEquals (playing.timeLine[2].text, juce::String ("DOSE FULL IN ~3:10 H"));
+            expectEquals (playing.timeLine[3].text, juce::String ("VOLUME -6 dB"));
+
+            const auto resting = wordFor ([] (Snapshot& s) { s.silent = true; s.battery = 40.0f; s.minutesToRecover = 8.4; });
+            expect (resting.timeLine[0].text.startsWith ("RECOVERING") && resting.timeLine[0].text.endsWith ("~8 MIN"));
+
+            for (const auto& item : playing.timeLine)
+                expect (item.tip.containsChar ('\n'), item.text + " has no explanation");
+        }
+
         beginTest ("Hover: the explanation under the mouse");
         {
             const ui::Fonts fonts;
@@ -115,8 +145,9 @@ public:
             expect (ui::tooltipAt (m, ui::MeterSize::poster, { 200.0f, 150.0f }, fonts).startsWith ("Your ear battery in one word"));
             expect (ui::tooltipAt (m, ui::MeterSize::poster, { 600.0f, 40.0f }, fonts).isEmpty());
 
-            // COMPACT: the first item of the first data line (DOSE).
-            expectEquals (ui::tooltipAt (m, ui::MeterSize::compact, { 30.0f, 243.0f }, fonts), ui::tips::doseToday);
+            // COMPACT: the time line first, then the first item of the data lines (DOSE).
+            expectEquals (ui::tooltipAt (m, ui::MeterSize::compact, { 30.0f, 236.0f }, fonts), ui::tips::timeLeft);
+            expectEquals (ui::tooltipAt (m, ui::MeterSize::compact, { 30.0f, 252.0f }, fonts), ui::tips::doseToday);
         }
     }
 };

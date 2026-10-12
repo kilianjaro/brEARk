@@ -57,6 +57,15 @@ struct Snapshot
     double   secondsSinceBreak     = 0.0;
     int      breaksToday           = 0;
     double   offSecondsToday       = 0.0;
+    double   monitorOffsetDb       = 0.0;  // VOLUME (M10)
+    bool     dayDone               = false; // 100 % of the daily dose (M10)
+    bool     unpluggedForDay       = false; // HARD at the end of the day
+    double   minutesToBreak        = std::numeric_limits<double>::infinity(); // at this level (M10)
+    double   minutesToBreakQuieter = std::numeric_limits<double>::infinity(); // 6 dB quieter
+    double   minutesToFullDose     = std::numeric_limits<double>::infinity();
+    double   minutesToRecover      = 0.0;   // silence from now on, to 90 %
+    double   longestStretchToday   = 0.0;
+    int      emptyBatteryToday     = 0;
     bool     recovering            = false;
     float    suggestedBreakMinutes = 5.0f;
     Settings settings;

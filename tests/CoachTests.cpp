@@ -78,7 +78,10 @@ public:
                                        "breakOver", "breakTask", "breakCare", "fact", "idle" })
                 expect (coach.draw (event, CoachTone::mentor, c).isNotEmpty(), juce::String (event) + "/mentor has no lines");
 
-            for (const auto* event : { "reminder", "unplug", "breakDue", "snoozed" })
+            for (const auto* event : { "dayReminder", "dose100" })
+                expect (coach.draw (event, CoachTone::mentor, c).isNotEmpty(), juce::String (event) + "/mentor has no lines");
+
+            for (const auto* event : { "reminder", "unplug", "breakDue", "snoozed", "dayUnplug" })
                 expect (coach.draw (event, CoachTone::brutal, c).isNotEmpty(), juce::String (event) + "/brutal has no lines");
 
             for (const auto* event : { "creep", "loop", "late", "harsh", "squashed", "loud", "dose50", "dose100", "idle", "backOn" })

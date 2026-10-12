@@ -24,6 +24,7 @@ inline juce::String word (const juce::String& w)
     if (w == "UNPLUGGED.") return tip ("HARD mode pulled the plug: the output is muted for at least 5 minutes.", "SNOOZE buys 10 minutes. Leaving HARD mode plugs back in at once.");
     if (w == "OFF.")       return tip ("Live has switched brEARk off: nothing is measured.", "Nothing drains or recovers while it's off. HISTORY shows the time as OFF.");
     if (w == "INACTIVE.")  return tip ("Another brEARk in this Live set is already listening; this one does nothing.", "One brEARk per set, on the master, so nothing is counted twice.");
+    if (w == "DONE.")      return tip ("Today's WHO sound dose is full (100 %). In HARD mode the plug stays out until 05:00.", "More listening today is borrowed from your future ears. Quiet work, or call it a day.");
 
     return tip ("Your ear battery in one word: FRESH above 70 %, OK above 40 %, TIRING below.",
                 "Below 20 % the black turns red; at 0 % it's time for a break.");
@@ -89,6 +90,28 @@ inline const juce::String lateHour = tip ("LATE HOUR: from 22:00 on, full from 0
 inline const juce::String todaysDose = tip ("TODAY'S DOSE: how much of the WHO daily dose you've used.",
                                             "Ears that already had a full day tire faster: up to +50 % at 100 %.");
 
+//── Main window: time left (M10) ──────────────────────────────────────────────
+inline const juce::String timeLeft = tip ("Time until the ear battery is empty, if the level and the drain stay as in the last 2 minutes.",
+                                          "Plan the next break, or turn down to stretch the time.");
+
+inline const juce::String quieter = tip ("The same forecast at 6 dB less, about a quarter of the sound energy.",
+                                         "Turning down buys time. Tell brEARk with the VOLUME buttons; it can't see your monitor knob.");
+
+inline const juce::String doseLeft = tip ("Time until today's WHO dose is full at the level of the last 2 minutes.",
+                                          "After that brEARk says DONE. Every 3 dB quieter doubles this time.");
+
+inline const juce::String recover = tip ("How long silence takes to bring the battery back to 90 %, the end of a suggested break.",
+                                         "Recovery starts after 60 s of silence; the BREAK button starts it at once.");
+
+inline const juce::String dayDone = tip ("Today's WHO dose is full: 8 hours' worth at 80 dB(A).",
+                                         "Quiet work from here, or call it a day. A new day starts at 05:00.");
+
+inline const juce::String volumeSet = tip ("How far you told brEARk you turned your monitors down or up.",
+                                           "Level, time left and dose follow it. NOT THAT LOUD or the next day resets it.");
+
+inline const juce::String volumeButtons = tip ("Tell brEARk you turned your monitors down 6 or 3 dB, or up 3 dB.",
+                                               "brEARk can't see your monitor knob (nor Live's master fader), so the estimate only follows if you tell it.");
+
 inline const juce::String coach = tip ("The coach: what to do now, from brEARk's state.",
                                        "Your own lines can go in ~/Library/Application Support/brEARk/coach.txt.");
 
@@ -141,6 +164,9 @@ inline juce::String day (const juce::String& name, double dose, double listenedS
 
 inline const juce::String close = tip ("Back to the meter.", "HISTORY updates while it's open.");
 
+inline const juce::String weeks = tip ("This week and last week, Monday 05:00 to Monday 05:00. The WHO weekly dose is 5 full days (40 hours at 80 dB(A)).",
+                                       "Above 100 % the week costs more than ears can safely take. A quiet day brings it down.");
+
 //── DATA ──────────────────────────────────────────────────────────────────────
 inline const juce::String back = tip ("Back to the meter.", "Settings changed here apply at once.");
 inline const juce::String timeWarp = tip ("Runs the model clock 60 times faster, to try alerts and HARD mode in minutes.",
@@ -162,6 +188,7 @@ inline juce::String dataRow (const juce::String& label)
     if (label == "EAR BATTERY")  return tip ("The ear battery in %.", "0 %: break due. It refills in silence after a 60 s onset (63 % of the gap in 5 min).");
     if (label == "DOSE")         return tip ("Today's and this week's WHO dose in %.", "100 % today = 8 hours at 80 dB(A); the week allows 5 such days.");
     if (label == "EST. LEVEL")   return tip ("Estimated level at your listening position: perceived (drives the battery), A-weighted (drives the dose), and over 2 minutes.", "An estimate from your preset. NOT THAT LOUD corrects it.");
+    if (label == "FORECAST")     return tip ("At the level of the last 2 minutes: time to an empty battery, the same at 6 dB less, time to a full daily dose, and your VOLUME setting.", "Forecasts assume the level stays. VOLUME follows the -6 / -3 / +3 buttons.");
     if (label == "TODAY")        return tip ("Listening time, time since the last break, breaks today, the suggested break length.", "A silence of 5 minutes or more counts as a break.");
     if (label == "BREAKS")       return tip ("The break controller's state.", "LISTENING, WARNED (20 %), DUE (0 %), ON A BREAK, or UNPLUGGED.");
     if (label == "POWER")        return tip ("HARD mode's power-down stage, and today's power-downs and snoozes.", "RUN: the audio passes untouched.");

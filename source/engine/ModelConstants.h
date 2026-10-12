@@ -108,6 +108,7 @@ inline constexpr double firstReminderSeconds = 10.0 * 60.0; // listening time af
 inline constexpr double reminderIntervalSeconds = 5.0 * 60.0;
 // HARD unplugs at empty (M9, Kilian: "it came too late as the battery was already at 0 %").
 inline constexpr double breakEndsAfterSoundSeconds = 10.0;  // a BREAK ends once you play this long
+inline constexpr double dayReminderSeconds = 30.0 * 60.0;   // M10, ESCALATING after a full daily dose: listening time between reminders
 
 //── Hard mode: pulling the plug (CONCEPT.md §7) ───────────────────────────────
 inline constexpr double spinDownSeconds = 3.5;        // Heuristic: a turntable losing power

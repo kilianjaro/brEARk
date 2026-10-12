@@ -48,7 +48,6 @@ struct HintRule
 
 // Most important first.
 const HintRule hintRules[] = {
-    { "dose100",  "FULL DOSE.", 18.0 * 3600.0, true,  [] (const CoachContext& c) { return c.dose >= 100.0; } },
     { "loud",     "LOUD.",      45.0 * 60.0,   false, [] (const CoachContext& c) { return c.perceivedSpl >= model::loudHintSpl; } },
     { "creep",    "CREEP.",     60.0 * 60.0,   false, [] (const CoachContext& c) { return c.creepDb >= 3.0; } },
     { "loop",     "LOOP.",      60.0 * 60.0,   false, [] (const CoachContext& c) { return c.loopStrain >= model::loopHintStrainMinutes; } },
@@ -162,6 +161,10 @@ juce::String Coach::speakFor (const Alert& alert, const CoachContext& context, d
         case AlertKind::snoozed:         text = draw ("snoozed", severity, context); break;
         case AlertKind::breakStarted:    text = draw ("breakStart", CoachTone::mentor, context); break;
         case AlertKind::breakOver:       text = draw ("breakOver", rested, context); break;
+        case AlertKind::dayDone:         text = draw ("dose100", CoachTone::mentor, context); break;
+        case AlertKind::dayReminder:     text = draw ("dayReminder", CoachTone::mentor, context); break;
+        case AlertKind::dayUnplug:       text = draw ("dayUnplug", CoachTone::brutal, context); break;
+        case AlertKind::weeklySummary:   return {}; // numbers, not a coach line (AlertPresenter)
     }
 
     say (text, nowSeconds);

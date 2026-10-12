@@ -16,6 +16,9 @@ juce::String historyTooltipAt (juce::Rectangle<float> bounds, const Brain::Histo
 // "MON" … "SUN" for a day number (days since 1970-01-01, a Thursday).
 juce::String weekdayName (int day);
 
+// A week in one or two sentences (the weekly pop-up and HISTORY, M10).
+juce::String describeWeek (const WeekSummary& week);
+
 //==============================================================================
 // The history as an overlay over the POSTER view, with a CLOSE button.
 class HistoryOverlay final : public juce::Component,

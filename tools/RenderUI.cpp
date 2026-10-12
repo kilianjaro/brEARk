@@ -42,6 +42,10 @@ Snapshot listening()
     s.drainFactor = 1.21f;
     s.factors = { 1.03, 1.16, 1.0, 1.0 };
     s.suggestedBreakMinutes = 12.0f;
+    s.minutesToBreak = 42.0;
+    s.minutesToBreakQuieter = 97.0;
+    s.minutesToFullDose = 262.0;
+    s.minutesToRecover = 9.0;
     return s;
 }
 
@@ -86,6 +90,10 @@ int main (int argc, char* argv[])
                          "SILENCE IS NOT A PUNISHMENT. IT'S MAINTENANCE.", PowerDown::Stage::stopped },
         { "9-inactive",  [] (Snapshot& s) { s.battery = 64.0f; }, "Listening.", PowerDown::Stage::run, false },
         { "10-off",      [] (Snapshot& s) { s.battery = 47.0f; s.hostOff = true; }, "Listening." },
+        { "12-done",     [] (Snapshot& s) { s.battery = 46.0f; s.doseToday = 104.0f; s.dayDone = true; }, "Full dose for today. Switch to editing, arranging, anything quiet." },
+        { "13-done-unplugged", [] (Snapshot& s) { s.battery = 46.0f; s.doseToday = 104.0f; s.dayDone = true; s.unpluggedForDay = true; s.breakPhase = BreakPhase::unplugged; },
+                         "FULL DOSE. UNPLUGGED UNTIL 05:00.", PowerDown::Stage::stopped },
+        { "14-volume",   [] (Snapshot& s) { s.battery = 64.0f; s.monitorOffsetDb = -6.0; s.perceivedSpl = 75.0f; }, "Listening." },
         { "11-long-coach", [] (Snapshot& s) { s.battery = 52.0f; s.loopBars = 4; s.loopingSeconds = 3700.0; s.loopStrain = 61.0f; s.factors.repetition = 1.2; s.drainFactor = 1.35f; },
                          "After 1:01:40 on one loop the ear stops hearing what never changes. Play it in context once." },
     };
@@ -121,6 +129,8 @@ int main (int argc, char* argv[])
     }
 
     history.nowMinute = 480;
+    history.thisWeek = { 1, 3, 41.0, 0, 6.5 * 3600.0, 1.4 * 3600.0, 7, 2, 0, 0 };
+    history.lastWeek = { 0, 5, 82.0, 1, 14.3 * 3600.0, 1.7 * 3600.0, 9, 4, 1, 1 };
 
     for (auto [day, dose] : std::vector<std::pair<int, double>> { { 20732, 34.0 }, { 20733, 61.0 }, { 20735, 48.0 }, { 20736, 112.0 }, { 20737, 22.0 }, { 20738, 41.0 } })
         history.lastDays.push_back ({ day, dose, 0.0, 0, 0, 0, day == 20735 ? 80.0 * 60.0 : (day == 20738 ? 25.0 * 60.0 : 0.0) });
@@ -133,6 +143,8 @@ int main (int argc, char* argv[])
         { "toast-break", { "BREAK.", "Take a break of 12 minutes and take care of your ears.", "EAR BATTERY 0 %   BREAK 12 MIN", false, true } },
         { "toast-stop", { "STOP.", "NOTHING YOU DO NOW WILL SURVIVE TOMORROW.", "EAR BATTERY 0 %   BREAK 12 MIN", true, true } },
         { "toast-unplugged", { "UNPLUGGED.", "THE TURNTABLE STOPPED. SO DO YOU.", "EAR BATTERY 0 %", true, false, true } },
+        { "toast-week", { "LAST WEEK.", "82 % of the WHO weekly dose, 1 day over the daily dose. 14:20 listened on 5 days, longest stretch 1:40. Battery ran empty 4 times, 9 breaks.",
+                          "DETAILS IN HISTORY (POSTER)", false, false } },
         { "toast-loud", { "LOUD.", "About 91 dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.", "", false, false, false, true } },
     };
 

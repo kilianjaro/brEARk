@@ -48,6 +48,23 @@ struct DayRecord
     int powerDowns = 0; // HARD: times the plug was pulled
     int snoozes = 0;
     double offSeconds = 0.0; // switched off in Live
+    double longestStretchSeconds = 0.0; // longest listening without a 5 min break (M10)
+    int emptyBattery = 0;               // times the battery ran empty (M10)
+};
+
+// One week (Monday 05:00 to Monday 05:00), for the weekly summary (M10).
+struct WeekSummary
+{
+    int week = 0;                // see ExposureModel::weekNumber()
+    int daysListened = 0;
+    double whoWeekPercent = 0.0; // the week's dose against the WHO weekly allowance (5 full days)
+    int daysOverDose = 0;        // days at 100 % of the daily dose or more
+    double listeningSeconds = 0.0;
+    double longestStretchSeconds = 0.0;
+    int breaks = 0;              // silences of 5 min or more
+    int emptyBattery = 0;
+    int powerDowns = 0;
+    int snoozes = 0;
 };
 
 // Everything that survives a restart of Live.
@@ -63,6 +80,10 @@ struct ExposureState
     int powerDownsToday = 0;
     int snoozesToday = 0;
     double offSecondsToday = 0.0;        // switched off in Live: not measured
+    double longestStretchToday = 0.0;    // M10, see DayRecord
+    int emptyBatteryToday = 0;
+    double monitorOffsetDb = 0.0;        // VOLUME: "I turned my monitors down/up" (M10), until NOT THAT LOUD or the next day
+    int lastSummaryWeek = 0;             // the weekly pop-up was shown for this week
     double referenceLufs = model::initialReferenceLufs;
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
     std::vector<CurvePoint> todayCurve;  // battery, one point per minute the plugin ran
@@ -106,7 +127,34 @@ public:
     bool isRecovering() const noexcept { return state.silenceSeconds >= model::recoveryOnsetSeconds; }
 
     // NOT THAT LOUD: this loudness is your normal listening level (the preset).
-    void calibrateNormal (double lufs) noexcept { state.referenceLufs = lufs; }
+    // Forgets any VOLUME adjustment: the level you hear now is the normal one.
+    void calibrateNormal (double lufs) noexcept
+    {
+        state.referenceLufs = lufs;
+        state.monitorOffsetDb = 0.0;
+    }
+
+    // VOLUME: you turned the monitors down (negative) or up. brEARk can't see
+    // the knob (nor Live's master fader: devices sit before it).
+    void adjustMonitorOffset (double db) noexcept
+    {
+        state.monitorOffsetDb = juce::jlimit (-30.0, 12.0, state.monitorOffsetDb + db);
+    }
+
+    // Forecasts at a steady level (M10). extraDb: "what if it were this much quieter/louder".
+    double minutesToEmpty (float lufsShortTerm, double fatigueFactor, double extraDb = 0.0) const noexcept;
+    double minutesToFullDose (float levelA, double extraDb = 0.0) const noexcept;
+    double minutesToRecover (double targetBattery) const noexcept; // silence from now on
+
+    // Today as a history record, and a week's numbers from the history and today.
+    DayRecord todayRecord() const;
+    WeekSummary summariseWeek (int week) const;
+
+    // Weeks since 1970 that start on Monday at 05:00 (the day numbers' weekday: Thursday = 0).
+    static int weekNumber (int day) noexcept { return (day + 3) / 7; }
+
+    void countEmptyBattery() noexcept { ++state.emptyBatteryToday; }
+    void setLastSummaryWeek (int week) noexcept { state.lastSummaryWeek = week; }
 
     void countPowerDown() noexcept { ++state.powerDownsToday; }
     void countSnooze() noexcept { ++state.snoozesToday; }
@@ -119,6 +167,8 @@ public:
 
 private:
     double presetSpl() const noexcept;
+    double drainPerMinute (double spl, double fatigueFactor) const noexcept;
+    double dosePerSecond (double splA) const noexcept;
     void rollOverIfNewDay (juce::Time now);
     void listen (const ListeningPeriod& period);
     void rest (double seconds, bool onBreak) noexcept;

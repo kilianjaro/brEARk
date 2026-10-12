@@ -38,6 +38,7 @@ private:
 
     juce::TextButton setupButton, presetButton, modeButton, sizeButton, dataButton { "DATA" };
     juce::TextButton historyButton { "HISTORY" }, breakButton { "BREAK" };
+    juce::TextButton volumeDown6 { "-6" }, volumeDown3 { "-3" }, volumeUp3 { "+3" }; // VOLUME, M10
     breark::ui::HistoryOverlay history;
     DebugView data;
     juce::TooltipWindow tooltips { this, 600 };

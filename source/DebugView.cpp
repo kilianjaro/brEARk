@@ -66,6 +66,15 @@ juce::String clock (double seconds)
     return juce::String (minutes / 60).paddedLeft ('0', 2) + ":" + juce::String (minutes % 60).paddedLeft ('0', 2);
 }
 
+// A forecast in minutes as h:mm, or "-" when nothing plays.
+juce::String forecast (double minutes)
+{
+    if (! std::isfinite (minutes))
+        return "-";
+
+    return clock (minutes * 60.0);
+}
+
 juce::String minutesSeconds (double seconds)
 {
     const auto total = (int) seconds;
@@ -236,8 +245,12 @@ void DebugView::paint (juce::Graphics& g)
         "DOSE          " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",
         "EST. LEVEL    ~" + db (s.perceivedSpl, 0) + " dB PERCEIVED   ~" + db (s.perceivedSpl2Min, 0) + " dB OVER 2 MIN   ~"
             + db (s.doseSpl, 0) + " dB(A) DOSE",
+        "FORECAST      " + forecast (s.minutesToBreak) + " TO EMPTY   " + forecast (s.minutesToBreakQuieter) + " AT -6 dB   DOSE FULL "
+            + forecast (s.minutesToFullDose) + "   VOLUME " + juce::String (juce::roundToInt (s.monitorOffsetDb)) + " dB"
+            + (s.dayDone ? "   DAY DONE" : "") + (s.unpluggedForDay ? " (UNPLUGGED)" : ""),
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)
-            + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",
+            + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   LONGEST " + clock (s.longestStretchToday)
+            + "   EMPTY " + juce::String (s.emptyBatteryToday) + "x   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",
         "BREAKS        " + phaseName (s.breakPhase)
             + (s.breakPhase == breark::BreakPhase::onBreak ? "   " + minutesSeconds (s.breakSecondsLeft) + " LEFT" : juce::String())
             + (s.breakPhase == breark::BreakPhase::due || s.breakPhase == breark::BreakPhase::unplugged

@@ -48,14 +48,14 @@ double ExposureModel::presetSpl() const noexcept
 
 double ExposureModel::perceivedSpl (float lufsShortTerm) const noexcept
 {
-    return presetSpl() + ((double) lufsShortTerm - state.referenceLufs);
+    return presetSpl() + ((double) lufsShortTerm - state.referenceLufs) + state.monitorOffsetDb;
 }
 
 double ExposureModel::doseSpl (float levelA) const noexcept
 {
     // Same monitor gain, applied to the A-weighted level: bass-heavy material
     // at the same perceived loudness carries less dose, as in the standards.
-    return presetSpl() + ((double) levelA - state.referenceLufs);
+    return presetSpl() + ((double) levelA - state.referenceLufs) + state.monitorOffsetDb;
 }
 
 //==============================================================================
@@ -73,6 +73,9 @@ void ExposureModel::advance (const ListeningPeriod& period, juce::Time now)
 
     if (state.silenceSeconds < model::breakMinimumSeconds)
         state.secondsSinceBreak += period.seconds;
+
+    if (! period.silent)
+        state.longestStretchToday = std::max (state.longestStretchToday, state.secondsSinceBreak);
 
     recordCurve (now, false);
 }
@@ -127,20 +130,11 @@ void ExposureModel::listen (const ListeningPeriod& period)
     state.silenceSeconds = 0.0;
     state.listeningSecondsToday += dt;
 
-    // Battery: time-only drain plus an energy part relative to the reference level.
-    const auto timeOnly = 100.0 / model::minutesToEmptyTimeOnly;
-    const auto atReference = 100.0 / model::minutesToEmptyAtReference;
-    // Fatigue doubles every 5 dB (gentler than the 3 dB rule used for the dose).
-    const auto energy = std::pow (2.0, (perceivedSpl (period.lufsShortTerm) - model::batteryReferenceSpl)
-                                         / model::batteryExchangeRateDb);
-
-    const auto drainPerMinute = (timeOnly + (atReference - timeOnly) * energy) * combinedFactor (period.fatigueFactor);
-    state.battery = std::max (0.0, state.battery - drainPerMinute * dt / 60.0);
+    state.battery = std::max (0.0, state.battery - drainPerMinute (perceivedSpl (period.lufsShortTerm), period.fatigueFactor) * dt / 60.0);
 
     // Dose: A-weighted energy against the WHO daily allowance.
     if (std::isfinite (period.levelA))
-        state.doseToday += 100.0 * energyRatio (doseSpl (period.levelA), model::doseReferenceDbA)
-                         * dt / model::doseReferenceSecondsPerDay;
+        state.doseToday += dosePerSecond (doseSpl (period.levelA)) * dt;
 
     // Hybrid level model: a running average of your playback loudness at first,
     // then a slow (~2 h) follower once enough playback has been heard.
@@ -149,6 +143,83 @@ void ExposureModel::listen (const ListeningPeriod& period)
                                           model::referenceFastLearningSeconds,
                                           model::referenceTimeConstantSeconds);
     state.referenceLufs += ((double) period.lufsShortTerm - state.referenceLufs) * std::min (1.0, dt / timeConstant);
+}
+
+double ExposureModel::drainPerMinute (double spl, double fatigueFactor) const noexcept
+{
+    // Battery: time-only drain plus an energy part relative to the reference level.
+    const auto timeOnly = 100.0 / model::minutesToEmptyTimeOnly;
+    const auto atReference = 100.0 / model::minutesToEmptyAtReference;
+    // Fatigue doubles every 5 dB (gentler than the 3 dB rule used for the dose).
+    const auto energy = std::pow (2.0, (spl - model::batteryReferenceSpl) / model::batteryExchangeRateDb);
+
+    return (timeOnly + (atReference - timeOnly) * energy) * combinedFactor (fatigueFactor);
+}
+
+double ExposureModel::dosePerSecond (double splA) const noexcept
+{
+    return 100.0 * energyRatio (splA, model::doseReferenceDbA) / model::doseReferenceSecondsPerDay;
+}
+
+double ExposureModel::minutesToEmpty (float lufsShortTerm, double fatigueFactor, double extraDb) const noexcept
+{
+    if (! std::isfinite (lufsShortTerm))
+        return std::numeric_limits<double>::infinity();
+
+    return state.battery / drainPerMinute (perceivedSpl (lufsShortTerm) + extraDb, fatigueFactor);
+}
+
+double ExposureModel::minutesToFullDose (float levelA, double extraDb) const noexcept
+{
+    if (! std::isfinite (levelA))
+        return std::numeric_limits<double>::infinity();
+
+    return std::max (0.0, 100.0 - state.doseToday) / (dosePerSecond (doseSpl (levelA) + extraDb) * 60.0);
+}
+
+double ExposureModel::minutesToRecover (double targetBattery) const noexcept
+{
+    if (state.battery >= targetBattery)
+        return 0.0;
+
+    // The onset still to wait, then exponential recovery towards 100 %.
+    const auto onset = std::max (0.0, model::recoveryOnsetSeconds - state.silenceSeconds);
+    const auto seconds = model::recoveryTimeConstantSeconds * std::log ((100.0 - state.battery) / (100.0 - targetBattery));
+    return (onset + seconds) / 60.0;
+}
+
+WeekSummary ExposureModel::summariseWeek (int week) const
+{
+    WeekSummary summary;
+    summary.week = week;
+
+    auto add = [&] (const DayRecord& r)
+    {
+        if (weekNumber (r.day) != week || r.listeningSeconds <= 0.0)
+            return;
+
+        ++summary.daysListened;
+        summary.whoWeekPercent += r.dose / model::weeklyAllowanceDays;
+        summary.daysOverDose += r.dose >= 100.0 ? 1 : 0;
+        summary.listeningSeconds += r.listeningSeconds;
+        summary.longestStretchSeconds = std::max (summary.longestStretchSeconds, r.longestStretchSeconds);
+        summary.breaks += r.breaks;
+        summary.emptyBattery += r.emptyBattery;
+        summary.powerDowns += r.powerDowns;
+        summary.snoozes += r.snoozes;
+    };
+
+    for (const auto& record : state.history)
+        add (record);
+
+    add (todayRecord());
+    return summary;
+}
+
+DayRecord ExposureModel::todayRecord() const
+{
+    return { state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday, state.powerDownsToday,
+             state.snoozesToday, state.offSecondsToday, state.longestStretchToday, state.emptyBatteryToday };
 }
 
 void ExposureModel::rollOverIfNewDay (juce::Time now)
@@ -160,8 +231,7 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
 
     if (state.day != 0)
     {
-        state.history.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday,
-                                   state.powerDownsToday, state.snoozesToday, state.offSecondsToday });
+        state.history.push_back (todayRecord());
 
         if ((int) state.history.size() > model::historyDays)
             state.history.erase (state.history.begin(), state.history.end() - model::historyDays);
@@ -174,6 +244,9 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
     state.powerDownsToday = 0;
     state.snoozesToday = 0;
     state.offSecondsToday = 0.0;
+    state.longestStretchToday = 0.0;
+    state.emptyBatteryToday = 0;
+    state.monitorOffsetDb = 0.0; // a new day starts at your normal level
     state.todayCurve.clear();
 }
 

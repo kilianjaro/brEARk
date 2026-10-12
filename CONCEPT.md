@@ -77,6 +77,11 @@ Switchable in the UI: `GENTLE / ESCALATING / HARD`
 
 ♪ = the user's mp3 played through the master.
 
+**End of day** *(M10)*, at 100 % of the WHO daily dose while you keep listening: the state word becomes **DONE.**
+- GENTLE: one pop-up with sound.
+- ESCALATING: the same, then a reminder every 30 min of listening.
+- HARD: the plug comes out and stays out until the new day starts at 05:00. SNOOZE buys 10 min, again and again (logged). Never during a take; leaving HARD plugs back in.
+
 **Ending an alert:**
 - In GENTLE and ESCALATING, any alert step ends as soon as you press BREAK or go silent.
 - In HARD mode, the mute follows the rules in §7.
@@ -149,6 +154,8 @@ Example lines:
   - Loudness: short-term LUFS, estimated level band, level creep
   - Factor breakdown: harshness, dynamics, loop count, time of day, i.e. *why* it's draining. *M9: in plain words and percentages ("BATTERY DRAINS 21 % FASTER: HARSH HIGHS +3 % …")*
 - **Hover explanations** *(M9)* on every button and value: one sentence on what it shows (technical), one on what it means.
+- **Time left** *(M10)*: "BREAK IN ~42 MIN · -6 dB: ~1:37 H · DOSE FULL IN ~4:22 H", forecast at the level of the last 2 minutes. While resting: how long until 90 %.
+- **VOLUME -6 / -3 / +3** *(M10)*: brEARk can't see the monitor knob (nor Live's master fader: devices on the master sit before it), so you tell it when you turn down or up. Level, time left and dose follow; NOT THAT LOUD or the next day resets it.
 - **History graph** (today's curve + weekly bars) is **hidden behind a button**, not always visible. Time switched off is hatched and labelled **OFF**, with a daily total.
 - **Controls:**
   - `MONITORS/HEADPHONES` · `QUIET/NORMAL/LOUD` · `GENTLE/ESCALATING/HARD`
@@ -166,7 +173,8 @@ Example lines:
 
 - Exposure is remembered **daily, across Live sessions and projects**. Reopening Live does not reset it.
 - **Weekly history** for long-term awareness.
-- Logged: listening time, dose, breaks, snoozes, power-downs, time switched off.
+- Logged: listening time, dose, breaks, snoozes, power-downs, time switched off, longest stretch without a break, times the battery ran empty.
+- **Weekly summary** *(M10)*: once a week, the first time you listen after Monday 05:00, a pop-up with last week (share of the WHO weekly dose, days over the daily dose, time listened, longest stretch, empty battery, breaks). This week and last week also in HISTORY.
 
 ---
 

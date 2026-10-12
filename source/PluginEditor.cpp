@@ -25,6 +25,14 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
         addAndMakeVisible (*button);
     }
 
+    for (auto [button, db] : { std::pair { &volumeDown6, -6 }, std::pair { &volumeDown3, -3 }, std::pair { &volumeUp3, 3 } })
+    {
+        ui::Look::stylePaperButton (*button);
+        button->setTooltip (ui::tips::volumeButtons);
+        button->onClick = [&brain, step = db] { brain.adjustMonitorVolume (step); };
+        addAndMakeVisible (*button);
+    }
+
     setupButton.setTooltip (ui::tips::setup);
     presetButton.setTooltip (ui::tips::preset);
     modeButton.setTooltip (ui::tips::strictness);
@@ -183,6 +191,18 @@ void BrearkEditor::resized()
     const auto actionHeight = poster ? 40 : 32;
     auto bottom = juce::Rectangle<int> (0, getHeight() - (poster ? 26 : 16) - actionHeight, getWidth() - inset, actionHeight);
     breakButton.setBounds (bottom.removeFromRight (poster ? 150 : 124));
+
+    // VOLUME: where the meter leaves room for it.
+    auto volume = ui::volumeButtonsArea (meterSize());
+    const auto volumeWidth = (volume.getWidth() - 8) / 3;
+
+    for (auto* button : { &volumeDown6, &volumeDown3, &volumeUp3 })
+    {
+        button->setBounds (volume.removeFromLeft (volumeWidth));
+        volume.removeFromLeft (4);
+    }
+
+
     bottom.removeFromRight (poster ? 10 : 8);
     historyButton.setBounds (bottom.removeFromRight (110));
     historyButton.setVisible (poster);

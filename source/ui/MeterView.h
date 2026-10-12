@@ -30,6 +30,7 @@ struct MeterModel
     double batteryFraction = 1.0;   // the height of the black mass
     bool alarm = false;             // the whole window turns signal red (STOP., UNPLUGGED.)
     bool massRed = false;           // the mass turns red near empty
+    std::vector<Item> timeLine;     // time left, what turning down buys, the dose (M10)
     std::vector<std::vector<Item>> compactLines; // two data lines (COMPACT)
     std::vector<Stat> stats;        // six columns (POSTER)
     std::vector<Item> factors;      // why the battery drains (POSTER)
@@ -38,6 +39,9 @@ struct MeterModel
 
 MeterModel makeMeterModel (const Snapshot& snapshot, const juce::String& coachLine,
                            bool activeInstance, PowerDown::Stage powerStage);
+
+// Where the editor puts its VOLUME buttons (−6 / −3 / +3 dB).
+juce::Rectangle<int> volumeButtonsArea (MeterSize size);
 
 // The explanation for what's under the mouse, or an empty string.
 juce::String tooltipAt (const MeterModel& model, MeterSize size, juce::Point<float> position, const Fonts& fonts);

@@ -250,7 +250,11 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
         loops.update (onSeconds, silent);
         creep.add (lufs, onSeconds, silent);
         loudWindow.add (silent ? Snapshot::minusInfinity : lufs, onSeconds);
+        levelAWindow.add (silent ? Snapshot::minusInfinity : working.levelA, onSeconds);
     }
+
+    if (const auto db = monitorVolumeRequestDb.exchange (0); db != 0)
+        exposure.adjustMonitorOffset (db);
 
     // NOT THAT LOUD: the last 2 minutes (or, if shorter, what plays now) become
     // your normal level, i.e. the preset's dB.
@@ -301,7 +305,24 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     breakInputs.recording = transportRecording.load (std::memory_order_relaxed);
     breakInputs.suggestedBreakMinutes = exposure.suggestedBreakMinutes();
     breakInputs.strictness = exposure.getSettings().strictness;
+    breakInputs.doseFull = exposure.getState().doseToday >= 100.0;
     advanceBreaks (breakInputs);
+
+    // The weekly summary, once a week, the first time you listen in a new week.
+    if (const auto week = ExposureModel::weekNumber (exposure.getState().day);
+        ! silent && activeWarp == 1 && exposure.getState().lastSummaryWeek < week)
+    {
+        exposure.setLastSummaryWeek (week);
+
+        if (const auto lastWeek = exposure.summariseWeek (week - 1); lastWeek.daysListened > 0)
+        {
+            Alert summary;
+            summary.kind = AlertKind::weeklySummary;
+            summary.week = lastWeek;
+            const std::scoped_lock lock (alertsMutex);
+            pendingAlerts.push_back (summary);
+        }
+    }
 
     unplugTarget.store (breaks.isUnplugRequested(), std::memory_order_relaxed);
 
@@ -321,6 +342,24 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     working.secondsSinceBreak = state.secondsSinceBreak;
     working.breaksToday = state.breaksToday;
     working.offSecondsToday = state.offSecondsToday;
+    working.monitorOffsetDb = state.monitorOffsetDb;
+    working.dayDone = state.doseToday >= 100.0;
+    working.unpluggedForDay = breaks.isUnpluggedForTheDay();
+    working.longestStretchToday = state.longestStretchToday;
+    working.emptyBatteryToday = state.emptyBatteryToday;
+
+    // Forecasts at the level of the last 2 minutes (or what plays now, at first).
+    {
+        const auto recentLufs = std::isfinite (loudWindow.getLufs()) ? loudWindow.getLufs() : lufs;
+        const auto recentLevelA = std::isfinite (levelAWindow.getLufs()) ? levelAWindow.getLufs() : working.levelA;
+        const auto playing = ! silent;
+        const auto fatigue = factors.product();
+
+        working.minutesToBreak = playing ? exposure.minutesToEmpty (recentLufs, fatigue) : std::numeric_limits<double>::infinity();
+        working.minutesToBreakQuieter = playing ? exposure.minutesToEmpty (recentLufs, fatigue, -6.0) : std::numeric_limits<double>::infinity();
+        working.minutesToFullDose = playing ? exposure.minutesToFullDose (recentLevelA) : std::numeric_limits<double>::infinity();
+        working.minutesToRecover = exposure.minutesToRecover (model::suggestedBreakTargetBattery);
+    }
     working.recovering = exposure.isRecovering();
     working.suggestedBreakMinutes = (float) exposure.suggestedBreakMinutes();
     working.settings = exposure.getSettings();
@@ -359,8 +398,11 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
         if (record.day > state.day - 7)
             history.lastDays.push_back (record);
 
-    history.lastDays.push_back ({ state.day, state.doseToday, state.listeningSecondsToday, state.breaksToday,
-                                  state.powerDownsToday, state.snoozesToday, state.offSecondsToday });
+    history.lastDays.push_back (exposure.todayRecord());
+
+    const auto week = ExposureModel::weekNumber (state.day);
+    history.thisWeek = exposure.summariseWeek (week);
+    history.lastWeek = exposure.summariseWeek (week - 1);
 
     const std::scoped_lock lock (snapshotMutex);
     publishedHistory = std::move (history);
@@ -376,8 +418,9 @@ void Brain::advanceBreaks (const BreakInputs& inputs)
 
     for (const auto& alert : alerts)
     {
-        if (alert.kind == AlertKind::unplug)  exposure.countPowerDown();
+        if (alert.kind == AlertKind::unplug || alert.kind == AlertKind::dayUnplug) exposure.countPowerDown();
         if (alert.kind == AlertKind::snoozed) exposure.countSnooze();
+        if (alert.kind == AlertKind::breakDue || alert.kind == AlertKind::unplug) exposure.countEmptyBattery();
     }
 
     const std::scoped_lock lock (alertsMutex);

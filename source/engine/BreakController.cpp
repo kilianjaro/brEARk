@@ -14,7 +14,9 @@ void BreakController::startOver() noexcept
 {
     phase = BreakPhase::listening;
     warned = due = deferAnnounced = false;
-    secondsSinceDue = nextReminderAt = unpluggedSeconds = snoozeSecondsLeft = 0.0;
+    secondsSinceDue = nextReminderAt = unpluggedSeconds = 0.0;
+    // A running snooze stays: it may be the end-of-day one, and a recovered
+    // battery doesn't make the dose any smaller.
 }
 
 BreakPhase BreakController::phaseFromFlags() const noexcept
@@ -28,17 +30,45 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
 
     auto alert = [&] (AlertKind kind, Tone tone, bool withSound)
     {
-        alerts.push_back ({ kind, tone, withSound, in.battery, in.suggestedBreakMinutes });
+        alerts.push_back ({ kind, tone, withSound, in.battery, in.suggestedBreakMinutes, {} });
     };
 
-    // HARD, unplugged: the sound stays off for the minimum break. Leaving
-    // HARD mode is the escape hatch; SNOOZE buys 10 minutes.
+    // A new day (or the dose under 100 % again): the end of day is over.
+    if (! in.doseFull)
+        dayAnnounced = dayDeferAnnounced = false;
+
+    // HARD, unplugged: the sound stays off for the minimum break (or, at the
+    // end of the day, until 05:00). Leaving HARD mode is the escape hatch;
+    // SNOOZE buys 10 minutes.
     if (phase == BreakPhase::unplugged)
     {
         unpluggedSeconds += in.seconds;
         toggleRequested = false; // already on a (forced) break
 
         const auto snooze = std::exchange (snoozeRequested, false);
+
+        if (unpluggedForDay)
+        {
+            if (! snooze && in.doseFull && in.strictness == Strictness::hard)
+                return alerts;
+
+            unpluggedForDay = false;
+            unpluggedSeconds = 0.0;
+            deferAnnounced = false;
+            phase = phaseFromFlags();
+
+            if (snooze)
+            {
+                snoozeSecondsLeft = model::snoozeSeconds;
+                alert (AlertKind::snoozed, Tone::firm, false);
+            }
+            else
+            {
+                alert (AlertKind::replugged, Tone::calm, false); // a new day, or HARD switched off
+            }
+
+            return alerts;
+        }
 
         if (! snooze && in.strictness == Strictness::hard && unpluggedSeconds < model::minimumBreakSeconds)
             return alerts;
@@ -87,7 +117,7 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
             breakSecondsLeft = requestedBreakMinutes * 60.0;
             soundOnBreakSeconds = 0.0;
             phase = BreakPhase::onBreak;
-            alerts.push_back ({ AlertKind::breakStarted, Tone::calm, false, in.battery, requestedBreakMinutes });
+            alerts.push_back ({ AlertKind::breakStarted, Tone::calm, false, in.battery, requestedBreakMinutes, {} });
             return alerts;
         }
     }
@@ -122,6 +152,42 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
         }
 
         return alerts;
+    }
+
+    // End of day: today's WHO dose is full and you keep listening.
+    if (in.doseFull && ! in.silent)
+    {
+        if (in.strictness == Strictness::hard && snoozeSecondsLeft <= 0.0)
+        {
+            if (in.recording)
+            {
+                // Its own flag: a healthy battery starts the ladder over every second.
+                if (! std::exchange (dayDeferAnnounced, true))
+                    alert (AlertKind::unplugAfterTake, Tone::firm, false);
+            }
+            else
+            {
+                dayDeferAnnounced = false;
+                phase = BreakPhase::unplugged;
+                unpluggedForDay = true;
+                unpluggedSeconds = 0.0;
+                dayAnnounced = true;
+                alert (AlertKind::dayUnplug, Tone::brutal, true);
+                return alerts;
+            }
+        }
+        else if (! dayAnnounced)
+        {
+            dayAnnounced = true;
+            dayListeningSeconds = 0.0;
+            nextDayReminderAt = model::dayReminderSeconds;
+            alert (AlertKind::dayDone, Tone::firm, true);
+        }
+        else if (in.strictness == Strictness::escalating && (dayListeningSeconds += in.seconds) >= nextDayReminderAt)
+        {
+            nextDayReminderAt += model::dayReminderSeconds;
+            alert (AlertKind::dayReminder, Tone::firm, true);
+        }
     }
 
     // Recovered: everything starts over.

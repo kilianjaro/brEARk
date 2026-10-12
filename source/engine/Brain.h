@@ -60,6 +60,9 @@ public:
     // NOT THAT LOUD: what plays now (last 2 minutes) is your normal level.
     void notThatLoud() noexcept { notThatLoudRequested.store (true); }
 
+    // VOLUME: you turned your monitors down (negative dB) or up (M10).
+    void adjustMonitorVolume (int db) noexcept { monitorVolumeRequestDb.fetch_add (db); }
+
     // Alerts produced since the last call, for the message thread to present.
     std::vector<Alert> takeAlerts();
 
@@ -122,6 +125,7 @@ public:
         std::vector<CurvePoint> today;
         int nowMinute = 0;
         std::vector<DayRecord> lastDays; // up to 7, oldest first, today last
+        WeekSummary thisWeek, lastWeek;  // M10
     };
 
     History getHistory() const;
@@ -160,6 +164,7 @@ private:
     std::atomic<int> strictnessSetting { (int) Strictness::escalating };
     std::atomic<int> timeWarp { 1 };
     std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false }, notThatLoudRequested { false };
+    std::atomic<int> monitorVolumeRequestDb { 0 };
     std::atomic<bool> unplugTarget { false }, exportDetected { false };
 
     // Worker thread only
@@ -169,6 +174,7 @@ private:
     PlayheadTracker playhead;
     LevelCreepTracker creep;
     LoudnessWindow loudWindow { model::loudWindowSeconds };
+    LoudnessWindow levelAWindow { model::loudWindowSeconds }; // the dose forecast
     double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed
     double smoothedPresence = -std::numeric_limits<double>::infinity();
     double smoothedHighs = -std::numeric_limits<double>::infinity();

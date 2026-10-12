@@ -35,6 +35,7 @@ struct Layout
     float batterySize, batteryTop;
     float dataTop, dataSize, dataLine;
     float factorsTop;
+    float timeTop, timeSize;
     float coachTop, coachSize, coachWidth;
     float rule;
 };
@@ -42,9 +43,9 @@ struct Layout
 Layout layoutFor (MeterSize size)
 {
     if (size == MeterSize::poster)
-        return { 960, 600, 36, 22, 26, 13, 66, 100, 250, 80, 300, 404, 22, 20, 486, 546, 14, 590, 3 };
+        return { 960, 600, 36, 22, 26, 13, 66, 100, 250, 80, 300, 404, 22, 20, 486, 370, 14, 546, 14, 590, 3 };
 
-    return { 520, 320, 24, 15, 18, 11, 46, 74, 132, 44, 190, 236, 10.5f, 15, 0, 278, 11, 340, 2 };
+    return { 520, 320, 24, 15, 18, 11, 46, 74, 132, 44, 190, 245, 10.5f, 15, 0, 229, 10.5f, 280, 11, 340, 2 };
 }
 
 // Draws grotesk text with its capitals starting exactly at capTop (JUCE
@@ -91,6 +92,11 @@ juce::Rectangle<float> factorsLine (const Layout& L)
     return { L.margin, L.factorsTop, L.width - 2.0f * L.margin, 16.0f };
 }
 
+juce::Rectangle<float> timeLine (const Layout& L)
+{
+    return { L.margin, L.timeTop, L.width - 2.0f * L.margin, L.timeSize * 1.4f };
+}
+
 juce::Rectangle<float> coachArea (const Layout& L)
 {
     return { L.margin, L.coachTop, L.coachWidth, L.coachSize * 2.8f }; // two lines
@@ -120,6 +126,8 @@ void drawContent (juce::Graphics& g, const MeterModel& m, const Layout& L, Meter
               { L.margin - 6.0f, 0.0f, inner + 12.0f, 0.0f }, L.wordTop, juce::Justification::topLeft);
 
     drawCaps (g, m.battery, fonts.grotesk (L.batterySize), { L.margin, 0.0f, inner, 0.0f }, L.batteryTop, juce::Justification::topRight);
+
+    drawItems (g, m.timeLine, fonts.mono (L.timeSize, true), timeLine (L));
 
     if (size == MeterSize::compact)
     {
@@ -156,6 +164,18 @@ juce::Rectangle<int> meterBounds (MeterSize size)
     return { (int) L.width, (int) L.height };
 }
 
+juce::Rectangle<int> volumeButtonsArea (MeterSize size)
+{
+    const auto L = layoutFor (size);
+
+    // POSTER: at the end of the time line. COMPACT: at the end of the dose
+    // line, the one line with room on the right (BREAK sits below).
+    if (size == MeterSize::poster)
+        return juce::Rectangle<float> (L.width - L.margin - 150.0f, L.timeTop - 3.0f, 150.0f, 24.0f).toNearestInt();
+
+    return juce::Rectangle<float> (L.width - L.margin - 108.0f, L.dataTop - 1.0f, 108.0f, 17.0f).toNearestInt();
+}
+
 MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, bool activeInstance, PowerDown::Stage powerStage)
 {
     MeterModel m;
@@ -177,6 +197,17 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     {
         m.word = "OFF.";
         m.status = "SWITCHED OFF IN LIVE" + separator + "NOT COUNTING";
+    }
+    else if (s.unpluggedForDay)
+    {
+        m.word = "DONE.";
+        m.alarm = true;
+        m.status = "UNPLUGGED UNTIL 05:00" + separator + "SNOOZE 10 MIN IF YOU MUST";
+    }
+    else if (s.dayDone)
+    {
+        m.word = "DONE.";
+        m.status = "WHO DAILY DOSE FULL" + separator + "CALL IT A DAY";
     }
     else if (s.breakPhase == BreakPhase::unplugged)
     {
@@ -231,6 +262,37 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     const auto drain = drainPercent > 0 ? "DRAIN " + juce::String (drainPercent) + " % FASTER" : juce::String ("DRAIN NORMAL");
     const auto dayLoad = 1.0 + model::dailyLoadFactorMax * std::min (s.doseToday / 100.0, 1.0);
 
+    // Time left, and what 6 dB quieter would buy (M10).
+    auto approx = [] (double forecastMinutes) -> juce::String
+    {
+        if (! std::isfinite (forecastMinutes) || forecastMinutes >= 600.0)
+            return "10 H+";
+
+        const auto total = std::max (1, juce::roundToInt (forecastMinutes));
+        return total < 60 ? "~" + juce::String (total) + " MIN"
+                          : "~" + juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2) + " H";
+    };
+
+    if (s.dayDone)
+        m.timeLine = { { "WHO DAILY DOSE FULL" + separator + "CALL IT A DAY", tips::dayDone } };
+    else if (s.breakPhase == BreakPhase::due || s.breakPhase == BreakPhase::unplugged)
+        m.timeLine = { { "BREAK DUE" + separator + approx (s.minutesToRecover) + " TO RECOVER", tips::recover } };
+    else if (s.silent)
+        m.timeLine = { { battery < model::suggestedBreakTargetBattery ? "RECOVERING" + separator + "90 % IN " + approx (s.minutesToRecover)
+                                                                      : juce::String ("RESTED"), tips::recover } };
+    else
+    {
+        m.timeLine = { { "BREAK IN " + approx (s.minutesToBreak), tips::timeLeft },
+                       { "-6 dB: " + approx (s.minutesToBreakQuieter), tips::quieter } };
+
+        if (s.doseToday < 100.0f)
+            m.timeLine.push_back ({ "DOSE FULL IN " + approx (s.minutesToFullDose), tips::doseLeft });
+    }
+
+    if (std::abs (s.monitorOffsetDb) >= 0.5)
+        m.timeLine.push_back ({ "VOLUME " + juce::String (s.monitorOffsetDb > 0.0 ? "+" : "") + juce::String (juce::roundToInt (s.monitorOffsetDb)) + " dB",
+                                tips::volumeSet });
+
     const Item doseItem { "DOSE " + juce::String (juce::roundToInt (s.doseToday)) + " %", tips::doseToday };
     const Item listenedItem { "LISTENED " + hoursMinutes (s.listeningSecondsToday), tips::listened };
     const Item sinceBreakItem { "SINCE BREAK " + hoursMinutes (s.secondsSinceBreak), tips::sinceBreak };
@@ -265,6 +327,14 @@ juce::String tooltipAt (const MeterModel& m, MeterSize size, juce::Point<float> 
 
     if (coachArea (L).contains (p))
         return m.coach.isNotEmpty() ? tips::coach : juce::String();
+
+    {
+        const auto bounds = itemBounds (m.timeLine, fonts.mono (L.timeSize, true), timeLine (L));
+
+        for (size_t k = 0; k < bounds.size(); ++k)
+            if (bounds[k].contains (p))
+                return m.timeLine[k].tip;
+    }
 
     if (size == MeterSize::compact)
     {

@@ -1,4 +1,5 @@
 #include "AlertPresenter.h"
+#include "ui/HistoryView.h"
 
 #include <BinaryData.h>
 
@@ -6,6 +7,7 @@ namespace
 {
 using breark::AlertKind;
 using breark::Tone;
+using breark::ui::separator;
 
 // The headline and layout per alert; the message comes from the coach.
 ToastContent toastFor (const breark::Alert& alert, const juce::String& message)
@@ -25,6 +27,10 @@ ToastContent toastFor (const breark::Alert& alert, const juce::String& message)
         case AlertKind::snoozed:         return { "SNOOZED.", message, battery, false, false };
         case AlertKind::breakStarted:    return { "RESTING.", message, "BREAK " + minutes + " MIN", false, false };
         case AlertKind::breakOver:       return { "WELCOME BACK.", message, battery, false, false };
+        case AlertKind::dayDone:         return { "DONE.", message, "WHO DAILY DOSE FULL" + separator + "NEW DAY AT 05:00", false, false };
+        case AlertKind::dayReminder:     return { "DONE.", message, "WHO DAILY DOSE FULL" + separator + "STILL LISTENING", false, false };
+        case AlertKind::dayUnplug:       return { "DONE.", message, "UNPLUGGED UNTIL 05:00", true, false, true };
+        case AlertKind::weeklySummary:   return { "LAST WEEK.", breark::ui::describeWeek (alert.week), "DETAILS IN HISTORY (POSTER)", false, false };
     }
 
     return {};

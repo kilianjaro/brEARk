@@ -199,6 +199,81 @@ public:
             brain.detach (&token);
         }
 
+        beginTest ("The weekly summary (M10): once, the first time you listen in a new week");
+        {
+            const auto file = tempStateFile();
+            const auto today = ExposureModel::dayNumber (juce::Time::getCurrentTime());
+            const auto week = ExposureModel::weekNumber (today);
+
+            PersistedState saved;
+            saved.savedAtMs = juce::Time::currentTimeMillis();
+            saved.exposure.day = today;
+            saved.exposure.lastSummaryWeek = week - 1; // last week's summary not shown yet
+            saved.exposure.history = { { today - 7, 150.0, 7200.0, 2, 0, 0, 0.0, 5400.0, 1 } }; // a day of last week
+            persistence::save (file, saved);
+
+            auto weeklies = [this] (Brain& brain)
+            {
+                int n = 0;
+
+                for (const auto& alert : brain.takeAlerts())
+                {
+                    if (alert.kind != AlertKind::weeklySummary)
+                        continue;
+
+                    ++n;
+                    expectEquals (alert.week.daysListened, 1, "last week's single day");
+                    expectEquals (alert.week.daysOverDose, 1);
+                    expectWithinAbsoluteError (alert.week.whoWeekPercent, 30.0, 1.0e-9);
+                }
+
+                return n;
+            };
+
+            {
+                Brain brain (file);
+                int token = 0;
+                start (brain, token, rate);
+
+                for (int i = 0; i < 150; ++i)
+                {
+                    brain.push (makeBlock (i), false);
+                    juce::Thread::sleep (10);
+                }
+
+                juce::Thread::sleep (300);
+                expectEquals (weeklies (brain), 1, "shown once when listening starts");
+
+                for (int i = 0; i < 150; ++i)
+                {
+                    brain.push (makeBlock (i), false);
+                    juce::Thread::sleep (10);
+                }
+
+                juce::Thread::sleep (300);
+                expectEquals (weeklies (brain), 0, "not again");
+                brain.detach (&token);
+            }
+
+            {
+                Brain restarted (file);
+                int token = 0;
+                start (restarted, token, rate);
+
+                for (int i = 0; i < 150; ++i)
+                {
+                    restarted.push (makeBlock (i), false);
+                    juce::Thread::sleep (10);
+                }
+
+                juce::Thread::sleep (300);
+                expectEquals (weeklies (restarted), 0, "not after restarting Live either");
+                restarted.detach (&token);
+            }
+
+            file.deleteFile();
+        }
+
         beginTest ("Several instances: the first listens, the next takes over when it is removed");
         {
             Brain brain (tempStateFile());

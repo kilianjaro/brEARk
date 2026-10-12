@@ -55,7 +55,7 @@ SILENCE. {break} MINUTES.
 
 [unplug/brutal]
 UNPLUGGED. 5 MINUTES OF SILENCE.
-YOU IGNORED IT. THE PLUG IS OUT.
+EMPTY. THE PLUG IS OUT.
 NO SOUND FOR 5 MINUTES. USE THEM.
 POWER OFF. EARS ON.
 THE TURNTABLE STOPPED. SO DO YOU.
@@ -233,6 +233,18 @@ Half of today's safe sound dose is used ({dose} %). Pace yourself.
 Today's safe sound dose is used up ({dose} %). Quieter from now, or call it a day.
 {dose} % of the daily dose. More today is borrowed from your future ears.
 Full dose for today. Switch to editing, arranging, anything quiet.
+
+# M10: still listening after a full daily dose (ESCALATING, every 30 min).
+[dayReminder/mentor]
+Still going at {dose} % of today's dose. Every extra hour now comes on top of a full day.
+{dose} % today. If it has to be today, turn down: every 3 dB less halves what a minute costs.
+Past the full dose ({dose} %). Arranging, editing, naming tracks: all fine without sound.
+
+# M10: HARD unplugs for the rest of the day.
+[dayUnplug/brutal]
+FULL DOSE. UNPLUGGED UNTIL 05:00.
+TODAY'S DOSE IS USED UP. THE PLUG STAYS OUT UNTIL TOMORROW.
+DONE FOR TODAY. YOUR EARS THANK YOU TOMORROW.
 
 # Now and then, when nothing else is going on.
 [idle/witty]

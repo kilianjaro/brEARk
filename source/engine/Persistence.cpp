@@ -18,13 +18,17 @@ juce::var toVar (const DayRecord& record)
     object->setProperty ("powerDowns", record.powerDowns);
     object->setProperty ("snoozes", record.snoozes);
     object->setProperty ("offSeconds", record.offSeconds);
+    object->setProperty ("longestStretchSeconds", record.longestStretchSeconds);
+    object->setProperty ("emptyBattery", record.emptyBattery);
     return object.release();
 }
 
 DayRecord dayRecordFromVar (const juce::var& v)
 {
+    // Fields missing in older files read as 0.
     return { (int) v["day"], (double) v["dose"], (double) v["listeningSeconds"], (int) v["breaks"],
-             (int) v["powerDowns"], (int) v["snoozes"], (double) v["offSeconds"] }; // missing in old files → 0
+             (int) v["powerDowns"], (int) v["snoozes"], (double) v["offSeconds"],
+             (double) v["longestStretchSeconds"], (int) v["emptyBattery"] };
 }
 
 template <typename Enum>
@@ -77,6 +81,10 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("powerDownsToday", e.powerDownsToday);
     exposure->setProperty ("snoozesToday", e.snoozesToday);
     exposure->setProperty ("offSecondsToday", e.offSecondsToday);
+    exposure->setProperty ("longestStretchToday", e.longestStretchToday);
+    exposure->setProperty ("emptyBatteryToday", e.emptyBatteryToday);
+    exposure->setProperty ("monitorOffsetDb", e.monitorOffsetDb);
+    exposure->setProperty ("lastSummaryWeek", e.lastSummaryWeek);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
     exposure->setProperty ("todayCurve", curve);
@@ -127,6 +135,10 @@ std::optional<PersistedState> load (const juce::File& file)
     x.powerDownsToday = (int) e["powerDownsToday"];
     x.snoozesToday = (int) e["snoozesToday"];
     x.offSecondsToday = (double) e["offSecondsToday"];
+    x.longestStretchToday = (double) e["longestStretchToday"];
+    x.emptyBatteryToday = (int) e["emptyBatteryToday"];
+    x.monitorOffsetDb = juce::jlimit (-30.0, 12.0, (double) e["monitorOffsetDb"]);
+    x.lastSummaryWeek = (int) e["lastSummaryWeek"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly
 

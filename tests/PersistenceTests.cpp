@@ -31,7 +31,11 @@ public:
             e.referenceLufs = -9.75;
             e.referencePlaybackSeconds = 4321.0;
             e.offSecondsToday = 900.0;
-            e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2, 0, 0, 1500.0 } };
+            e.longestStretchToday = 4321.0;
+            e.emptyBatteryToday = 2;
+            e.monitorOffsetDb = -6.0;
+            e.lastSummaryWeek = 2924;
+            e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2, 0, 0, 1500.0, 3600.0, 3 } };
             e.todayCurve = { { 270, 100 }, { 271, 99 }, { 300, 60, true }, { 400, 31 } };
 
             expect (persistence::save (file, original));
@@ -62,6 +66,12 @@ public:
                 expectEquals (x.offSecondsToday, 900.0);
                 expectEquals (x.history[1].offSeconds, 1500.0);
                 expectEquals (x.history[0].offSeconds, 0.0);
+                expectEquals (x.longestStretchToday, 4321.0);
+                expectEquals (x.emptyBatteryToday, 2);
+                expectEquals (x.monitorOffsetDb, -6.0);
+                expectEquals (x.lastSummaryWeek, 2924);
+                expectEquals (x.history[1].longestStretchSeconds, 3600.0);
+                expectEquals (x.history[1].emptyBattery, 3);
                 expectEquals (x.history[1].day, 20370);
                 expectEquals (x.history[1].dose, 81.5);
                 expectEquals (x.history[1].breaks, 2);

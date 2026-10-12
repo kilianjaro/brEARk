@@ -208,6 +208,72 @@ public:
             expect (fresh.getPhase() == BreakPhase::listening);
         }
 
+        beginTest ("End of day (M10), GENTLE and ESCALATING: DONE. once, ESCALATING again every 30 min of listening");
+        {
+            for (const auto strictness : { Strictness::gentle, Strictness::escalating })
+            {
+                BreakController breaks;
+                auto alerts = day (breaks, strictness, 120.0, 5.0, false, true); // silence: nothing yet
+                expect (alerts.empty());
+
+                alerts = day (breaks, strictness, 80.0, 1.0);
+                expectEquals (count (alerts, AlertKind::dayDone), 1);
+                expect (find (alerts, AlertKind::dayDone).withSound);
+
+                alerts = day (breaks, strictness, 80.0, 61.0 * 60.0);
+                expectEquals (count (alerts, AlertKind::dayDone), 0, "said once");
+                expectEquals (count (alerts, AlertKind::dayReminder), strictness == Strictness::escalating ? 2 : 0);
+                expect (! breaks.isUnplugRequested());
+            }
+        }
+
+        beginTest ("End of day, HARD: unplugged until the new day; SNOOZE buys 10 min, again and again");
+        {
+            BreakController breaks;
+            auto alerts = day (breaks, Strictness::hard, 80.0, 1.0);
+            expectEquals (count (alerts, AlertKind::dayUnplug), 1);
+            expect (find (alerts, AlertKind::dayUnplug).withSound);
+            expect (breaks.isUnplugRequested() && breaks.isUnpluggedForTheDay());
+
+            alerts = day (breaks, Strictness::hard, 95.0, 60.0 * 60.0, false, true);
+            expect (alerts.empty() && breaks.isUnplugRequested(), "not just the 5 min minimum break: the rest of the day");
+
+            for (int round = 0; round < 2; ++round)
+            {
+                breaks.snooze();
+                alerts = day (breaks, Strictness::hard, 95.0, 1.0);
+                expectEquals (count (alerts, AlertKind::snoozed), 1);
+                expect (! breaks.isUnplugRequested());
+
+                alerts = day (breaks, Strictness::hard, 95.0, 10.0 * 60.0 - 2.0);
+                expect (! breaks.isUnplugRequested(), "the snooze survives a healthy battery");
+
+                alerts = day (breaks, Strictness::hard, 95.0, 3.0);
+                expectEquals (count (alerts, AlertKind::dayUnplug), 1, "snooze over: unplugged again");
+            }
+
+            // 05:00: a new day, the dose is back to 0 %.
+            BreakInputs newDay = inputs (Strictness::hard, 95.0, true);
+            alerts = breaks.advance (newDay);
+            expectEquals (count (alerts, AlertKind::replugged), 1);
+            expect (! breaks.isUnplugRequested());
+        }
+
+        beginTest ("End of day, HARD: never during a take; leaving HARD plugs back in");
+        {
+            BreakController breaks;
+            auto alerts = day (breaks, Strictness::hard, 80.0, 60.0, true);
+            expectEquals (count (alerts, AlertKind::unplugAfterTake), 1);
+            expect (! breaks.isUnplugRequested());
+
+            alerts = day (breaks, Strictness::hard, 80.0, 1.0);
+            expectEquals (count (alerts, AlertKind::dayUnplug), 1, "right after the take");
+
+            alerts = day (breaks, Strictness::escalating, 80.0, 1.0);
+            expectEquals (count (alerts, AlertKind::replugged), 1);
+            expect (! breaks.isUnplugRequested());
+        }
+
         beginTest ("On a BREAK, recovery starts at once (no 60 s onset)");
         {
             ExposureState state;
@@ -255,6 +321,24 @@ private:
         for (double t = 0.0; t < seconds; t += 1.0)
             for (const auto& a : breaks.advance (inputs (strictness, battery, silent, recording)))
                 all.push_back (a);
+
+        return all;
+    }
+
+    // Listening (or silent) with today's dose full.
+    static std::vector<Alert> day (BreakController& breaks, Strictness strictness, double battery, double seconds,
+                                   bool recording = false, bool silent = false)
+    {
+        std::vector<Alert> all;
+
+        for (double t = 0.0; t < seconds; t += 1.0)
+        {
+            auto in = inputs (strictness, battery, silent, recording);
+            in.doseFull = true;
+
+            for (const auto& a : breaks.advance (in))
+                all.push_back (a);
+        }
 
         return all;
     }

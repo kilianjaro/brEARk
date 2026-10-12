@@ -208,6 +208,76 @@ public:
             expectWithinAbsoluteError (model.perceivedSpl (-3.0f), 83.0, 1.0e-9);
         }
 
+        beginTest ("VOLUME (M10): you turned the monitors down; NOT THAT LOUD and the next day reset it");
+        {
+            auto model = modelAt (-14.0);
+            expectWithinAbsoluteError (model.perceivedSpl (-14.0f), 80.0, 1.0e-9);
+
+            model.adjustMonitorOffset (-6.0);
+            expectWithinAbsoluteError (model.perceivedSpl (-14.0f), 74.0, 1.0e-9);
+            expectWithinAbsoluteError (model.doseSpl (-14.0f), 74.0, 1.0e-9, "the dose follows too");
+
+            model.adjustMonitorOffset (-30.0);
+            expectWithinAbsoluteError (model.getState().monitorOffsetDb, -30.0, 1.0e-9, "clamped");
+
+            model.calibrateNormal (-14.0);
+            expectEquals (model.getState().monitorOffsetDb, 0.0, "NOT THAT LOUD: what plays now is normal");
+
+            model.adjustMonitorOffset (3.0);
+            model.advance (silence (60.0), noon);
+            model.advance (silence (60.0), juce::Time (2026, 9, 11, 5, 1));
+            expectEquals (model.getState().monitorOffsetDb, 0.0, "a new day starts at your normal level");
+        }
+
+        beginTest ("Forecasts (M10): time to empty, to a full dose, to recover");
+        {
+            auto model = modelAt (-14.0);
+            expectWithinAbsoluteError (model.minutesToEmpty (-14.0f, 1.0), 70.0, 0.01, "full battery at 80 dB: 70 min");
+            expect (model.minutesToEmpty (-14.0f, 1.0, -6.0) > 1.5 * 70.0, "6 dB quieter lasts much longer");
+            expect (std::isinf (model.minutesToEmpty (-std::numeric_limits<float>::infinity(), 1.0)));
+
+            // WHO: 80 dB(A) fills the day in 8 h, 83 dB(A) in about 4 h (3 dB = 10^0.3 ≈ 2 × the energy).
+            const auto threeDb = std::pow (10.0, 0.3);
+            expectWithinAbsoluteError (model.minutesToFullDose (-14.0f), 480.0, 0.01);
+            expectWithinAbsoluteError (model.minutesToFullDose (-11.0f), 480.0 / threeDb, 0.01);
+            expectWithinAbsoluteError (model.minutesToFullDose (-14.0f, -3.0), 480.0 * threeDb, 0.01, "-3 dB about doubles the time");
+
+            ExposureState drained;
+            drained.battery = 0.0;
+            drained.silenceSeconds = 60.0;
+            const ExposureModel tired (drained);
+            // From 0 % to 90 %: 5 min × ln (100/10) ≈ 11.5 min once the 60 s onset is over.
+            expectWithinAbsoluteError (tired.minutesToRecover (90.0), 5.0 * std::log (10.0), 0.01);
+        }
+
+        beginTest ("Weeks (M10): Monday 05:00 to Monday 05:00, against the WHO weekly dose");
+        {
+            const auto monday = ExposureModel::dayNumber (juce::Time (2026, 9, 12, 12, 0)); // Mon 12 Oct 2026
+            expectEquals (ExposureModel::weekNumber (monday), ExposureModel::weekNumber (monday + 6), "Monday to Sunday");
+            expectEquals (ExposureModel::weekNumber (monday - 1) + 1, ExposureModel::weekNumber (monday), "Sunday is last week");
+
+            ExposureState state;
+            state.day = monday + 2; // Wednesday
+            state.doseToday = 30.0;
+            state.listeningSecondsToday = 3600.0;
+            state.history = { { monday - 1, 200.0, 7200.0, 1 },                          // last week's Sunday
+                              { monday, 120.0, 5000.0, 3, 1, 2, 0.0, 4000.0, 2 },       // Monday: over the dose
+                              { monday + 1, 50.0, 3000.0, 2, 0, 0, 0.0, 2500.0, 1 } };
+            const ExposureModel model (state);
+            const auto week = model.summariseWeek (ExposureModel::weekNumber (monday));
+
+            expectEquals (week.daysListened, 3);
+            expectWithinAbsoluteError (week.whoWeekPercent, (120.0 + 50.0 + 30.0) / 5.0, 1.0e-9);
+            expectEquals (week.daysOverDose, 1);
+            expectWithinAbsoluteError (week.listeningSeconds, 11600.0, 1.0e-9);
+            expectWithinAbsoluteError (week.longestStretchSeconds, 4000.0, 1.0e-9);
+            expectEquals (week.breaks, 5);
+            expectEquals (week.emptyBattery, 3);
+            expectEquals (week.powerDowns, 1);
+            expectEquals (week.snoozes, 2);
+            expectEquals (model.summariseWeek (ExposureModel::weekNumber (monday) - 1).daysListened, 1);
+        }
+
         beginTest ("Weekly dose = last 7 days / 5");
         {
             ExposureState state;

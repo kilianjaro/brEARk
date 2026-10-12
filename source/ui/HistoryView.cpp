@@ -9,6 +9,25 @@ juce::String weekdayName (int day)
     return names[((day + 3) % 7 + 7) % 7];
 }
 
+juce::String describeWeek (const WeekSummary& w)
+{
+    auto clock = [] (double seconds)
+    {
+        const auto minutes = (int) (seconds / 60.0);
+        return juce::String (minutes / 60) + ":" + juce::String (minutes % 60).paddedLeft ('0', 2);
+    };
+
+    auto text = juce::String (juce::roundToInt (w.whoWeekPercent)) + " % of the WHO weekly dose";
+
+    if (w.daysOverDose > 0)
+        text << ", " << w.daysOverDose << (w.daysOverDose == 1 ? " day" : " days") << " over the daily dose";
+
+    text << ". " << clock (w.listeningSeconds) << " listened on " << w.daysListened << (w.daysListened == 1 ? " day" : " days")
+         << ", longest stretch " << clock (w.longestStretchSeconds) << ". Battery ran empty " << w.emptyBattery
+         << (w.emptyBattery == 1 ? " time, " : " times, ") << w.breaks << (w.breaks == 1 ? " break." : " breaks.");
+    return text;
+}
+
 namespace
 {
 juce::String hoursMinutes (double seconds)
@@ -26,7 +45,7 @@ juce::String clockFor (int minuteOfDay)
 // Where everything sits, shared by drawing and tooltips.
 struct HistoryLayout
 {
-    juce::Rectangle<float> title, todayTitle, chart, chartLabels, weekTitle;
+    juce::Rectangle<float> title, todayTitle, chart, chartLabels, weekTitle, weeks;
     std::array<juce::Rectangle<float>, 7> days; // the full column of each day
 };
 
@@ -49,6 +68,8 @@ HistoryLayout layoutHistory (juce::Rectangle<float> bounds)
     for (int i = 0; i < 7; ++i)
         l.days[(size_t) i] = { bars.getX() + (float) i * (barWidth + gap), bars.getY(), barWidth, bars.getHeight() };
 
+    area.removeFromTop (6.0f);
+    l.weeks = area;
     return l;
 }
 
@@ -201,6 +222,22 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
                         + (offSeconds >= 60.0 ? separator + "OFF " + hoursMinutes (offSeconds) : juce::String()),
                     name, juce::Justification::centredLeft, false);
     }
+
+    //── This week, last week (M10) ───────────────────────────────────────────
+    auto weeksArea = l.weeks;
+    g.fillRect (weeksArea.removeFromTop (2.0f));
+    weeksArea.removeFromTop (6.0f);
+
+    for (const auto& [label, week] : { std::pair { juce::String ("THIS WEEK"), history.thisWeek },
+                                       std::pair { juce::String ("LAST WEEK"), history.lastWeek } })
+    {
+        auto row = weeksArea.removeFromTop (34.0f);
+        g.setFont (fonts.mono (11.0f, true));
+        g.drawText (label, row.removeFromLeft (100.0f), juce::Justification::topLeft, false);
+        g.setFont (fonts.mono (11.0f));
+        g.drawFittedText (week.daysListened > 0 ? describeWeek (week) : juce::String ("Nothing measured."),
+                          row.toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
+    }
 }
 
 juce::String historyTooltipAt (juce::Rectangle<float> bounds, const Brain::History& history, juce::Point<float> p)
@@ -209,6 +246,9 @@ juce::String historyTooltipAt (juce::Rectangle<float> bounds, const Brain::Histo
 
     if (l.chart.getUnion (l.todayTitle).contains (p))
         return tips::todayCurve;
+
+    if (l.weeks.contains (p))
+        return tips::weeks;
 
     const auto today = history.lastDays.empty() ? 0 : history.lastDays.back().day;
 

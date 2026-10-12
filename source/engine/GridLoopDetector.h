@@ -46,6 +46,10 @@ public:
     double getLoopingSeconds() const noexcept { return loopingSeconds; }
     int getLoopBars() const noexcept { return loopBars; }
 
+    // Length of the current loop and of one bar, in seconds (0 / last known).
+    double getLoopSeconds() const noexcept { return loopBars * slotsPerBar * slotSeconds; }
+    double getBarSeconds() const noexcept { return slotsPerBar * slotSeconds; }
+
     // Diagnostics: the loop found by the last check, or the closest miss.
     float getBestRhythm() const noexcept { return best.rhythm; }
     float getBestShiftDb() const noexcept { return best.shiftDb; }

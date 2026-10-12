@@ -5,6 +5,7 @@
 #include "HostActivity.h"
 #include "LevelCreepTracker.h"
 #include "LoudnessMeter.h"
+#include "LoudnessWindow.h"
 #include "Persistence.h"
 #include "PlayheadTracker.h"
 #include "GridLoopDetector.h"
@@ -55,6 +56,9 @@ public:
 
     // HARD, unplugged: 10 more minutes.
     void snooze() noexcept { snoozeRequested.store (true); }
+
+    // NOT THAT LOUD: what plays now (last 2 minutes) is your normal level.
+    void notThatLoud() noexcept { notThatLoudRequested.store (true); }
 
     // Alerts produced since the last call, for the message thread to present.
     std::vector<Alert> takeAlerts();
@@ -155,7 +159,7 @@ private:
     std::atomic<int> presetSetting { (int) LevelPreset::normal };
     std::atomic<int> strictnessSetting { (int) Strictness::escalating };
     std::atomic<int> timeWarp { 1 };
-    std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false };
+    std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false }, notThatLoudRequested { false };
     std::atomic<bool> unplugTarget { false }, exportDetected { false };
 
     // Worker thread only
@@ -164,6 +168,7 @@ private:
     GridLoopDetector loops;
     PlayheadTracker playhead;
     LevelCreepTracker creep;
+    LoudnessWindow loudWindow { model::loudWindowSeconds };
     double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed
     double smoothedPresence = -std::numeric_limits<double>::infinity();
     double smoothedHighs = -std::numeric_limits<double>::infinity();

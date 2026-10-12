@@ -36,7 +36,7 @@ Weekly stats complement the daily dose (reference frameworks to evaluate in step
 | Factor | Affects | Idea |
 |---|---|---|
 | Spectral harshness | Battery (+ dose weighting) | Energy around 2–5 kHz and sharp highs tire faster at equal loudness |
-| Loop repetition | Battery only | Detects hearing the same section over and over ("loop blindness") |
+| Loop repetition | Battery only | Detects hearing the same section over and over ("loop blindness"). *M9 (Kilian's rule): it's the number of plays that wears, each weighing log2 (1 + loop seconds): 6 plays of a 1 s loop weigh less than 6 of a 10 s loop, and a 60 s loop strains less per minute than a 10 s loop. Much gentler: at most +20 % drain. Looping is normal production work: the LOOP pop-up only comes after the equivalent of 1 hour of a 4-bar loop (1 bar ≈ 30 min, 16 bars ≈ 2.5 h)* |
 | Over-compression | Battery | Low crest factor / dense, brickwalled audio is more fatiguing |
 | Time of day / session load | Thresholds | Late night and back-to-back sessions lower the limits |
 
@@ -58,7 +58,7 @@ Weekly stats complement the daily dose (reference frameworks to evaluate in step
 - **Detection, automatic + manual:**
   - Silence on the master or stopped playback counts as recovery automatically.
   - So does time when nothing reaches the ears: Live closed, the Mac asleep, or no audio from Live at all (audio device stopped, changed or unplugged).
-  - A big **BREAK** button starts a guided break with a countdown.
+  - A big **BREAK** button starts a guided break with a countdown. *M9: playing for 10 s ends it by itself, quietly, so the drain carries on without END BREAK.*
 - **brEARk switched off in Live** (device off): everything **freezes**. Nothing drains, recovers or escalates, and the time shows as **OFF** in the history. *(M8 decision. If Live stops calling a switched-off plugin instead of bypassing it, brEARk can't tell that from a stopped audio device, and it counts as silence.)*
 - **Recovery:** realistic curve. Short breaks count partially.
 - **Break length:** **adaptive**. It scales with how drained the battery is and how heavy the day has been, from ~5 min (light) to 15–20+ min (heavy day). The coach announces it.
@@ -73,7 +73,7 @@ Switchable in the UI: `GENTLE / ESCALATING / HARD`
 |---|---|---|---|---|---|
 | **GENTLE** | — | ♪ + banner | — | — | — |
 | **ESCALATING** | banner (silent) | ♪ + banner, calm tone | ♪ + banner, firmer | ♪ + banner, BRUTAL | every 5 min, BRUTAL |
-| **HARD** | banner (silent) | ♪ + banner | grace over → **POWER-DOWN** | muted | muted until min. break done |
+| **HARD** | banner (silent) | ♪ + **POWER-DOWN** at once *(M9: there was a 10 min grace; Kilian: "it came too late")* | muted | muted | muted until min. break done |
 
 ♪ = the user's mp3 played through the master.
 
@@ -122,7 +122,7 @@ The plugin window is usually closed, so alerts must reach you anyway:
 | | |
 |---|---|
 | **Language** | English |
-| **Timing** | Mostly quiet. Speaks at **events**: thresholds, during breaks, notable moments (level creep, loop count, late hour). Otherwise a calm status line. |
+| **Timing** | Mostly quiet. Speaks at **events**: thresholds, during breaks, notable moments (level creep, loop count, late hour). Otherwise a calm status line. *M9: the LOUD pop-up needs about 88 dB held for 2 minutes (not a loud moment), says it's an estimate, and offers **NOT THAT LOUD**: one click makes what plays now your normal level (your preset's dB). Also in DATA.* |
 | **Tone shifts with severity** | Dry & witty while fresh → calm mentor when tired → terse brutalist commands when ignored. The tone itself is a signal. |
 | **Topics** | Break instructions · creative break tasks · ear-health facts · live listening hints |
 
@@ -147,7 +147,8 @@ Example lines:
   - EAR BATTERY % and DAILY DOSE bar
   - Time stats: listening today, since last break, breaks taken
   - Loudness: short-term LUFS, estimated level band, level creep
-  - Factor breakdown: harshness, dynamics, loop count, time of day, i.e. *why* it's draining
+  - Factor breakdown: harshness, dynamics, loop count, time of day, i.e. *why* it's draining. *M9: in plain words and percentages ("BATTERY DRAINS 21 % FASTER: HARSH HIGHS +3 % …")*
+- **Hover explanations** *(M9)* on every button and value: one sentence on what it shows (technical), one on what it means.
 - **History graph** (today's curve + weekly bars) is **hidden behind a button**, not always visible. Time switched off is hatched and labelled **OFF**, with a daily total.
 - **Controls:**
   - `MONITORS/HEADPHONES` · `QUIET/NORMAL/LOUD` · `GENTLE/ESCALATING/HARD`

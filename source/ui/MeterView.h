@@ -10,6 +10,17 @@ enum class MeterSize { compact, poster };
 
 juce::Rectangle<int> meterBounds (MeterSize size); // 520 × 320 or 960 × 600
 
+// A value as shown, with its hover explanation (ui/Tooltips.h).
+struct Item
+{
+    juce::String text, tip;
+};
+
+struct Stat
+{
+    juce::String label, value, tip;
+};
+
 // Everything the meter view shows, already in words.
 struct MeterModel
 {
@@ -19,14 +30,17 @@ struct MeterModel
     double batteryFraction = 1.0;   // the height of the black mass
     bool alarm = false;             // the whole window turns signal red (STOP., UNPLUGGED.)
     bool massRed = false;           // the mass turns red near empty
-    juce::StringArray compactLines; // two data lines (COMPACT)
-    juce::StringArray statLabels, statValues; // six columns (POSTER)
-    juce::String factors;           // the drain factors (POSTER)
-    juce::String coach;
+    std::vector<std::vector<Item>> compactLines; // two data lines (COMPACT)
+    std::vector<Stat> stats;        // six columns (POSTER)
+    std::vector<Item> factors;      // why the battery drains (POSTER)
+    juce::String coach;             // up to two lines
 };
 
 MeterModel makeMeterModel (const Snapshot& snapshot, const juce::String& coachLine,
                            bool activeInstance, PowerDown::Stage powerStage);
+
+// The explanation for what's under the mouse, or an empty string.
+juce::String tooltipAt (const MeterModel& model, MeterSize size, juce::Point<float> position, const Fonts& fonts);
 
 //==============================================================================
 // Design B: the window is the meter. A mass fills it from the bottom to the

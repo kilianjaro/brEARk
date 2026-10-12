@@ -38,6 +38,11 @@ private:
     std::unique_ptr<AlertSound> sound;
     std::unique_ptr<ToastWindow> toast;
 
+    // Keeps the typefaces alive while brEARk is loaded. Otherwise every editor
+    // would load them anew, and JUCE's text caches (128 entries each) would
+    // keep each opening's fonts referenced: measured +0.23 MB per opening.
+    juce::SharedResourcePointer<breark::ui::Fonts> fonts;
+
     // Test tools (the soak test) set BREARK_QUIET: alerts run, but nothing pops up or plays.
     const bool quiet = juce::SystemStats::getEnvironmentVariable ("BREARK_QUIET", {}).isNotEmpty();
 

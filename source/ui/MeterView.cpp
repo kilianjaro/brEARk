@@ -1,4 +1,5 @@
 #include "MeterView.h"
+#include "Tooltips.h"
 
 namespace breark::ui
 {
@@ -24,11 +25,6 @@ juce::String minutesSeconds (double seconds)
     return juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2);
 }
 
-juce::String times (double factor)
-{
-    return "x" + juce::String (factor, 2);
-}
-
 // All positions of one size, in pixels (the mockups' numbers).
 struct Layout
 {
@@ -46,9 +42,9 @@ struct Layout
 Layout layoutFor (MeterSize size)
 {
     if (size == MeterSize::poster)
-        return { 960, 600, 36, 22, 26, 13, 66, 100, 250, 80, 300, 404, 22, 20, 486, 552, 14, 590, 3 };
+        return { 960, 600, 36, 22, 26, 13, 66, 100, 250, 80, 300, 404, 22, 20, 486, 546, 14, 590, 3 };
 
-    return { 520, 320, 24, 15, 18, 11, 46, 74, 132, 44, 190, 236, 10.5f, 15, 0, 284, 11, 360, 2 };
+    return { 520, 320, 24, 15, 18, 11, 46, 74, 132, 44, 190, 236, 10.5f, 15, 0, 278, 11, 340, 2 };
 }
 
 // Draws grotesk text with its capitals starting exactly at capTop (JUCE
@@ -59,6 +55,54 @@ void drawCaps (juce::Graphics& g, const juce::String& text, const juce::Font& fo
     const auto top = capTop - (font.getAscent() - groteskCapHeight * font.getHeightInPoints());
     g.setFont (font);
     g.drawText (text, area.withY (top).withHeight (font.getHeight()), justification, false);
+}
+
+// Items in one mono line, three spaces apart: where each one sits.
+std::vector<juce::Rectangle<float>> itemBounds (const std::vector<Item>& items, const juce::Font& font, juce::Rectangle<float> line)
+{
+    std::vector<juce::Rectangle<float>> result;
+    const auto gap = juce::GlyphArrangement::getStringWidth (font, "   ");
+    auto x = line.getX();
+
+    for (const auto& item : items)
+    {
+        const auto width = juce::GlyphArrangement::getStringWidth (font, item.text);
+        result.push_back ({ x, line.getY(), width, line.getHeight() });
+        x += width + gap;
+    }
+
+    return result;
+}
+
+juce::Rectangle<float> compactLine (const Layout& L, size_t index)
+{
+    return { L.margin, L.dataTop + (float) index * L.dataLine, L.width - 2.0f * L.margin, L.dataLine };
+}
+
+juce::Rectangle<float> statColumn (const Layout& L, size_t index)
+{
+    const auto inner = L.width - 2.0f * L.margin;
+    const auto columnWidth = (inner - 5.0f * 12.0f) / 6.0f;
+    return { L.margin + (float) index * (columnWidth + 12.0f), L.dataTop + 12.0f, columnWidth, 46.0f };
+}
+
+juce::Rectangle<float> factorsLine (const Layout& L)
+{
+    return { L.margin, L.factorsTop, L.width - 2.0f * L.margin, 16.0f };
+}
+
+juce::Rectangle<float> coachArea (const Layout& L)
+{
+    return { L.margin, L.coachTop, L.coachWidth, L.coachSize * 2.8f }; // two lines
+}
+
+void drawItems (juce::Graphics& g, const std::vector<Item>& items, const juce::Font& font, juce::Rectangle<float> line)
+{
+    g.setFont (font);
+    const auto bounds = itemBounds (items, font, line);
+
+    for (size_t i = 0; i < items.size(); ++i)
+        g.drawText (items[i].text, bounds[i].withRight (std::max (bounds[i].getRight(), line.getRight())), juce::Justification::centredLeft, true);
 }
 
 void drawContent (juce::Graphics& g, const MeterModel& m, const Layout& L, MeterSize size, const Fonts& fonts, juce::Colour fg)
@@ -79,34 +123,29 @@ void drawContent (juce::Graphics& g, const MeterModel& m, const Layout& L, Meter
 
     if (size == MeterSize::compact)
     {
-        g.setFont (fonts.mono (L.dataSize));
-
-        for (int i = 0; i < m.compactLines.size(); ++i)
-            g.drawText (m.compactLines[i], juce::Rectangle<float> (L.margin, L.dataTop + (float) i * L.dataLine, inner, L.dataLine),
-                        juce::Justification::centredLeft, true);
+        for (size_t i = 0; i < m.compactLines.size(); ++i)
+            drawItems (g, m.compactLines[i], fonts.mono (L.dataSize), compactLine (L, i));
     }
     else
     {
-        // Six columns of stats under a rule, then the drain factors.
+        // Six columns of stats under a rule, then why the battery drains.
         g.fillRect (juce::Rectangle<float> (L.margin, L.dataTop, inner, L.rule));
-        const auto columnWidth = (inner - 5.0f * 12.0f) / 6.0f;
 
-        for (int i = 0; i < std::min (6, m.statLabels.size()); ++i)
+        for (size_t i = 0; i < std::min<size_t> (6, m.stats.size()); ++i)
         {
-            const auto x = L.margin + (float) i * (columnWidth + 12.0f);
+            auto column = statColumn (L, i);
             g.setFont (fonts.mono (10.0f));
-            g.drawText (m.statLabels[i], juce::Rectangle<float> (x, L.dataTop + 12.0f, columnWidth, 14.0f), juce::Justification::centredLeft, true);
+            g.drawText (m.stats[i].label, column.removeFromTop (16.0f), juce::Justification::centredLeft, true);
             g.setFont (fonts.mono (L.dataSize, true));
-            g.drawText (m.statValues[i], juce::Rectangle<float> (x, L.dataTop + 28.0f, columnWidth, 30.0f), juce::Justification::centredLeft, true);
+            g.drawText (m.stats[i].value, column, juce::Justification::centredLeft, true);
         }
 
-        g.setFont (fonts.mono (11.0f));
-        g.drawText (m.factors, juce::Rectangle<float> (L.margin, L.factorsTop, inner, 16.0f), juce::Justification::centredLeft, true);
+        drawItems (g, m.factors, fonts.mono (11.0f), factorsLine (L));
     }
 
+    // The coach: up to two lines (lines are at most 104 characters).
     g.setFont (fonts.mono (L.coachSize));
-    g.drawText ("> " + m.coach, juce::Rectangle<float> (L.margin, L.coachTop, L.coachWidth, L.coachSize * 1.5f),
-                juce::Justification::centredLeft, true);
+    g.drawFittedText ("> " + m.coach, coachArea (L).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
 }
 } // namespace
 
@@ -184,27 +223,86 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
 
     // The numbers.
     const auto level = std::isfinite (s.perceivedSpl) ? "~" + db (s.perceivedSpl, 0) + " dB" : juce::String ("-");
-    const auto psr = s.silent ? juce::String ("-") : db (s.psr);
     const auto& f = s.factors;
-    const auto loop = s.loopBars > 0 ? juce::String (s.loopBars) + " BARS " + minutesSeconds (s.loopingSeconds)
-                    : (s.barPlays >= 10.0f ? juce::String (juce::roundToInt (s.barPlays)) + " BAR PLAYS" : juce::String ("NO LOOP"));
 
-    m.compactLines.add ("DOSE " + juce::String (juce::roundToInt (s.doseToday)) + " %   LISTENED " + hoursMinutes (s.listeningSecondsToday)
-                        + "   SINCE BREAK " + hoursMinutes (s.secondsSinceBreak));
-    m.compactLines.add (db (s.lufsShortTerm) + " LUFS   " + level + "   PSR " + psr + "   DRAIN " + times (s.drainFactor));
+    // A factor as "+N %": how much faster the battery drains because of it.
+    auto percent = [] (double factor) { return "+" + juce::String (juce::roundToInt ((factor - 1.0) * 100.0)) + " %"; };
+    const auto drainPercent = juce::roundToInt ((s.drainFactor - 1.0f) * 100.0f);
+    const auto drain = drainPercent > 0 ? "DRAIN " + juce::String (drainPercent) + " % FASTER" : juce::String ("DRAIN NORMAL");
+    const auto dayLoad = 1.0 + model::dailyLoadFactorMax * std::min (s.doseToday / 100.0, 1.0);
 
-    m.statLabels.addArray ({ "DOSE TODAY", "WEEK (WHO)", "LISTENED", "SINCE BREAK", "LEVEL", "LOUDNESS" });
-    m.statValues.addArray ({ juce::String (juce::roundToInt (s.doseToday)) + " %",
-                             juce::String (juce::roundToInt (s.doseWeek)) + " %",
-                             hoursMinutes (s.listeningSecondsToday),
-                             hoursMinutes (s.secondsSinceBreak),
-                             level,
-                             db (s.lufsShortTerm) });
+    const Item doseItem { "DOSE " + juce::String (juce::roundToInt (s.doseToday)) + " %", tips::doseToday };
+    const Item listenedItem { "LISTENED " + hoursMinutes (s.listeningSecondsToday), tips::listened };
+    const Item sinceBreakItem { "SINCE BREAK " + hoursMinutes (s.secondsSinceBreak), tips::sinceBreak };
 
-    m.factors = "HARSH " + times (f.harshness) + "   SQUASHED " + times (f.dynamics) + " (PSR " + psr + ")   LOOP "
-              + times (f.repetition) + " (" + loop + ")   NIGHT " + times (f.night) + "   =  DRAIN " + times (s.drainFactor);
+    m.compactLines = { { doseItem, listenedItem, sinceBreakItem },
+                       { { db (s.lufsShortTerm) + " LUFS", tips::loudness }, { level, tips::level }, { drain, tips::drain } } };
+
+    m.stats = { { "DOSE TODAY", juce::String (juce::roundToInt (s.doseToday)) + " %", tips::doseToday },
+                { "WEEK (WHO)", juce::String (juce::roundToInt (s.doseWeek)) + " %", tips::doseWeek },
+                { "LISTENED", hoursMinutes (s.listeningSecondsToday), tips::listened },
+                { "SINCE BREAK", hoursMinutes (s.secondsSinceBreak), tips::sinceBreak },
+                { "LEVEL", level, tips::level },
+                { "LOUDNESS", db (s.lufsShortTerm) + " LUFS", tips::loudness } };
+
+    // Why the battery drains, in plain words.
+    m.factors = { { (s.silent ? juce::String ("SILENCE, NO DRAIN") : (drainPercent > 0 ? "BATTERY DRAINS " + juce::String (drainPercent) + " % FASTER"
+                                                                                       : juce::String ("BATTERY DRAINS AT THE NORMAL RATE"))) + ":",
+                    tips::drain },
+                  { "HARSH HIGHS " + percent (f.harshness), tips::harsh (s.presenceToBody, s.highsToBody) },
+                  { "LITTLE DYNAMICS " + percent (f.dynamics), tips::dynamics (s.psr) },
+                  { "SAME LOOP " + percent (f.repetition), tips::loop (s.loopBars, s.loopingSeconds, s.loopStrain) },
+                  { "LATE HOUR " + percent (f.night), tips::lateHour },
+                  { "TODAY'S DOSE " + percent (s.silent ? 1.0 : dayLoad), tips::todaysDose } };
 
     return m;
+}
+
+juce::String tooltipAt (const MeterModel& m, MeterSize size, juce::Point<float> p, const Fonts& fonts)
+{
+    const auto L = layoutFor (size);
+    const auto inner = L.width - 2.0f * L.margin;
+
+    if (coachArea (L).contains (p))
+        return m.coach.isNotEmpty() ? tips::coach : juce::String();
+
+    if (size == MeterSize::compact)
+    {
+        for (size_t i = 0; i < m.compactLines.size(); ++i)
+        {
+            const auto bounds = itemBounds (m.compactLines[i], fonts.mono (L.dataSize), compactLine (L, i));
+
+            for (size_t k = 0; k < bounds.size(); ++k)
+                if (bounds[k].contains (p))
+                    return m.compactLines[i][k].tip;
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < std::min<size_t> (6, m.stats.size()); ++i)
+            if (statColumn (L, i).contains (p))
+                return m.stats[i].tip;
+
+        const auto bounds = itemBounds (m.factors, fonts.mono (11.0f), factorsLine (L));
+
+        for (size_t k = 0; k < bounds.size(); ++k)
+            if (bounds[k].contains (p))
+                return m.factors[k].tip;
+    }
+
+    if (juce::Rectangle<float> (L.margin, L.statusTop, inner, L.statusSize * 1.5f).contains (p))
+        return m.status.isNotEmpty() ? tips::status : juce::String();
+
+    // The battery number sits right, below the word.
+    const auto batteryFont = fonts.grotesk (L.batterySize);
+    const auto batteryWidth = juce::GlyphArrangement::getStringWidth (batteryFont, m.battery);
+    if (juce::Rectangle<float> (L.margin + inner - batteryWidth, L.batteryTop, batteryWidth, L.batterySize * groteskCapHeight).contains (p))
+        return tips::battery;
+
+    if (juce::Rectangle<float> (L.margin, L.wordTop, inner, L.wordMax * groteskCapHeight).contains (p))
+        return tips::word (m.word);
+
+    return {};
 }
 
 void paintMeter (juce::Graphics& g, const MeterModel& m, MeterSize size, const Fonts& fonts)

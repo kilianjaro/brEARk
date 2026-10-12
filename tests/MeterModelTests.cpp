@@ -1,4 +1,5 @@
 #include "ui/MeterView.h"
+#include "ui/Tooltips.h"
 
 #include <juce_core/juce_core.h>
 
@@ -67,13 +68,55 @@ public:
             expect (wordFor ([] (Snapshot& s) { s.timeWarp = 60; }).status.startsWith ("TEST MODE x60"));
         }
 
-        beginTest ("POSTER stats: six labels, six values");
+        beginTest ("POSTER stats: six labels, six values, each with a two-part explanation");
         {
             const auto m = wordFor ([] (Snapshot& s) { s.doseToday = 18.0f; s.listeningSecondsToday = 65.0 * 60.0; });
-            expectEquals (m.statLabels.size(), 6);
-            expectEquals (m.statValues.size(), 6);
-            expectEquals (m.statValues[0], juce::String ("18 %"));
-            expectEquals (m.statValues[2], juce::String ("1:05"));
+            expectEquals ((int) m.stats.size(), 6);
+            expectEquals (m.stats[0].value, juce::String ("18 %"));
+            expectEquals (m.stats[2].value, juce::String ("1:05"));
+
+            for (const auto& stat : m.stats)
+                expect (stat.tip.containsChar ('\n') && stat.tip.length() > 40, stat.label + " has no explanation");
+        }
+
+        beginTest ("Why it drains, in plain words (M9): percentages, not x-factors");
+        {
+            const auto m = wordFor ([] (Snapshot& s)
+            {
+                s.drainFactor = 1.21f;
+                s.factors = { 1.03, 1.16, 1.0, 1.0 };
+                s.doseToday = 18.0f;
+            });
+
+            expectEquals (m.factors[0].text, juce::String ("BATTERY DRAINS 21 % FASTER:"));
+            expectEquals (m.factors[1].text, juce::String ("HARSH HIGHS +3 %"));
+            expectEquals (m.factors[2].text, juce::String ("LITTLE DYNAMICS +16 %"));
+            expectEquals (m.factors[3].text, juce::String ("SAME LOOP +0 %"));
+            expectEquals (m.factors[5].text, juce::String ("TODAY'S DOSE +9 %"));
+
+            for (const auto& item : m.factors)
+                expect (item.tip.containsChar ('\n'), item.text + " has no explanation");
+
+            for (const auto& line : m.compactLines)
+                for (const auto& item : line)
+                    expect (! item.text.contains (" x1") && item.tip.containsChar ('\n'), item.text);
+
+            expect (wordFor ([] (Snapshot& s) { s.silent = true; }).factors[0].text.startsWith ("SILENCE"));
+        }
+
+        beginTest ("Hover: the explanation under the mouse");
+        {
+            const ui::Fonts fonts;
+            const auto m = wordFor ([] (Snapshot& s) { s.battery = 64.0f; });
+
+            // POSTER: the first stat column, the battery number, the word, empty space.
+            expectEquals (ui::tooltipAt (m, ui::MeterSize::poster, { 60.0f, 420.0f }, fonts), m.stats[0].tip);
+            expectEquals (ui::tooltipAt (m, ui::MeterSize::poster, { 900.0f, 330.0f }, fonts), ui::tips::battery);
+            expect (ui::tooltipAt (m, ui::MeterSize::poster, { 200.0f, 150.0f }, fonts).startsWith ("Your ear battery in one word"));
+            expect (ui::tooltipAt (m, ui::MeterSize::poster, { 600.0f, 40.0f }, fonts).isEmpty());
+
+            // COMPACT: the first item of the first data line (DOSE).
+            expectEquals (ui::tooltipAt (m, ui::MeterSize::compact, { 30.0f, 243.0f }, fonts), ui::tips::doseToday);
         }
     }
 };

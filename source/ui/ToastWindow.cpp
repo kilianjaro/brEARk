@@ -23,8 +23,9 @@ void paintToast (juce::Graphics& g, juce::Rectangle<float> bounds, const ToastCo
     g.setFont (fonts.grotesk (36.0f));
     g.drawText (content.headline, area.removeFromTop (44.0f), juce::Justification::centredLeft, true);
 
+    // Up to three lines: coach lines are ≤ 104 characters, ~56 fit on a line.
     g.setFont (fonts.mono (11.5f));
-    g.drawFittedText (content.message, area.removeFromTop (32.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
+    g.drawFittedText (content.message, area.removeFromTop (48.0f).toNearestInt(), juce::Justification::topLeft, 3, 1.0f);
 
     g.setColour (colours::white.withAlpha (0.8f));
     g.setFont (fonts.mono (10.5f));
@@ -38,7 +39,7 @@ ToastWindow::ToastWindow()
     setOpaque (true);
     setLookAndFeel (&look);
 
-    for (auto* button : { &breakButton, &snoozeButton, &closeButton })
+    for (auto* button : { &breakButton, &snoozeButton, &notThatLoudButton, &closeButton })
     {
         Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
@@ -60,6 +61,18 @@ ToastWindow::ToastWindow()
         dismiss();
     };
 
+    notThatLoudButton.onClick = [this]
+    {
+        dismiss(); // first: the callback may show a confirmation in this window
+
+        if (onNotThatLoud != nullptr)
+            onNotThatLoud();
+    };
+
+    breakButton.setTooltip ("Starts a guided break with a countdown. It ends by itself when you play again for 10 seconds.");
+    snoozeButton.setTooltip ("Plugs the sound back in for exactly 10 minutes. After that, the plug comes out again if you're still drained.");
+    notThatLoudButton.setTooltip ("Tells brEARk that what plays now is your normal listening level. It can't see your volume knob, so this corrects its estimate from now on.");
+
     closeButton.onClick = [this] { dismiss(); };
     setSize (width, height);
 }
@@ -73,8 +86,9 @@ ToastWindow::~ToastWindow()
 void ToastWindow::show (const ToastContent& newContent)
 {
     content = newContent;
-    breakButton.setVisible (content.offerBreak && ! content.offerSnooze);
+    breakButton.setVisible (content.offerBreak && ! content.offerSnooze && ! content.offerNotThatLoud);
     snoozeButton.setVisible (content.offerSnooze);
+    notThatLoudButton.setVisible (content.offerNotThatLoud);
 
     if (! isOnDesktop())
     {
@@ -113,6 +127,7 @@ void ToastWindow::resized()
     const auto buttonRow = area.removeFromBottom (26).removeFromRight (130);
     breakButton.setBounds (buttonRow);
     snoozeButton.setBounds (buttonRow);
+    notThatLoudButton.setBounds (buttonRow);
 }
 
 void ToastWindow::paint (juce::Graphics& g)

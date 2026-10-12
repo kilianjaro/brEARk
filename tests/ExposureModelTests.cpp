@@ -1,4 +1,5 @@
 #include "engine/ExposureModel.h"
+#include "engine/LoudnessWindow.h"
 
 #include <juce_core/juce_core.h>
 
@@ -170,6 +171,41 @@ public:
             model.advance (silence (60.0), juce::Time (2026, 9, 11, 5, 1));
             expectEquals (model.getState().history.back().offSeconds, 1800.0);
             expectEquals (model.getState().offSecondsToday, 0.0, "a new day starts at 0");
+        }
+
+        beginTest ("LOUD (M9): the 2-minute window needs a loud 2 minutes, silence counts as silence");
+        {
+            LoudnessWindow window (120.0);
+
+            for (int s = 0; s < 110; ++s)
+                window.add (-8.0f, 1.0);
+
+            expect (std::isinf (window.getLufs()), "not 2 minutes yet");
+
+            for (int s = 0; s < 10; ++s)
+                window.add (-8.0f, 1.0);
+
+            expectWithinAbsoluteError (window.getLufs(), -8.0f, 0.01f);
+
+            for (int s = 0; s < 60; ++s) // a minute of silence: half the energy, −3 dB
+                window.add (-std::numeric_limits<float>::infinity(), 1.0);
+
+            expectWithinAbsoluteError (window.getLufs(), -11.0f, 0.05f);
+
+            for (int s = 0; s < 3; ++s) // a 3 s loud moment changes almost nothing
+                window.add (0.0f, 1.0);
+
+            expect (window.getLufs() < -9.5f);
+        }
+
+        beginTest ("NOT THAT LOUD (M9): the loudness playing now becomes your preset level");
+        {
+            auto model = modelAt (-14.0, { Setup::monitors, LevelPreset::normal });
+            expectWithinAbsoluteError (model.perceivedSpl (-6.0f), 88.0, 1.0e-9);
+
+            model.calibrateNormal (-6.0);
+            expectWithinAbsoluteError (model.perceivedSpl (-6.0f), 80.0, 1.0e-9);
+            expectWithinAbsoluteError (model.perceivedSpl (-3.0f), 83.0, 1.0e-9);
         }
 
         beginTest ("Weekly dose = last 7 days / 5");

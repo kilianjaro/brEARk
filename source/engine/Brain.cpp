@@ -216,9 +216,11 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     // Switched off in Live: that time is frozen (nothing drains, recovers or
     // escalates) and only counted for the history. Settings and buttons still
     // apply, in zero time.
+    // (Both come from the same clock but are summed differently: a rounding
+    // remainder of an off second must not count as time switched on.)
     offSeconds = std::min (offSeconds, wallSeconds);
-    const auto onSeconds = wallSeconds - offSeconds;
-    const auto frozen = onSeconds <= 0.0;
+    const auto frozen = wallSeconds - offSeconds < 0.001;
+    const auto onSeconds = frozen ? 0.0 : wallSeconds - offSeconds;
     exposure.addOffTime (offSeconds * activeWarp, now);
 
     const auto lufs = loudness.getShortTermLufs();
@@ -247,14 +249,31 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     {
         loops.update (onSeconds, silent);
         creep.add (lufs, onSeconds, silent);
+        loudWindow.add (silent ? Snapshot::minusInfinity : lufs, onSeconds);
+    }
+
+    // NOT THAT LOUD: the last 2 minutes (or, if shorter, what plays now) become
+    // your normal level, i.e. the preset's dB.
+    if (notThatLoudRequested.exchange (false))
+    {
+        const auto recent = loudWindow.getLufs();
+        const auto normal = std::isfinite (recent) ? recent : lufs;
+
+        if (std::isfinite (normal) && normal > model::silenceThresholdLufs)
+            exposure.calibrateNormal (normal);
     }
 
     FactorInputs inputs;
     inputs.presenceToBodyDb = smoothedPresence;
     inputs.highsToBodyDb = smoothedHighs;
     inputs.psrDb = smoothedPsr;
-    inputs.barPlays = playhead.getCurrentPlays (juce::Time::getMillisecondCounterHiRes() / 1000.0);
-    inputs.loopingSeconds = loops.getLoopingSeconds();
+    // Loop strain from the audio (plays of the detected loop) or the playhead
+    // (plays of the current bar, the loop's length if known), whichever is higher.
+    const auto barPlays = playhead.getCurrentPlays (juce::Time::getMillisecondCounterHiRes() / 1000.0);
+    const auto loopSeconds = loops.getLoopSeconds();
+    const auto audioPlays = loopSeconds > 0.0 ? loops.getLoopingSeconds() / loopSeconds : 0.0;
+    inputs.loopStrainMinutes = std::max (loopStrainMinutes (audioPlays, loopSeconds),
+                                         loopStrainMinutes (barPlays, loops.getBarSeconds() * std::max (1, loops.getLoopBars())));
     inputs.localHour = now.getHours() + now.getMinutes() / 60.0;
 
     const auto factors = silent ? FatigueFactors {} : computeFatigueFactors (inputs);
@@ -294,6 +313,8 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     working.doseToday = (float) state.doseToday;
     working.doseWeek = (float) exposure.weeklyDose();
     working.perceivedSpl = period.silent ? Snapshot::minusInfinity : (float) exposure.perceivedSpl (lufs);
+    const auto lufs2Min = loudWindow.getLufs();
+    working.perceivedSpl2Min = std::isfinite (lufs2Min) ? (float) exposure.perceivedSpl (lufs2Min) : Snapshot::minusInfinity;
     working.doseSpl = period.silent ? Snapshot::minusInfinity : (float) exposure.doseSpl (working.levelA);
     working.referenceLufs = (float) state.referenceLufs;
     working.listeningSecondsToday = state.listeningSecondsToday;
@@ -310,9 +331,11 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     working.psr = (float) smoothedPsr;
     working.factors = factors;
     working.drainFactor = silent ? 1.0f : (float) exposure.combinedFactor (factors.product());
-    working.barPlays = (float) inputs.barPlays;
-    working.loopingSeconds = inputs.loopingSeconds;
+    working.barPlays = (float) barPlays;
+    working.loopingSeconds = loops.getLoopingSeconds();
     working.loopBars = loops.getLoopBars();
+    working.loopSeconds = loopSeconds;
+    working.loopStrain = (float) inputs.loopStrainMinutes;
     working.loopBestRhythm = loops.getBestRhythm();
     working.loopBestShiftDb = loops.getBestShiftDb();
     working.loopBestBars = loops.getBestBars();

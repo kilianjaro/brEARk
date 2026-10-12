@@ -27,8 +27,7 @@ FatigueFactors computeFatigueFactors (const FactorInputs& in) noexcept
 
     const auto squashed = ramp (in.psrDb, psrDynamicDb, psrBrickwalledDb);
 
-    const auto repeated = std::max (ramp (in.barPlays, barPlaysNeutral, barPlaysFull),
-                                    ramp (in.loopingSeconds / 60.0, loopMinutesNeutral, loopMinutesFull));
+    const auto repeated = ramp (in.loopStrainMinutes, loopStrainNeutralMinutes, loopStrainFullMinutes);
 
     // Hours since 22:00, wrapping at midnight; night lasts until the day starts at 05:00.
     const auto hoursIntoNight = std::fmod (in.localHour - nightStartHour + 24.0, 24.0);
@@ -41,6 +40,15 @@ FatigueFactors computeFatigueFactors (const FactorInputs& in) noexcept
     factors.repetition = 1.0 + (repetitionFactorMax - 1.0) * repeated;
     factors.night      = 1.0 + (nightFactorMax - 1.0) * night;
     return factors;
+}
+
+double loopStrainMinutes (double plays, double loopSeconds) noexcept
+{
+    if (! (plays > 0.0) || ! (loopSeconds > 0.0))
+        return 0.0;
+
+    const auto referencePerMinute = std::log2 (1.0 + model::loopReferenceSeconds) * 60.0 / model::loopReferenceSeconds;
+    return plays * std::log2 (1.0 + loopSeconds) / referencePerMinute;
 }
 
 } // namespace breark

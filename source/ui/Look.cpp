@@ -42,6 +42,50 @@ Look::Look()
     setColour (juce::ComboBox::outlineColourId, colours::ink);
 }
 
+juce::TextLayout Look::layoutTooltip (const juce::String& text) const
+{
+    constexpr float maxWidth = 300.0f;
+
+    juce::AttributedString attributed;
+    attributed.setWordWrap (juce::AttributedString::byWord);
+    attributed.setLineSpacing (2.0f);
+    attributed.append (text.upToFirstOccurrenceOf ("\n", false, false), fonts->mono (11.0f, true), colours::ink);
+
+    if (text.containsChar ('\n'))
+        attributed.append ("\n" + text.fromFirstOccurrenceOf ("\n", false, false), fonts->mono (11.0f), colours::ink);
+
+    juce::TextLayout layout;
+    layout.createLayout (attributed, maxWidth);
+    return layout;
+}
+
+juce::Rectangle<int> Look::getTooltipBounds (const juce::String& text, juce::Point<int> screenPos, juce::Rectangle<int> parentArea)
+{
+    constexpr int padding = 10;
+    const auto layout = layoutTooltip (text);
+    const auto width = (int) std::ceil (layout.getWidth()) + 2 * padding;
+    const auto height = (int) std::ceil (layout.getHeight()) + 2 * padding;
+
+    // Below and right of the pointer, flipped where the window ends.
+    auto x = screenPos.x + 14;
+    auto y = screenPos.y + 18;
+
+    if (x + width > parentArea.getRight()) x = screenPos.x - width - 6;
+    if (y + height > parentArea.getBottom()) y = screenPos.y - height - 6;
+
+    return juce::Rectangle<int> (x, y, width, height).constrainedWithin (parentArea);
+}
+
+void Look::drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height)
+{
+    const auto bounds = juce::Rectangle<int> (width, height).toFloat();
+    g.setColour (colours::paper);
+    g.fillRect (bounds);
+    g.setColour (colours::ink);
+    g.drawRect (bounds, 2.0f);
+    layoutTooltip (text).draw (g, bounds.reduced (10.0f));
+}
+
 void Look::stylePaperButton (juce::Button& button)
 {
     button.setColour (juce::TextButton::buttonColourId, colours::paper);

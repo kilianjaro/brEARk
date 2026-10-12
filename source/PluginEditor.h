@@ -11,6 +11,7 @@
 // COMPACT 520 × 320 or POSTER 960 × 600; POSTER adds the stats and HISTORY.
 // DATA opens the diagnostics. Refreshed at a calm 4 Hz.
 class BrearkEditor final : public juce::AudioProcessorEditor,
+                           public juce::TooltipClient,
                            private juce::Timer
 {
 public:
@@ -19,6 +20,9 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+    // Hover explanations for the painted values (buttons have their own).
+    juce::String getTooltip() override;
 
 private:
     void timerCallback() override;
@@ -36,6 +40,7 @@ private:
     juce::TextButton historyButton { "HISTORY" }, breakButton { "BREAK" };
     breark::ui::HistoryOverlay history;
     DebugView data;
+    juce::TooltipWindow tooltips { this, 600 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkEditor)
 };

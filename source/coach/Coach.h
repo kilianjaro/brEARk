@@ -24,7 +24,8 @@ struct CoachContext
     double loopingSeconds = 0.0;
     int loopBars = 0;
     double barPlays = 0.0;
-    double perceivedSpl = -std::numeric_limits<double>::infinity();
+    double loopStrain = 0.0;      // minutes of the reference loop (FatigueFactors.h)
+    double perceivedSpl = -std::numeric_limits<double>::infinity(); // estimated dB, last 2 minutes
     double psr = std::numeric_limits<double>::infinity();
     FatigueFactors factors;
     BreakPhase phase = BreakPhase::listening;
@@ -37,6 +38,7 @@ struct Hint
 {
     juce::String headline, text;
     bool offerBreak = false;
+    bool offerNotThatLoud = false; // the LOUD pop-up: "my monitors are quieter than you think"
 };
 
 //==============================================================================

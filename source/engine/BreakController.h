@@ -48,11 +48,11 @@ enum class BreakPhase { listening, warned, due, onBreak, unplugged };
 //                 20 %          0 %          +10 min      +15 min      every 5 min
 //   GENTLE        ·             ♪ + banner   ·            ·            ·
 //   ESCALATING    banner        ♪ calm       ♪ firm       ♪ BRUTAL     ♪ BRUTAL
-//   HARD          banner        ♪ calm       UNPLUG (deferred while recording)
+//   HARD          banner        ♪ UNPLUG (after the take while recording)
 //
 // The clock after "empty" only runs while you listen; silence pauses it, and
 // once the battery has recovered to 30 % everything starts over. While on a
-// guided break (the BREAK button) nothing nags.
+// guided break (the BREAK button) nothing nags; playing for 10 s ends it.
 //
 // HARD, unplugged: the sound stays off for the minimum break (5 min), battery
 // full or not. SNOOZE buys exactly 10 minutes, then the plug comes out again.
@@ -86,6 +86,7 @@ private:
     double requestedBreakMinutes = 0.0;
     double secondsSinceDue = 0.0, nextReminderAt = 0.0, breakSecondsLeft = 0.0;
     double unpluggedSeconds = 0.0, snoozeSecondsLeft = 0.0;
+    double soundOnBreakSeconds = 0.0;
 };
 
 } // namespace breark

@@ -86,6 +86,8 @@ int main (int argc, char* argv[])
                          "SILENCE IS NOT A PUNISHMENT. IT'S MAINTENANCE.", PowerDown::Stage::stopped },
         { "9-inactive",  [] (Snapshot& s) { s.battery = 64.0f; }, "Listening.", PowerDown::Stage::run, false },
         { "10-off",      [] (Snapshot& s) { s.battery = 47.0f; s.hostOff = true; }, "Listening." },
+        { "11-long-coach", [] (Snapshot& s) { s.battery = 52.0f; s.loopBars = 4; s.loopingSeconds = 3700.0; s.loopStrain = 61.0f; s.factors.repetition = 1.2; s.drainFactor = 1.35f; },
+                         "After 1:01:40 on one loop the ear stops hearing what never changes. Play it in context once." },
     };
 
     for (const auto& sample : samples)
@@ -131,12 +133,49 @@ int main (int argc, char* argv[])
         { "toast-break", { "BREAK.", "Take a break of 12 minutes and take care of your ears.", "EAR BATTERY 0 %   BREAK 12 MIN", false, true } },
         { "toast-stop", { "STOP.", "NOTHING YOU DO NOW WILL SURVIVE TOMORROW.", "EAR BATTERY 0 %   BREAK 12 MIN", true, true } },
         { "toast-unplugged", { "UNPLUGGED.", "THE TURNTABLE STOPPED. SO DO YOU.", "EAR BATTERY 0 %", true, false, true } },
+        { "toast-loud", { "LOUD.", "About 91 dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.", "", false, false, false, true } },
     };
 
     for (const auto& [name, content] : toasts)
         save (render (ToastWindow::width, ToastWindow::height,
                       [&] (juce::Graphics& g) { paintToast (g, { 0.0f, 0.0f, (float) ToastWindow::width, (float) ToastWindow::height }, content, *fonts); }),
               folder.getChildFile (juce::String (name) + ".png"));
+
+    // The LOUD pop-up as a real window (with its NOT THAT LOUD button).
+    {
+        ToastWindow toast;
+        ToastContent content { "LOUD.", "About 91 dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.", "", false, false, false, true };
+        toast.setVisible (false);
+        toast.show (content);
+        save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-loud-window.png"));
+        toast.dismiss();
+    }
+
+    // Tooltips, drawn where the pointer would be (POSTER, a factor and a stat).
+    {
+        ui::Look look;
+        auto snapshot = listening();
+        snapshot.battery = 58.0f;
+        snapshot.drainFactor = 1.21f;
+        snapshot.factors = { 1.03, 1.16, 1.0, 1.0 };
+        snapshot.psr = 8.4f;
+        const auto model = ui::makeMeterModel (snapshot, "Fine-tune later; finish the structure now.", true, PowerDown::Stage::run);
+
+        for (const auto& [name, pointer] : std::vector<std::pair<const char*, juce::Point<int>>> { { "tooltip-factor", { 330, 494 } }, { "tooltip-stat", { 700, 430 } } })
+        {
+            const auto text = ui::tooltipAt (model, ui::MeterSize::poster, pointer.toFloat(), *fonts);
+            const auto box = look.getTooltipBounds (text, pointer, { 0, 0, 960, 600 });
+
+            save (render (960, 600, [&] (juce::Graphics& g)
+                  {
+                      ui::paintMeter (g, model, ui::MeterSize::poster, *fonts);
+                      const juce::Graphics::ScopedSaveState state (g);
+                      g.setOrigin (box.getPosition());
+                      look.drawTooltip (g, text, box.getWidth(), box.getHeight());
+                  }),
+                  folder.getChildFile (juce::String (name) + ".png"));
+        }
+    }
 
     // The real editor, buttons and all, as the plugin shows it (fresh state).
     {

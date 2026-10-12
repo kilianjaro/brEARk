@@ -185,15 +185,12 @@ Your level crept up {creep} dB in the last hour. Check the mix at whisper volume
 Louder isn't better, it's just louder. You're up {creep} dB.
 
 [loop/witty]
-You've heard these {loop} bars about {plays} times. They're not changing.
-It looks like you're looping. Would you like help moving on?
-Same {loop} bars for {looptime}. Commit, or move to the next section.
+{looptime} on the same {loop} bars. Looping is the job; one pass from the top resets the ears.
+Same {loop} bars for {looptime}. Hear them once in context, then dive back in.
 
 [loop/mentor]
-Same {loop} bars for {looptime}. Your brain stopped listening a while ago.
-Loop blindness sets in after this many repeats. Play the whole track once.
-You've been on this loop for {looptime}. Listen from the start once.
-Step out of the loop. Hear it in context, from 16 bars earlier.
+After {looptime} on one loop the ear stops hearing what never changes. Play it in context once.
+{looptime} on {loop} bars. Start 16 bars earlier once: the transitions tell the truth.
 
 [late/witty]
 It looks like you're mixing at {time}. Would you like help going to bed?
@@ -221,12 +218,12 @@ Dense, limited audio tires the ears faster. Mix with headroom, master later.
 PSR {psr} dB: very compressed. Try mixing without the master limiter for a while.
 
 [loud/witty]
-About {spl} dB. Loud enough to feel good, loud enough to cost you.
-~{spl} dB. Your ears would like a word.
+About {spl} dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.
+~{spl} dB for a while, estimated. If that's wrong, NOT THAT LOUD teaches brEARk your level.
 
 [loud/mentor]
-You're listening at about {spl} dB. Turn it down; the mix will tell you more.
-Loud playback hides problems. At {spl} dB, check at half the level.
+Estimated {spl} dB for 2 minutes. If so, turn it down; if not, tap NOT THAT LOUD.
+About {spl} dB, steady (an estimate). Loud playback hides problems. Not that loud? Tell brEARk.
 
 [dose50]
 Half of today's safe sound dose is used ({dose} %). Pace yourself.

@@ -30,6 +30,13 @@ public:
 
     std::function<void (int)> onChange;
 
+    // The same hover explanation on every option.
+    void setTooltip (const juce::String& text)
+    {
+        for (auto* button : buttons)
+            button->setTooltip (text);
+    }
+
     // Updates the display only; doesn't call onChange.
     void setSelectedIndex (int index)
     {

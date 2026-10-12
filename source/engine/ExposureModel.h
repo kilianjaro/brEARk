@@ -105,6 +105,9 @@ public:
     double suggestedBreakMinutes() const noexcept;
     bool isRecovering() const noexcept { return state.silenceSeconds >= model::recoveryOnsetSeconds; }
 
+    // NOT THAT LOUD: this loudness is your normal listening level (the preset).
+    void calibrateNormal (double lufs) noexcept { state.referenceLufs = lufs; }
+
     void countPowerDown() noexcept { ++state.powerDownsToday; }
     void countSnooze() noexcept { ++state.snoozesToday; }
 

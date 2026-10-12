@@ -35,6 +35,8 @@ struct Snapshot
     float  barPlays          = 0.0f; // playhead: recent plays of the current bar
     double loopingSeconds    = 0.0;  // audio: continuous identical repetition
     int    loopBars          = 0;    // length of the current loop, 0 = none
+    double loopSeconds       = 0.0;  // length of the current loop in seconds
+    float  loopStrain        = 0.0f; // minutes of the reference loop (FatigueFactors.h)
     float  loopBestRhythm    = 0.0f; // diagnostics: rhythm match of the last check (1 = identical)
     float  loopBestShiftDb   = 0.0f; // diagnostics: band-level change, dB
     int    loopBestBars      = 0;
@@ -48,6 +50,7 @@ struct Snapshot
     float    doseToday             = 0.0f;          // % of the WHO daily allowance
     float    doseWeek              = 0.0f;          // % of the WHO weekly allowance
     float    perceivedSpl          = minusInfinity; // estimated, drives the battery
+    float    perceivedSpl2Min      = minusInfinity; // the same over the last 2 minutes (LOUD pop-up)
     float    doseSpl               = minusInfinity; // estimated dB(A), drives the dose
     float    referenceLufs         = -14.0f;        // your long-term typical loudness
     double   listeningSecondsToday = 0.0;

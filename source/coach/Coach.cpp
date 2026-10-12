@@ -1,4 +1,5 @@
 #include "Coach.h"
+#include "engine/ModelConstants.h"
 
 #include <cmath>
 
@@ -48,9 +49,9 @@ struct HintRule
 // Most important first.
 const HintRule hintRules[] = {
     { "dose100",  "FULL DOSE.", 18.0 * 3600.0, true,  [] (const CoachContext& c) { return c.dose >= 100.0; } },
-    { "loud",     "LOUD.",      45.0 * 60.0,   false, [] (const CoachContext& c) { return c.perceivedSpl >= 88.0; } },
+    { "loud",     "LOUD.",      45.0 * 60.0,   false, [] (const CoachContext& c) { return c.perceivedSpl >= model::loudHintSpl; } },
     { "creep",    "CREEP.",     60.0 * 60.0,   false, [] (const CoachContext& c) { return c.creepDb >= 3.0; } },
-    { "loop",     "LOOP.",      30.0 * 60.0,   false, [] (const CoachContext& c) { return c.loopingSeconds >= 300.0 || c.barPlays >= 30.0; } },
+    { "loop",     "LOOP.",      60.0 * 60.0,   false, [] (const CoachContext& c) { return c.loopStrain >= model::loopHintStrainMinutes; } },
     { "late",     "LATE.",      6.0 * 3600.0,  false, [] (const CoachContext& c) { const auto h = c.now.getHours(); return h >= 23 || h < 5; } },
     { "harsh",    "BRIGHT.",    90.0 * 60.0,   false, [] (const CoachContext& c) { return c.factors.harshness >= 1.2; } },
     { "squashed", "SQUASHED.",  3.0 * 3600.0,  false, [] (const CoachContext& c) { return c.factors.dynamics >= 1.17; } },
@@ -205,7 +206,7 @@ std::optional<Hint> Coach::update (const CoachContext& context, double nowSecond
 
             lastHintSeconds = lastHintOfKind[rule.event] = nowSeconds;
             say (text, nowSeconds);
-            return Hint { rule.headline, text, rule.offerBreak };
+            return Hint { rule.headline, text, rule.offerBreak, juce::String (rule.event) == "loud" };
         }
     }
 

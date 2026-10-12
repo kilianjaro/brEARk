@@ -85,15 +85,31 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
         else
         {
             breakSecondsLeft = requestedBreakMinutes * 60.0;
+            soundOnBreakSeconds = 0.0;
             phase = BreakPhase::onBreak;
             alerts.push_back ({ AlertKind::breakStarted, Tone::calm, false, in.battery, requestedBreakMinutes });
             return alerts;
         }
     }
 
-    // A guided break: count down, never nag.
+    // A guided break: count down, never nag. Playing again ends it quietly:
+    // you know you're back (a short preview doesn't count).
     if (phase == BreakPhase::onBreak)
     {
+        soundOnBreakSeconds = in.silent ? 0.0 : soundOnBreakSeconds + in.seconds;
+
+        if (soundOnBreakSeconds >= model::breakEndsAfterSoundSeconds)
+        {
+            breakSecondsLeft = 0.0;
+
+            if (in.battery >= model::rearmBattery)
+                startOver();
+            else
+                phase = phaseFromFlags();
+
+            return alerts;
+        }
+
         if ((breakSecondsLeft -= in.seconds) <= 0.0)
         {
             breakSecondsLeft = 0.0;
@@ -125,31 +141,27 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
         alert (AlertKind::headsUp, Tone::calm, false);
     }
 
+    const auto justEmptied = ! due && in.battery <= model::emptyBattery;
+
+    if (justEmptied)
+    {
+        due = true;
+        secondsSinceDue = 0.0;
+        nextReminderAt = model::firstReminderSeconds;
+
+        if (in.strictness != Strictness::hard) // HARD: the plug itself is the alert
+            alert (AlertKind::breakDue, Tone::calm, true);
+    }
+
     if (! due)
     {
-        if (in.battery <= model::emptyBattery)
-        {
-            due = true;
-            secondsSinceDue = 0.0;
-            nextReminderAt = model::firstReminderSeconds;
-            alert (AlertKind::breakDue, Tone::calm, true);
-        }
-
         phase = phaseFromFlags();
         return alerts;
     }
 
-    // The break is due and you're still listening.
-    secondsSinceDue += in.seconds;
-
-    if (in.strictness == Strictness::escalating && secondsSinceDue >= nextReminderAt)
-    {
-        const auto first = nextReminderAt <= model::firstReminderSeconds;
-        alert (AlertKind::reminder, first ? Tone::firm : Tone::brutal, true);
-        nextReminderAt += model::reminderIntervalSeconds;
-    }
-
-    if (in.strictness == Strictness::hard && secondsSinceDue >= model::hardGraceSeconds && snoozeSecondsLeft <= 0.0)
+    // HARD: the plug comes out as soon as the battery is empty and you listen,
+    // unless a snooze is running.
+    if (in.strictness == Strictness::hard && snoozeSecondsLeft <= 0.0)
     {
         if (in.recording)
         {
@@ -163,6 +175,17 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
             alert (AlertKind::unplug, Tone::brutal, true);
             return alerts;
         }
+    }
+
+    // The break is due and you're still listening.
+    if (! justEmptied)
+        secondsSinceDue += in.seconds;
+
+    if (in.strictness == Strictness::escalating && secondsSinceDue >= nextReminderAt)
+    {
+        const auto first = nextReminderAt <= model::firstReminderSeconds;
+        alert (AlertKind::reminder, first ? Tone::firm : Tone::brutal, true);
+        nextReminderAt += model::reminderIntervalSeconds;
     }
 
     phase = BreakPhase::due;

@@ -51,6 +51,12 @@ public:
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
     void drawButtonText (juce::Graphics&, juce::TextButton&, bool highlighted, bool down) override;
 
+    // Hover explanations: paper, a 2 px ink border, what it shows in bold,
+    // what it means below (the two parts are split at the line break).
+    juce::Rectangle<int> getTooltipBounds (const juce::String& text, juce::Point<int> screenPos, juce::Rectangle<int> parentArea) override;
+    void drawTooltip (juce::Graphics&, const juce::String& text, int width, int height) override;
+    juce::TextLayout layoutTooltip (const juce::String& text) const;
+
     // Paper buttons with ink borders: readable on paper, ink and signal red alike.
     static void stylePaperButton (juce::Button& button);
 

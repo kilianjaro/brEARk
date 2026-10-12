@@ -23,6 +23,8 @@ inline constexpr double referenceTimeConstantSeconds = 2.0 * 3600.0; // Heuristi
 // (it knows your level within minutes); afterwards it moves with the 2 h constant.
 inline constexpr double referenceFastLearningSeconds = 60.0;
 inline constexpr float  silenceThresholdLufs = -55.0f;               // Heuristic: inaudible at sane levels
+inline constexpr double loudWindowSeconds = 120.0;                  // M9: the LOUD pop-up needs a loud 2 min, not a loud moment
+inline constexpr double loudHintSpl = 88.0;                         // Heuristic: estimated dB at the listening position
 
 //── Daily / weekly dose: WHO safe listening (ITU-T H.870) ─────────────────────
 // Equal-energy principle with a 3 dB exchange rate: +3 dB = half the time.
@@ -66,12 +68,16 @@ inline constexpr double psrBrickwalledDb  = 7.0;  // Heuristic: full extra fatig
 inline constexpr double dynamicsFactorMax = 1.2;
 
 // Repetition ("loop blindness"): affects freshness, not the hearing dose.
-inline constexpr double barPlaysNeutral        = 10.0; // Heuristic: playhead plays of the current bar (~30 min)
-inline constexpr double barPlaysFull           = 60.0;
-inline constexpr double barPlaysDecaySeconds   = 30.0 * 60.0;
-inline constexpr double loopMinutesNeutral     = 2.0;  // Heuristic: continuous identical audio
-inline constexpr double loopMinutesFull        = 12.0;
-inline constexpr double repetitionFactorMax    = 1.5;
+// M9 (Kilian): what wears is the number of plays, each weighing
+// log2 (1 + loop seconds). 6 plays of a 1 s loop weigh less than 6 of a 10 s
+// loop, and a 60 s loop (one play a minute) less per minute than a 10 s loop.
+// Strain is counted in minutes of a reference loop: 4 bars at 124 bpm.
+inline constexpr double loopReferenceSeconds     = 4.0 * 4.0 * 60.0 / 124.0; // 7.74 s
+inline constexpr double loopStrainNeutralMinutes = 6.0;  // Heuristic: no extra fatigue below
+inline constexpr double loopStrainFullMinutes    = 45.0; // Heuristic: full factor (M9: "much gentler")
+inline constexpr double repetitionFactorMax      = 1.2;  // M9: was 1.5 after 12 min
+inline constexpr double loopHintStrainMinutes    = 60.0; // the LOOP pop-up (M9: 1 bar ≈ 30 min, 4 bars ≈ 60 min, 16 bars ≈ 2.5 h)
+inline constexpr double barPlaysDecaySeconds     = 30.0 * 60.0;
 
 // Audio loop detection on the host's tempo grid (see GridLoopDetector)
 inline constexpr double loopSlotQuarters     = 0.25;  // one FFT per 16th note
@@ -100,7 +106,8 @@ inline constexpr double emptyBattery = 0.5;  // the break is due
 inline constexpr double rearmBattery = 30.0; // recovered: alerts start over
 inline constexpr double firstReminderSeconds = 10.0 * 60.0; // listening time after empty
 inline constexpr double reminderIntervalSeconds = 5.0 * 60.0;
-inline constexpr double hardGraceSeconds = 10.0 * 60.0;     // HARD: unplug after this
+// HARD unplugs at empty (M9, Kilian: "it came too late as the battery was already at 0 %").
+inline constexpr double breakEndsAfterSoundSeconds = 10.0;  // a BREAK ends once you play this long
 
 //── Hard mode: pulling the plug (CONCEPT.md §7) ───────────────────────────────
 inline constexpr double spinDownSeconds = 3.5;        // Heuristic: a turntable losing power

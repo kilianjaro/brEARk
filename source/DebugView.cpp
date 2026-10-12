@@ -1,5 +1,6 @@
 #include "DebugView.h"
 #include "BuildInfo.h"
+#include "ui/Tooltips.h"
 
 namespace
 {
@@ -108,12 +109,23 @@ DebugView::DebugView (BrearkProcessor& p)
 
     warpSwitch.onChange = [&brain] (int index) { brain.setTimeWarp (index == 1 ? 60 : 1); };
 
-    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton })
+    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton, &notThatLoudButton })
     {
         Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
     }
 
+    setupSwitch.setTooltip (tips::setup);
+    presetSwitch.setTooltip (tips::preset);
+    strictnessSwitch.setTooltip (tips::strictness);
+    warpSwitch.setTooltip (tips::timeWarp);
+    breakButton.setTooltip (tips::breakNow);
+    snoozeButton.setTooltip (tips::snooze);
+    testAlertButton.setTooltip (tips::testAlert);
+    backButton.setTooltip (tips::back);
+    notThatLoudButton.setTooltip (tips::notThatLoud);
+
+    notThatLoudButton.onClick = [&brain] { brain.notThatLoud(); };
     breakButton.onClick = [&brain] { brain.toggleBreak(); };
     snoozeButton.onClick = [&brain] { brain.snooze(); };
     backButton.onClick = [this] { if (onBack != nullptr) onBack(); };
@@ -142,13 +154,16 @@ void DebugView::update (const breark::Snapshot& newSnapshot)
     strictnessSwitch.setSelectedIndex ((int) settings.strictness);
     warpSwitch.setSelectedIndex (snapshot.timeWarp > 1 ? 1 : 0);
     breakButton.setButtonText (snapshot.breakPhase == breark::BreakPhase::onBreak ? "END BREAK" : "BREAK");
+    breakButton.setTooltip (snapshot.breakPhase == breark::BreakPhase::onBreak ? tips::endBreak : tips::breakNow);
     snoozeButton.setEnabled (snapshot.breakPhase == breark::BreakPhase::unplugged);
+    notThatLoudButton.setEnabled (! snapshot.silent);
     repaint();
 }
 
 void DebugView::resized()
 {
     backButton.setBounds (getWidth() - 24 - 90, 24, 90, 30);
+    notThatLoudButton.setBounds (backButton.getX() - 10 - 140, 24, 140, 30);
 
     auto controls = getLocalBounds().reduced (24).removeFromBottom (rowHeight + 70);
     auto top = controls.removeFromTop (28);
@@ -207,6 +222,7 @@ void DebugView::paint (juce::Graphics& g)
         "DYNAMICS      PSR " + db (s.psr) + " dB   " + times (f.dynamics),
         "REPETITION    BAR PLAYS " + juce::String (s.barPlays, 1) + "   LOOPING " + minutesSeconds (s.loopingSeconds)
             + (s.loopBars > 0 ? " (" + juce::String (s.loopBars) + "-BAR LOOP)" : juce::String())
+            + "   STRAIN " + juce::String (juce::roundToInt (s.loopStrain)) + " / " + juce::String (juce::roundToInt (breark::model::loopHintStrainMinutes))
             + "   " + times (f.repetition),
         "LOOP CHECK    " + (s.loopHasGrid ? "RHYTHM " + juce::String (s.loopBestRhythm, 2) + "  SHIFT " + juce::String (s.loopBestShiftDb, 1)
                                                + " dB @ " + juce::String (s.loopBestBars) + " BARS   (LOOP: RHYTHM >= "
@@ -218,7 +234,8 @@ void DebugView::paint (juce::Graphics& g)
         "",
         "EAR BATTERY   " + juce::String (s.battery, 1) + " %",
         "DOSE          " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",
-        "EST. LEVEL    ~" + db (s.perceivedSpl, 0) + " dB PERCEIVED   ~" + db (s.doseSpl, 0) + " dB(A) DOSE",
+        "EST. LEVEL    ~" + db (s.perceivedSpl, 0) + " dB PERCEIVED   ~" + db (s.perceivedSpl2Min, 0) + " dB OVER 2 MIN   ~"
+            + db (s.doseSpl, 0) + " dB(A) DOSE",
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)
             + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",
         "BREAKS        " + phaseName (s.breakPhase)
@@ -241,9 +258,14 @@ void DebugView::paint (juce::Graphics& g)
     };
 
     g.setFont (fonts->mono (11.5f));
+    rowsTop = area.getY();
+    rowLabels.clearQuick();
 
     for (const auto& row : rows)
+    {
+        rowLabels.add (row.substring (0, 14).trim());
         g.drawText (row, area.removeFromTop (rowHeight), juce::Justification::centredLeft, false);
+    }
 
     g.drawText ("> " + brearkProcessor.getAlertPresenter().getCoachLine(),
                 area.removeFromBottom (rowHeight), juce::Justification::centredLeft, false);
@@ -251,4 +273,10 @@ void DebugView::paint (juce::Graphics& g)
     g.setColour (colours::ink.withAlpha (0.6f));
     g.setFont (fonts->mono (10.0f));
     g.drawText ("BUILD " BREARK_BUILD_ID, juce::Rectangle<int> (24, 62, getWidth() - 48, 14), juce::Justification::centredRight, false);
+}
+
+juce::String DebugView::getTooltip()
+{
+    const auto y = getMouseXYRelative().y - rowsTop;
+    return y >= 0 && juce::isPositiveAndBelow (y / rowHeight, rowLabels.size()) ? tips::dataRow (rowLabels[y / rowHeight]) : juce::String();
 }

@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ui/Tooltips.h"
 
 namespace
 {
@@ -23,6 +24,14 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
         ui::Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
     }
+
+    setupButton.setTooltip (ui::tips::setup);
+    presetButton.setTooltip (ui::tips::preset);
+    modeButton.setTooltip (ui::tips::strictness);
+    sizeButton.setTooltip (ui::tips::size);
+    dataButton.setTooltip (ui::tips::data);
+    historyButton.setTooltip (ui::tips::history);
+    tooltips.setLookAndFeel (&look);
 
     // Each label cycles through its options; settings are global.
     setupButton.onClick = [&brain]
@@ -82,7 +91,16 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
 BrearkEditor::~BrearkEditor()
 {
     stopTimer();
+    tooltips.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
+}
+
+juce::String BrearkEditor::getTooltip()
+{
+    if (data.isVisible() || history.isVisible())
+        return {};
+
+    return ui::tooltipAt (model, meterSize(), getMouseXYRelative().toFloat(), *fonts);
 }
 
 ui::MeterSize BrearkEditor::meterSize() const noexcept
@@ -127,6 +145,9 @@ void BrearkEditor::timerCallback()
     breakButton.setButtonText (snapshot.breakPhase == BreakPhase::unplugged ? "SNOOZE 10 MIN"
                              : snapshot.breakPhase == BreakPhase::onBreak   ? "END BREAK"
                                                                             : "BREAK");
+    breakButton.setTooltip (snapshot.breakPhase == BreakPhase::unplugged ? ui::tips::snooze
+                          : snapshot.breakPhase == BreakPhase::onBreak   ? ui::tips::endBreak
+                                                                         : ui::tips::breakNow);
 
     if (history.isVisible())
         history.setHistory (brain.getHistory());

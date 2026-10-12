@@ -1,4 +1,5 @@
 #include "coach/Coach.h"
+#include "engine/ModelConstants.h"
 
 #include <juce_core/juce_core.h>
 
@@ -174,6 +175,41 @@ public:
 
             const auto fourth = coach.update (c, 200.0 + 47.0 * 60.0);
             expect (fourth.has_value() && fourth->headline == "LOUD.");
+        }
+
+        beginTest ("LOUD offers NOT THAT LOUD; LOOP waits for 60 strain minutes (M9)");
+        {
+            auto quiet = sampleContext();
+            quiet.dose = 10.0;
+            quiet.silent = false;
+            quiet.battery = 70.0;
+            quiet.perceivedSpl = 80.0;
+            quiet.creepDb = 0.0;
+            quiet.loopStrain = 0.0;
+            quiet.now = juce::Time (2026, 9, 11, 14, 0);
+
+            {
+                Coach coach (lines, 3);
+                auto c = quiet;
+                c.perceivedSpl = 87.9;
+                expect (! coach.update (c, 200.0).has_value(), "below 88 dB");
+
+                c.perceivedSpl = 88.0;
+                const auto loud = coach.update (c, 1600.0);
+                expect (loud.has_value() && loud->headline == "LOUD." && loud->offerNotThatLoud && ! loud->offerBreak);
+            }
+
+            {
+                Coach coach (lines, 4);
+                auto c = quiet;
+                c.loopStrain = model::loopHintStrainMinutes - 1.0;
+                expect (! coach.update (c, 200.0).has_value(), "59 strain minutes: no pop-up yet");
+
+                c.loopStrain = model::loopHintStrainMinutes;
+                const auto loop = coach.update (c, 1600.0);
+                expect (loop.has_value() && loop->headline == "LOOP." && ! loop->offerNotThatLoud);
+                expect (! loop->text.containsIgnoreCase ("help"), "no rescuing from loops");
+            }
         }
 
         beginTest ("Breaks: a new task, care tip or fact every minute; never a pop-up");

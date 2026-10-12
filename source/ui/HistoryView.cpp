@@ -1,4 +1,5 @@
 #include "HistoryView.h"
+#include "Tooltips.h"
 
 namespace breark::ui
 {
@@ -22,6 +23,44 @@ juce::String clockFor (int minuteOfDay)
     return juce::String (total / 60).paddedLeft ('0', 2) + ":" + juce::String (total % 60).paddedLeft ('0', 2);
 }
 
+// Where everything sits, shared by drawing and tooltips.
+struct HistoryLayout
+{
+    juce::Rectangle<float> title, todayTitle, chart, chartLabels, weekTitle;
+    std::array<juce::Rectangle<float>, 7> days; // the full column of each day
+};
+
+HistoryLayout layoutHistory (juce::Rectangle<float> bounds)
+{
+    HistoryLayout l;
+    auto area = bounds.reduced (36.0f, 26.0f);
+    l.title = area.removeFromTop (56.0f);
+    area.removeFromTop (10.0f);
+    l.todayTitle = area.removeFromTop (30.0f);
+    l.chart = area.removeFromTop (170.0f).reduced (0.0f, 8.0f);
+    l.chartLabels = l.chart.removeFromBottom (16.0f);
+    area.removeFromTop (8.0f);
+    l.weekTitle = area.removeFromTop (30.0f);
+
+    const auto bars = area.removeFromTop (160.0f);
+    const auto gap = 16.0f;
+    const auto barWidth = (bars.getWidth() - 6.0f * gap) / 7.0f;
+
+    for (int i = 0; i < 7; ++i)
+        l.days[(size_t) i] = { bars.getX() + (float) i * (barWidth + gap), bars.getY(), barWidth, bars.getHeight() };
+
+    return l;
+}
+
+const DayRecord* recordFor (const Brain::History& history, int day)
+{
+    for (const auto& record : history.lastDays)
+        if (record.day == day)
+            return &record;
+
+    return nullptr;
+}
+
 void sectionTitle (juce::Graphics& g, juce::Rectangle<float> area, const juce::String& text, const Fonts& fonts)
 {
     g.fillRect (area.removeFromTop (3.0f));
@@ -36,19 +75,18 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
     g.fillRect (bounds);
     g.setColour (colours::ink);
 
-    auto area = bounds.reduced (36.0f, 26.0f);
+    const auto l = layoutHistory (bounds);
 
     g.setFont (fonts.grotesk (44.0f));
-    g.drawText ("HISTORY.", area.removeFromTop (56.0f), juce::Justification::centredLeft, false);
-    area.removeFromTop (10.0f);
+    g.drawText ("HISTORY.", l.title, juce::Justification::centredLeft, false);
 
     //── Today ────────────────────────────────────────────────────────────────
     const auto offToday = history.lastDays.empty() ? 0.0 : history.lastDays.back().offSeconds;
-    sectionTitle (g, area.removeFromTop (30.0f),
+    sectionTitle (g, l.todayTitle,
                   "TODAY" + separator + "EAR BATTERY" + (offToday >= 60.0 ? separator + "OFF " + hoursMinutes (offToday) : juce::String()),
                   fonts);
-    auto chart = area.removeFromTop (170.0f).reduced (0.0f, 8.0f);
-    auto labels = chart.removeFromBottom (16.0f);
+    const auto chart = l.chart;
+    const auto labels = l.chartLabels;
 
     const auto first = history.today.empty() ? history.nowMinute : history.today.front().minute;
     const auto last = std::max (history.nowMinute, first + 60);
@@ -128,13 +166,9 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
     g.drawText ("NOW " + clockFor (history.nowMinute), labels, juce::Justification::centredRight, false);
 
     //── Last 7 days ──────────────────────────────────────────────────────────
-    area.removeFromTop (8.0f);
-    sectionTitle (g, area.removeFromTop (30.0f), "LAST 7 DAYS" + separator + "DAILY DOSE (WHO)", fonts);
+    sectionTitle (g, l.weekTitle, "LAST 7 DAYS" + separator + "DAILY DOSE (WHO)", fonts);
 
     // Always the last 7 calendar days; a day without listening is 0 %.
-    auto bars = area.removeFromTop (160.0f);
-    const auto gap = 16.0f;
-    const auto barWidth = (bars.getWidth() - 6.0f * gap) / 7.0f;
     const auto today = history.lastDays.empty() ? 0 : history.lastDays.back().day;
 
     for (int i = 0; i < 7; ++i)
@@ -152,7 +186,7 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
             if (record.day == day)
                 offSeconds = record.offSeconds;
 
-        auto column = juce::Rectangle<float> (bars.getX() + (float) i * (barWidth + gap), bars.getY(), barWidth, bars.getHeight());
+        auto column = l.days[(size_t) i];
         const auto name = column.removeFromBottom (16.0f);
         const auto barHeight = juce::jlimit (0.0f, column.getHeight() - 18.0f, (float) dose * 1.2f);
 
@@ -169,6 +203,30 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
     }
 }
 
+juce::String historyTooltipAt (juce::Rectangle<float> bounds, const Brain::History& history, juce::Point<float> p)
+{
+    const auto l = layoutHistory (bounds);
+
+    if (l.chart.getUnion (l.todayTitle).contains (p))
+        return tips::todayCurve;
+
+    const auto today = history.lastDays.empty() ? 0 : history.lastDays.back().day;
+
+    for (int i = 0; i < 7; ++i)
+    {
+        if (! l.days[(size_t) i].contains (p))
+            continue;
+
+        const auto day = today - 6 + i;
+        const auto* record = recordFor (history, day);
+        return tips::day (i == 6 ? juce::String ("TODAY") : weekdayName (day), record != nullptr ? record->dose : 0.0,
+                          record != nullptr ? record->listeningSeconds : 0.0, record != nullptr ? record->breaks : 0,
+                          record != nullptr ? record->offSeconds : 0.0);
+    }
+
+    return {};
+}
+
 //==============================================================================
 HistoryOverlay::HistoryOverlay()
 {
@@ -178,6 +236,7 @@ HistoryOverlay::HistoryOverlay()
     closeButton.setColour (juce::ComboBox::outlineColourId, colours::ink);
     closeButton.setWantsKeyboardFocus (false);
     closeButton.onClick = [this] { if (onClose != nullptr) onClose(); };
+    closeButton.setTooltip (tips::close);
     addAndMakeVisible (closeButton);
 }
 
@@ -190,6 +249,11 @@ void HistoryOverlay::setHistory (Brain::History newHistory)
 void HistoryOverlay::resized()
 {
     closeButton.setBounds (getWidth() - 32 - 110, 30, 110, 40);
+}
+
+juce::String HistoryOverlay::getTooltip()
+{
+    return historyTooltipAt (getLocalBounds().toFloat(), history, getMouseXYRelative().toFloat());
 }
 
 void HistoryOverlay::paint (juce::Graphics& g)

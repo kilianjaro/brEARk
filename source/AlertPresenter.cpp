@@ -119,7 +119,8 @@ breark::CoachContext AlertPresenter::makeContext (const breark::Snapshot& s) con
     c.loopingSeconds = s.loopingSeconds;
     c.loopBars = s.loopBars;
     c.barPlays = s.barPlays;
-    c.perceivedSpl = s.perceivedSpl;
+    c.loopStrain = s.loopStrain;
+    c.perceivedSpl = s.perceivedSpl2Min; // the LOUD pop-up needs a loud 2 minutes
     c.psr = s.psr;
     c.factors = s.factors;
     c.phase = s.breakPhase;
@@ -140,7 +141,7 @@ void AlertPresenter::timerCallback()
         present (alert);
 
     if (const auto hint = coach.update (context, juce::Time::getMillisecondCounterHiRes() / 1000.0))
-        showToast ({ hint->headline, hint->text, "", false, hint->offerBreak }, false);
+        showToast ({ hint->headline, hint->text, "", false, hint->offerBreak, false, hint->offerNotThatLoud }, false);
 }
 
 void AlertPresenter::present (const breark::Alert& alert)
@@ -159,6 +160,12 @@ void AlertPresenter::showToast (const ToastContent& content, bool withSound)
         toast = std::make_unique<ToastWindow>();
         toast->onBreak = [this] { brain->toggleBreak(); };
         toast->onSnooze = [this] { brain->snooze(); };
+        toast->onNotThatLoud = [this]
+        {
+            brain->notThatLoud();
+            showToast ({ "NOTED.", "Got it: this loudness is your normal level now. Change your monitor volume? Set it again in DATA.",
+                         "", false, false }, false);
+        };
     }
 
     toast->show (content);

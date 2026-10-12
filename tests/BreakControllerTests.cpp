@@ -38,63 +38,70 @@ public:
             expect (listen (breaks, Strictness::gentle, 0.0, 60.0 * 60.0).empty());
         }
 
-        beginTest ("HARD: unplugs 10 min after empty, with sound");
+        beginTest ("HARD: heads-up at 20 %, unplugs with sound the moment the battery is empty");
         {
             BreakController breaks;
-            drain (breaks, Strictness::hard);
+            const auto alerts = drain (breaks, Strictness::hard);
 
-            auto alerts = listen (breaks, Strictness::hard, 0.0, 9.0 * 60.0);
-            expect (alerts.empty() && ! breaks.isUnplugRequested());
-
-            alerts = listen (breaks, Strictness::hard, 0.0, 61.0);
+            expectEquals (count (alerts, AlertKind::headsUp), 1);
+            expectEquals (count (alerts, AlertKind::breakDue), 0, "the plug itself is the alert");
             expectEquals (count (alerts, AlertKind::unplug), 1);
+            expect (find (alerts, AlertKind::unplug).withSound);
             expect (breaks.isUnplugRequested());
+        }
+
+        beginTest ("HARD: empty while silent (or switched to HARD when empty): unplugs as soon as you play");
+        {
+            BreakController breaks;
+            drain (breaks, Strictness::escalating);
+            expect (listen (breaks, Strictness::hard, 0.0, 120.0, false, true).empty(), "silence: nothing to unplug");
+
+            const auto alerts = listen (breaks, Strictness::hard, 0.0, 1.0);
+            expectEquals (count (alerts, AlertKind::unplug), 1);
         }
 
         beginTest ("HARD while recording: announces once, unplugs when the take is done");
         {
             BreakController breaks;
-            drain (breaks, Strictness::hard);
-
-            auto alerts = listen (breaks, Strictness::hard, 0.0, 15.0 * 60.0, true);
+            auto alerts = drain (breaks, Strictness::hard, true);
             expectEquals (count (alerts, AlertKind::unplugAfterTake), 1);
             expectEquals (count (alerts, AlertKind::unplug), 0);
+
+            alerts = listen (breaks, Strictness::hard, 0.0, 15.0 * 60.0, true);
+            expect (alerts.empty(), "announced only once");
             expect (! breaks.isUnplugRequested(), "never cut a take");
 
             alerts = listen (breaks, Strictness::hard, 0.0, 1.0, false);
-            expectEquals (count (alerts, AlertKind::unplug), 1);
+            expectEquals (count (alerts, AlertKind::unplug), 1, "unplugged right after the take");
         }
 
         beginTest ("HARD, unplugged: stays off for the 5 min minimum break, then plugs back in");
         {
             BreakController breaks;
             drain (breaks, Strictness::hard);
-            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
             expect (breaks.isUnplugRequested());
 
             // Pressing BREAK changes nothing: this already is a (forced) break.
             breaks.toggleBreak (12.0);
-            // (The unplug fired ~2 s before the 10 min of listening above ended.)
-            auto alerts = listen (breaks, Strictness::hard, 10.0, 4.0 * 60.0 + 50.0, false, true);
+            auto alerts = listen (breaks, Strictness::hard, 10.0, 4.0 * 60.0 + 58.0, false, true);
             expect (alerts.empty() && breaks.isUnplugRequested(), "the mute lifted too early");
 
-            alerts = listen (breaks, Strictness::hard, 55.0, 10.0, false, true);
+            alerts = listen (breaks, Strictness::hard, 55.0, 2.0, false, true);
             expectEquals (count (alerts, AlertKind::replugged), 1);
             expect (! breaks.isUnplugRequested());
             expect (breaks.getPhase() == BreakPhase::listening, "recovered past 30 %: start over");
         }
 
-        beginTest ("HARD, unplugged, still drained after the minimum break: the ladder runs again");
+        beginTest ("HARD, unplugged, still drained after the minimum break: the plug comes out again when you play");
         {
             BreakController breaks;
             drain (breaks, Strictness::hard);
-            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
 
-            auto alerts = listen (breaks, Strictness::hard, 5.0, 5.0 * 60.0 + 1.0);
+            auto alerts = listen (breaks, Strictness::hard, 5.0, 5.0 * 60.0 + 1.0, false, true);
             expectEquals (count (alerts, AlertKind::replugged), 1);
             expect (breaks.getPhase() == BreakPhase::due);
 
-            alerts = listen (breaks, Strictness::hard, 5.0, 10.0 * 60.0 + 1.0);
+            alerts = listen (breaks, Strictness::hard, 5.0, 1.0);
             expectEquals (count (alerts, AlertKind::unplug), 1);
         }
 
@@ -102,7 +109,7 @@ public:
         {
             BreakController breaks;
             drain (breaks, Strictness::hard);
-            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
+            expect (breaks.isUnplugRequested());
 
             breaks.snooze();
             auto alerts = breaks.advance (inputs (Strictness::hard, 0.0, false));
@@ -120,7 +127,6 @@ public:
         {
             BreakController breaks;
             drain (breaks, Strictness::hard);
-            listen (breaks, Strictness::hard, 0.0, 10.0 * 60.0 + 1.0);
             expect (breaks.isUnplugRequested());
 
             const auto alerts = breaks.advance (inputs (Strictness::escalating, 0.0, false));
@@ -163,9 +169,11 @@ public:
             expect (breaks.getPhase() == BreakPhase::onBreak);
             expectWithinAbsoluteError (breaks.getBreakSecondsLeft(), 12.0 * 60.0, 1.0e-9);
 
-            // Even with audio playing, a break never nags.
-            alerts = listen (breaks, Strictness::escalating, 0.0, 11.0 * 60.0);
-            expect (alerts.empty());
+            // A break never nags, and short previews (under 10 s) don't end it.
+            alerts = listen (breaks, Strictness::escalating, 0.0, 5.0 * 60.0, false, true);
+            alerts = listen (breaks, Strictness::escalating, 0.0, 9.0);
+            alerts = listen (breaks, Strictness::escalating, 0.0, 6.0 * 60.0, false, true);
+            expect (alerts.empty() && breaks.getPhase() == BreakPhase::onBreak);
 
             alerts = listen (breaks, Strictness::escalating, 95.0, 61.0, false, true);
             expectEquals (count (alerts, AlertKind::breakOver), 1);
@@ -176,6 +184,28 @@ public:
             breaks.toggleBreak (5.0);
             breaks.advance (inputs (Strictness::escalating, 95.0, true));
             expect (breaks.getPhase() == BreakPhase::listening, "pressing BREAK again ends the break");
+        }
+
+        beginTest ("Playing for 10 s ends a BREAK by itself, quietly; the drain carries on");
+        {
+            BreakController breaks;
+            drain (breaks, Strictness::escalating);
+            breaks.toggleBreak (12.0);
+            breaks.advance (inputs (Strictness::escalating, 0.0, true));
+            listen (breaks, Strictness::escalating, 12.0, 60.0, false, true);
+
+            auto alerts = listen (breaks, Strictness::escalating, 12.0, 9.0);
+            expect (breaks.getPhase() == BreakPhase::onBreak, "9 s of sound: still on the break");
+
+            alerts = listen (breaks, Strictness::escalating, 12.0, 1.0);
+            expect (alerts.empty(), "no pop-up: you know you're back");
+            expect (breaks.getPhase() == BreakPhase::due, "still drained: the break is still due");
+
+            BreakController fresh;
+            fresh.toggleBreak (5.0);
+            fresh.advance (inputs (Strictness::escalating, 80.0, true));
+            listen (fresh, Strictness::escalating, 80.0, 10.0);
+            expect (fresh.getPhase() == BreakPhase::listening);
         }
 
         beginTest ("On a BREAK, recovery starts at once (no 60 s onset)");
@@ -206,12 +236,12 @@ private:
     }
 
     // Battery from 40 % to empty while listening.
-    static std::vector<Alert> drain (BreakController& breaks, Strictness strictness)
+    static std::vector<Alert> drain (BreakController& breaks, Strictness strictness, bool recording = false)
     {
         std::vector<Alert> all;
 
         for (double battery = 40.0; battery >= 0.0; battery -= 0.5)
-            for (const auto& a : breaks.advance (inputs (strictness, battery, false)))
+            for (const auto& a : breaks.advance (inputs (strictness, battery, false, recording)))
                 all.push_back (a);
 
         return all;

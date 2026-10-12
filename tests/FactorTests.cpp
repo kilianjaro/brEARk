@@ -27,13 +27,46 @@ public:
             FactorInputs extreme;
             extreme.presenceToBodyDb = -3.0;
             extreme.psrDb = 5.0;
-            extreme.barPlays = 100.0;
+            extreme.loopStrainMinutes = 100.0;
             extreme.localHour = 2.0;
             const auto f = computeFatigueFactors (extreme);
             expectWithinAbsoluteError (f.harshness, 1.3, 1.0e-9);
             expectWithinAbsoluteError (f.dynamics, 1.2, 1.0e-9);
-            expectWithinAbsoluteError (f.repetition, 1.5, 1.0e-9);
+            expectWithinAbsoluteError (f.repetition, 1.2, 1.0e-9);
             expectWithinAbsoluteError (f.night, 1.25, 1.0e-9);
+        }
+
+        beginTest ("Loop strain (M9): plays × log2 (1 + loop seconds), in minutes of 4 bars at 124 bpm");
+        {
+            // Kilian: "6 s of a 1 s loop is less straining" than 1 min of a 10 s loop
+            // (6 plays each), "and a 60 s loop is less straining".
+            expect (loopStrainMinutes (6.0, 1.0) < loopStrainMinutes (6.0, 10.0));
+            expect (loopStrainMinutes (1.0, 60.0) < loopStrainMinutes (6.0, 10.0), "a minute of a 60 s loop vs a 10 s loop");
+
+            // Time on one loop until the LOOP pop-up (60 strain minutes), at 124 bpm.
+            auto minutesUntilHint = [] (double loopSeconds)
+            {
+                const auto playsPerMinute = 60.0 / loopSeconds;
+                return model::loopHintStrainMinutes / loopStrainMinutes (playsPerMinute, loopSeconds);
+            };
+
+            const auto bar = 4.0 * 60.0 / 124.0;
+            expectWithinAbsoluteError (minutesUntilHint (bar / 4.0), 20.6, 0.5);   // 1 beat
+            expectWithinAbsoluteError (minutesUntilHint (bar), 30.2, 0.5);         // 1 bar
+            expectWithinAbsoluteError (minutesUntilHint (4.0 * bar), 60.0, 1.0e-6); // 4 bars
+            expectWithinAbsoluteError (minutesUntilHint (16.0 * bar), 150.2, 1.0);  // 16 bars
+
+            expectEquals (loopStrainMinutes (0.0, 8.0), 0.0);
+            expectEquals (loopStrainMinutes (10.0, 0.0), 0.0, "unknown length: no strain");
+
+            // The drain factor (much gentler): nothing up to 6 strain minutes, ×1.2 from 45.
+            FactorInputs in;
+            in.loopStrainMinutes = 6.0;
+            expectWithinAbsoluteError (computeFatigueFactors (in).repetition, 1.0, 1.0e-9);
+            in.loopStrainMinutes = 45.0;
+            expectWithinAbsoluteError (computeFatigueFactors (in).repetition, 1.2, 1.0e-9);
+            in.loopStrainMinutes = 300.0;
+            expectWithinAbsoluteError (computeFatigueFactors (in).repetition, 1.2, 1.0e-9);
         }
 
         beginTest ("Factor mapping: PSR 8.4 dB (a limited master) → x1.16");

@@ -4,6 +4,7 @@ A plugin for Ableton Live's master channel that listens to everything you hear a
 
 - Concept: [CONCEPT.md](CONCEPT.md)
 - Implementation plan & milestones: [IMPLEMENTATION.md](IMPLEMENTATION.md)
+- What it does and every alert: [docs/ALERTS.md](docs/ALERTS.md)
 
 ## Build (macOS)
 

@@ -174,16 +174,6 @@ Musicians' earplugs reduce level evenly instead of muffling. Use them at gigs.
 Your hearing is the one tool in your studio you can't upgrade.
 
 # Hints: silent pop-ups, rate-limited.
-[creep/witty]
-Your level crept up {creep} dB in the last hour. Sneaky.
-+{creep} dB since an hour ago. Your fader has ambitions.
-You're {creep} dB louder than an hour ago. Your ears noticed before you did.
-
-[creep/mentor]
-Your level crept up {creep} dB in the last hour. Check the mix at whisper volume.
-+{creep} dB in an hour. Turn it down and see what still works.
-Louder isn't better, it's just louder. You're up {creep} dB.
-
 [loop/witty]
 {looptime} on the same {loop} bars. Looping is the job; one pass from the top resets the ears.
 Same {loop} bars for {looptime}. Hear them once in context, then dive back in.
@@ -217,33 +207,25 @@ Very little dynamics left ({psr} dB PSR). The transients called. They miss you.
 Dense, limited audio tires the ears faster. Mix with headroom, master later.
 PSR {psr} dB: very compressed. Try mixing without the master limiter for a while.
 
-[loud/witty]
-About {spl} dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.
-~{spl} dB for a while, estimated. If that's wrong, NOT THAT LOUD teaches brEARk your level.
-
-[loud/mentor]
-Estimated {spl} dB for 2 minutes. If so, turn it down; if not, tap NOT THAT LOUD.
-About {spl} dB, steady (an estimate). Loud playback hides problems. Not that loud? Tell brEARk.
-
 [dose50]
-Half of today's safe sound dose is used ({dose} %). Pace yourself.
-{dose} % of today's dose. The rest of the day is still long.
+Half of today's hearing dose is used ({dose} %). Pace yourself.
+{dose} % of today's hearing dose. The rest of the day is still long.
 
 [dose100]
-Today's safe sound dose is used up ({dose} %). Quieter from now, or call it a day.
-{dose} % of the daily dose. More today is borrowed from your future ears.
-Full dose for today. Switch to editing, arranging, anything quiet.
+Today's hearing dose is used up ({dose} %). Quieter from now, or call it a day.
+{dose} % of today's hearing dose. More today is borrowed from your future ears.
+Hearing dose used up for today. Switch to editing, arranging, anything quiet.
 
-# M10: still listening after a full daily dose (ESCALATING, every 30 min).
+# M10: still listening after a full daily hearing dose (ESCALATING, every 30 min).
 [dayReminder/mentor]
-Still going at {dose} % of today's dose. Every extra hour now comes on top of a full day.
-{dose} % today. If it has to be today, turn down: every 3 dB less halves what a minute costs.
-Past the full dose ({dose} %). Arranging, editing, naming tracks: all fine without sound.
+Still going at {dose} % of today's hearing dose. Every extra hour comes on top of a full day.
+{dose} % today. If it has to be today, go one level quieter: it lasts about ten times longer.
+Past the full hearing dose ({dose} %). Arranging, editing, naming tracks: all fine without sound.
 
 # M10: HARD unplugs for the rest of the day.
 [dayUnplug/brutal]
-FULL DOSE. UNPLUGGED UNTIL 05:00.
-TODAY'S DOSE IS USED UP. THE PLUG STAYS OUT UNTIL TOMORROW.
+HEARING DOSE USED UP. UNPLUGGED UNTIL 05:00.
+TODAY'S HEARING DOSE IS USED UP. THE PLUG STAYS OUT UNTIL TOMORROW.
 DONE FOR TODAY. YOUR EARS THANK YOU TOMORROW.
 
 # Now and then, when nothing else is going on.

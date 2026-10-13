@@ -198,35 +198,25 @@ public:
             expect (window.getLufs() < -9.5f);
         }
 
-        beginTest ("NOT THAT LOUD (M9): the loudness playing now becomes your preset level");
+        beginTest ("Level anchor (M11): what plays now is your level; louder signal counts from there");
         {
             auto model = modelAt (-14.0, { Setup::monitors, LevelPreset::normal });
             expectWithinAbsoluteError (model.perceivedSpl (-6.0f), 88.0, 1.0e-9);
 
-            model.calibrateNormal (-6.0);
+            model.anchorLevel (-6.0); // "this is NORMAL on my ears"
+            expect (model.getState().levelAnchored);
             expectWithinAbsoluteError (model.perceivedSpl (-6.0f), 80.0, 1.0e-9);
-            expectWithinAbsoluteError (model.perceivedSpl (-3.0f), 83.0, 1.0e-9);
-        }
+            expectWithinAbsoluteError (model.perceivedSpl (0.0f), 86.0, 1.0e-9, "6 LU louder counts as 6 dB louder");
+            expectWithinAbsoluteError (model.doseSpl (-6.0f), 80.0, 1.0e-9, "the hearing dose follows too");
 
-        beginTest ("VOLUME (M10): you turned the monitors down; NOT THAT LOUD and the next day reset it");
-        {
-            auto model = modelAt (-14.0);
-            expectWithinAbsoluteError (model.perceivedSpl (-14.0f), 80.0, 1.0e-9);
+            // Anchored: the reference no longer learns from playback.
+            playFor (model, -2.0f, 3600.0, noon);
+            expectWithinAbsoluteError (model.getState().referenceLufs, -6.0, 1.0e-9);
 
-            model.adjustMonitorOffset (-6.0);
-            expectWithinAbsoluteError (model.perceivedSpl (-14.0f), 74.0, 1.0e-9);
-            expectWithinAbsoluteError (model.doseSpl (-14.0f), 74.0, 1.0e-9, "the dose follows too");
-
-            model.adjustMonitorOffset (-30.0);
-            expectWithinAbsoluteError (model.getState().monitorOffsetDb, -30.0, 1.0e-9, "clamped");
-
-            model.calibrateNormal (-14.0);
-            expectEquals (model.getState().monitorOffsetDb, 0.0, "NOT THAT LOUD: what plays now is normal");
-
-            model.adjustMonitorOffset (3.0);
-            model.advance (silence (60.0), noon);
-            model.advance (silence (60.0), juce::Time (2026, 9, 11, 5, 1));
-            expectEquals (model.getState().monitorOffsetDb, 0.0, "a new day starts at your normal level");
+            // One level quieter: 10 dB less on the ears.
+            expectWithinAbsoluteError (model.stepDownDb(), -10.0, 1.0e-9);
+            model.setSettings ({ Setup::monitors, LevelPreset::quiet });
+            expectEquals (model.stepDownDb(), 0.0, "nothing below QUIET");
         }
 
         beginTest ("Forecasts (M10): time to empty, to a full dose, to recover");

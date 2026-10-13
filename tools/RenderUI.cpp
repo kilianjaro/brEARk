@@ -93,7 +93,7 @@ int main (int argc, char* argv[])
         { "12-done",     [] (Snapshot& s) { s.battery = 46.0f; s.doseToday = 104.0f; s.dayDone = true; }, "Full dose for today. Switch to editing, arranging, anything quiet." },
         { "13-done-unplugged", [] (Snapshot& s) { s.battery = 46.0f; s.doseToday = 104.0f; s.dayDone = true; s.unpluggedForDay = true; s.breakPhase = BreakPhase::unplugged; },
                          "FULL DOSE. UNPLUGGED UNTIL 05:00.", PowerDown::Stage::stopped },
-        { "14-volume",   [] (Snapshot& s) { s.battery = 64.0f; s.monitorOffsetDb = -6.0; s.perceivedSpl = 75.0f; }, "Listening." },
+        { "14-anchor",   [] (Snapshot& s) { s.battery = 64.0f; s.levelAnchored = true; s.signalVsAnchorLu = 4.2f; }, "Listening." },
         { "11-long-coach", [] (Snapshot& s) { s.battery = 52.0f; s.loopBars = 4; s.loopingSeconds = 3700.0; s.loopStrain = 61.0f; s.factors.repetition = 1.2; s.drainFactor = 1.35f; },
                          "After 1:01:40 on one loop the ear stops hearing what never changes. Play it in context once." },
     };
@@ -145,7 +145,7 @@ int main (int argc, char* argv[])
         { "toast-unplugged", { "UNPLUGGED.", "THE TURNTABLE STOPPED. SO DO YOU.", "EAR BATTERY 0 %", true, false, true } },
         { "toast-week", { "LAST WEEK.", "82 % of the WHO weekly dose, 1 day over the daily dose. 14:20 listened on 5 days, longest stretch 1:40. Battery ran empty 4 times, 9 breaks.",
                           "DETAILS IN HISTORY (POSTER)", false, false } },
-        { "toast-loud", { "LOUD.", "About 91 dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.", "", false, false, false, true } },
+        { "toast-checkin", { "HOW LOUD?", "Your music is 7 LU louder than when you set NORMAL. How loud is it on your ears now?", "", false, false, false, true } },
     };
 
     for (const auto& [name, content] : toasts)
@@ -153,13 +153,13 @@ int main (int argc, char* argv[])
                       [&] (juce::Graphics& g) { paintToast (g, { 0.0f, 0.0f, (float) ToastWindow::width, (float) ToastWindow::height }, content, *fonts); }),
               folder.getChildFile (juce::String (name) + ".png"));
 
-    // The LOUD pop-up as a real window (with its NOT THAT LOUD button).
+    // The check-in as a real window (with its QUIET / NORMAL / LOUD answers).
     {
         ToastWindow toast;
-        ToastContent content { "LOUD.", "About 91 dB for 2 minutes, by brEARk's estimate. Quieter in the room? Tap NOT THAT LOUD.", "", false, false, false, true };
+        ToastContent content { "HOW LOUD?", "Your music is 7 LU louder than when you set NORMAL. How loud is it on your ears now?", "", false, false, false, true };
         toast.setVisible (false);
         toast.show (content);
-        save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-loud-window.png"));
+        save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-checkin-window.png"));
         toast.dismiss();
     }
 

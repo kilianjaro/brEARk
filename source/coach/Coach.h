@@ -38,7 +38,6 @@ struct Hint
 {
     juce::String headline, text;
     bool offerBreak = false;
-    bool offerNotThatLoud = false; // the LOUD pop-up: "my monitors are quieter than you think"
 };
 
 //==============================================================================

@@ -68,18 +68,23 @@ public:
             expect (wordFor ([] (Snapshot& s) { s.timeWarp = 60; }).status.startsWith ("TEST MODE x60"));
         }
 
-        beginTest ("POSTER stats: six labels, six values, each with a two-part explanation");
+        beginTest ("POSTER stats (M11): five, the hearing dose first, never dB at your ears");
         {
             const auto m = wordFor ([] (Snapshot& s) { s.doseToday = 18.0f; s.listeningSecondsToday = 65.0 * 60.0; });
-            expectEquals ((int) m.stats.size(), 6);
-            expectEquals (m.stats[0].value, juce::String ("18 %"));
+            expectEquals ((int) m.stats.size(), 5);
+            expectEquals (m.stats[0].value, juce::String ("18 % USED"));
+            expect (m.stats[0].label.startsWith ("HEARING DOSE"));
             expectEquals (m.stats[2].value, juce::String ("1:05"));
+            expect (m.stats[4].value.endsWith ("LUFS"));
 
             for (const auto& stat : m.stats)
+            {
                 expect (stat.tip.containsChar ('\n') && stat.tip.length() > 40, stat.label + " has no explanation");
+                expect (! stat.value.contains (" dB"), stat.label + " shows dB");
+            }
         }
 
-        beginTest ("Why it drains, in plain words (M9): percentages, not x-factors");
+        beginTest ("Why it drains (M11): only reasons that add 10 % or more, in plain words");
         {
             const auto m = wordFor ([] (Snapshot& s)
             {
@@ -88,11 +93,9 @@ public:
                 s.doseToday = 18.0f;
             });
 
-            expectEquals (m.factors[0].text, juce::String ("BATTERY DRAINS 21 % FASTER:"));
-            expectEquals (m.factors[1].text, juce::String ("HARSH HIGHS +3 %"));
-            expectEquals (m.factors[2].text, juce::String ("LITTLE DYNAMICS +16 %"));
-            expectEquals (m.factors[3].text, juce::String ("SAME LOOP +0 %"));
-            expectEquals (m.factors[5].text, juce::String ("TODAY'S DOSE +9 %"));
+            expectEquals ((int) m.factors.size(), 2, "the head and one reason: bright (+3 %) and a full day (+9 %) stay hidden");
+            expectEquals (m.factors[0].text, juce::String ("DRAINS FASTER:"));
+            expectEquals (m.factors[1].text, juce::String ("LITTLE DYNAMICS +16 %"));
 
             for (const auto& item : m.factors)
                 expect (item.tip.containsChar ('\n'), item.text + " has no explanation");
@@ -101,7 +104,8 @@ public:
                 for (const auto& item : line)
                     expect (! item.text.contains (" x1") && item.tip.containsChar ('\n'), item.text);
 
-            expect (wordFor ([] (Snapshot& s) { s.silent = true; }).factors[0].text.startsWith ("SILENCE"));
+            expect (wordFor ([] (Snapshot& s) { s.factors = { 1.03, 1.05, 1.0, 1.0 }; }).factors.empty(), "nothing that matters: no line");
+            expect (wordFor ([] (Snapshot& s) { s.silent = true; s.factors = { 1.3, 1.2, 1.0, 1.0 }; }).factors.empty(), "silence drains nothing");
         }
 
         beginTest ("End of day and time left (M10)");
@@ -120,12 +124,15 @@ public:
                 s.minutesToBreak = 25.2;
                 s.minutesToBreakQuieter = 100.0;
                 s.minutesToFullDose = 190.0;
-                s.monitorOffsetDb = -6.0;
+                s.levelAnchored = true;
+                s.signalVsAnchorLu = 4.4f;
             });
             expectEquals (playing.timeLine[0].text, juce::String ("BREAK IN ~25 MIN"));
-            expectEquals (playing.timeLine[1].text, juce::String ("-6 dB: ~1:40 H"));
-            expectEquals (playing.timeLine[2].text, juce::String ("DOSE FULL IN ~3:10 H"));
-            expectEquals (playing.timeLine[3].text, juce::String ("VOLUME -6 dB"));
+            expectEquals (playing.timeLine[1].text, juce::String ("AT QUIET ~1:40 H"));
+            expectEquals (playing.compactLines[0][0].text, juce::String ("HEARING DOSE 0 % USED"));
+            expectEquals (playing.compactLines[0][1].text, juce::String ("~3:10 H LEFT"));
+            expectEquals (playing.compactLines[1][1].text, juce::String ("NORMAL +4 LU"));
+            expect (! playing.compactLines[1][0].text.contains (" dB"), "no dB at the ears: only the signal in LUFS");
 
             const auto resting = wordFor ([] (Snapshot& s) { s.silent = true; s.battery = 40.0f; s.minutesToRecover = 8.4; });
             expect (resting.timeLine[0].text.startsWith ("RECOVERING") && resting.timeLine[0].text.endsWith ("~8 MIN"));

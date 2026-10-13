@@ -84,7 +84,7 @@ public:
             for (const auto* event : { "reminder", "unplug", "breakDue", "snoozed", "dayUnplug" })
                 expect (coach.draw (event, CoachTone::brutal, c).isNotEmpty(), juce::String (event) + "/brutal has no lines");
 
-            for (const auto* event : { "creep", "loop", "late", "harsh", "squashed", "loud", "dose50", "dose100", "idle", "backOn" })
+            for (const auto* event : { "loop", "late", "harsh", "squashed", "dose50", "dose100", "idle", "backOn" })
             {
                 expect (coach.draw (event, CoachTone::witty, c).isNotEmpty(), juce::String (event) + "/witty has no lines");
                 expect (coach.draw (event, CoachTone::mentor, c).isNotEmpty(), juce::String (event) + "/mentor has no lines");
@@ -158,29 +158,29 @@ public:
             c.dose = 10.0;
             c.silent = false;
             c.battery = 70.0;
-            c.perceivedSpl = 92.0; // loud
-            c.creepDb = 4.0;       // creeping
-            c.loopingSeconds = 0.0; // nothing else applies
+            c.factors.harshness = 1.25; // a bright mix
+            c.factors.dynamics = 1.18;  // squashed
+            c.loopingSeconds = 0.0;     // nothing else applies
             c.barPlays = 0.0;
 
             expect (! coach.update (c, 0.0).has_value(), "no hints during warm-up");
 
             const auto first = coach.update (c, 200.0);
-            expect (first.has_value() && first->headline == "LOUD.", "the most important hint first");
+            expect (first.has_value() && first->headline == "BRIGHT.", "the more important hint first");
 
             expect (! coach.update (c, 200.0 + 10.0 * 60.0).has_value(), "20 min gap");
 
             const auto second = coach.update (c, 200.0 + 21.0 * 60.0);
-            expect (second.has_value() && second->headline == "CREEP.", "loud is cooling down, so creep is next");
+            expect (second.has_value() && second->headline == "SQUASHED.", "bright is cooling down, so squashed is next");
 
             const auto third = coach.update (c, 200.0 + 42.0 * 60.0);
-            expect (! third.has_value(), "loud (45 min) and creep (60 min) still cooling down");
+            expect (! third.has_value(), "bright (90 min) and squashed (3 h) still cooling down");
 
-            const auto fourth = coach.update (c, 200.0 + 47.0 * 60.0);
-            expect (fourth.has_value() && fourth->headline == "LOUD.");
+            const auto fourth = coach.update (c, 200.0 + 92.0 * 60.0);
+            expect (fourth.has_value() && fourth->headline == "BRIGHT.");
         }
 
-        beginTest ("LOUD offers NOT THAT LOUD; LOOP waits for 60 strain minutes (M9)");
+        beginTest ("No dB guesses (M11): no LOUD or CREEP pop-ups; LOOP waits for 60 strain minutes (M9)");
         {
             auto quiet = sampleContext();
             quiet.dose = 10.0;
@@ -194,12 +194,10 @@ public:
             {
                 Coach coach (lines, 3);
                 auto c = quiet;
-                c.perceivedSpl = 87.9;
-                expect (! coach.update (c, 200.0).has_value(), "below 88 dB");
-
-                c.perceivedSpl = 88.0;
-                const auto loud = coach.update (c, 1600.0);
-                expect (loud.has_value() && loud->headline == "LOUD." && loud->offerNotThatLoud && ! loud->offerBreak);
+                c.perceivedSpl = 105.0;
+                c.creepDb = 12.0;
+                expect (! coach.update (c, 200.0).has_value() && ! coach.update (c, 1600.0).has_value(),
+                        "the check-in asks about loudness; no estimated-dB pop-ups");
             }
 
             {
@@ -210,7 +208,7 @@ public:
 
                 c.loopStrain = model::loopHintStrainMinutes;
                 const auto loop = coach.update (c, 1600.0);
-                expect (loop.has_value() && loop->headline == "LOOP." && ! loop->offerNotThatLoud);
+                expect (loop.has_value() && loop->headline == "LOOP." && ! loop->offerBreak);
                 expect (! loop->text.containsIgnoreCase ("help"), "no rescuing from loops");
             }
         }

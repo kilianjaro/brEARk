@@ -274,6 +274,43 @@ public:
             file.deleteFile();
         }
 
+        beginTest ("M11: the first sound asks how loud it is; a level click while playing anchors that level");
+        {
+            Brain brain (tempStateFile());
+            int token = 0;
+            start (brain, token, rate);
+
+            for (int i = 0; i < 1150; ++i) // 11.5 s of play
+            {
+                brain.push (makeBlock (i), false);
+                juce::Thread::sleep (10);
+            }
+
+            juce::Thread::sleep (300);
+            int checkIns = 0;
+
+            for (const auto& alert : brain.takeAlerts())
+                if (alert.kind == AlertKind::checkIn && alert.checkIn == (int) CheckInPolicy::Reason::firstSound)
+                    ++checkIns;
+
+            expectEquals (checkIns, 1, "the first sound of the session asks once");
+
+            brain.setLevelNow (LevelPreset::loud);
+            expect (brain.getSettings().preset == LevelPreset::loud, "the switch shows at once");
+
+            for (int i = 0; i < 200; ++i)
+            {
+                brain.push (makeBlock (i), false);
+                juce::Thread::sleep (10);
+            }
+
+            const auto s = waitFor (brain, [] (const Snapshot& x) { return x.levelAnchored; });
+            expect (s.levelAnchored, "clicked while playing: anchored");
+            expectWithinAbsoluteError (s.referenceLufs, -23.0f, 0.5f, "the anchor is what played: the -23 LUFS sine");
+            expectWithinAbsoluteError (s.signalVsAnchorLu, 0.0f, 0.5f);
+            brain.detach (&token);
+        }
+
         beginTest ("Several instances: the first listens, the next takes over when it is removed");
         {
             Brain brain (tempStateFile());

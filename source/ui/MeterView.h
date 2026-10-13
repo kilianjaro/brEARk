@@ -40,8 +40,8 @@ struct MeterModel
 MeterModel makeMeterModel (const Snapshot& snapshot, const juce::String& coachLine,
                            bool activeInstance, PowerDown::Stage powerStage);
 
-// Where the editor puts its VOLUME buttons (−6 / −3 / +3 dB).
-juce::Rectangle<int> volumeButtonsArea (MeterSize size);
+// Where the editor puts the level switch (QUIET / NORMAL / LOUD, M11).
+juce::Rectangle<int> levelSwitchArea (MeterSize size);
 
 // The explanation for what's under the mouse, or an empty string.
 juce::String tooltipAt (const MeterModel& model, MeterSize size, juce::Point<float> position, const Fonts& fonts);

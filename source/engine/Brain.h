@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BreakController.h"
+#include "CheckIn.h"
 #include "ExposureModel.h"
 #include "HostActivity.h"
 #include "LevelCreepTracker.h"
@@ -57,11 +58,14 @@ public:
     // HARD, unplugged: 10 more minutes.
     void snooze() noexcept { snoozeRequested.store (true); }
 
-    // NOT THAT LOUD: what plays now (last 2 minutes) is your normal level.
-    void notThatLoud() noexcept { notThatLoudRequested.store (true); }
-
-    // VOLUME: you turned your monitors down (negative dB) or up (M10).
-    void adjustMonitorVolume (int db) noexcept { monitorVolumeRequestDb.fetch_add (db); }
+    // M11: "what plays now is QUIET / NORMAL / LOUD on my ears" (the level
+    // switch, a check-in answer). The level shows at once; while music plays,
+    // the current loudness becomes the anchor for it.
+    void setLevelNow (LevelPreset preset) noexcept
+    {
+        presetSetting.store ((int) preset);
+        levelRequest.store ((int) preset);
+    }
 
     // Alerts produced since the last call, for the message thread to present.
     std::vector<Alert> takeAlerts();
@@ -163,8 +167,8 @@ private:
     std::atomic<int> presetSetting { (int) LevelPreset::normal };
     std::atomic<int> strictnessSetting { (int) Strictness::escalating };
     std::atomic<int> timeWarp { 1 };
-    std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false }, notThatLoudRequested { false };
-    std::atomic<int> monitorVolumeRequestDb { 0 };
+    std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false };
+    std::atomic<int> levelRequest { -1 };
     std::atomic<bool> unplugTarget { false }, exportDetected { false };
 
     // Worker thread only
@@ -173,8 +177,11 @@ private:
     GridLoopDetector loops;
     PlayheadTracker playhead;
     LevelCreepTracker creep;
-    LoudnessWindow loudWindow { model::loudWindowSeconds };
+    // Loudness over the last minutes *of play* (silence doesn't count).
+    LoudnessWindow loudWindow { model::loudWindowSeconds };   // forecasts, check-ins
     LoudnessWindow levelAWindow { model::loudWindowSeconds }; // the dose forecast
+    LoudnessWindow nowWindow { 30.0 };                         // "what plays now", for the anchor
+    CheckInPolicy checkIn;
     double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed
     double smoothedPresence = -std::numeric_limits<double>::infinity();
     double smoothedHighs = -std::numeric_limits<double>::infinity();

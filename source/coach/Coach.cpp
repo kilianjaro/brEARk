@@ -48,8 +48,6 @@ struct HintRule
 
 // Most important first.
 const HintRule hintRules[] = {
-    { "loud",     "LOUD.",      45.0 * 60.0,   false, [] (const CoachContext& c) { return c.perceivedSpl >= model::loudHintSpl; } },
-    { "creep",    "CREEP.",     60.0 * 60.0,   false, [] (const CoachContext& c) { return c.creepDb >= 3.0; } },
     { "loop",     "LOOP.",      60.0 * 60.0,   false, [] (const CoachContext& c) { return c.loopStrain >= model::loopHintStrainMinutes; } },
     { "late",     "LATE.",      6.0 * 3600.0,  false, [] (const CoachContext& c) { const auto h = c.now.getHours(); return h >= 23 || h < 5; } },
     { "harsh",    "BRIGHT.",    90.0 * 60.0,   false, [] (const CoachContext& c) { return c.factors.harshness >= 1.2; } },
@@ -165,6 +163,7 @@ juce::String Coach::speakFor (const Alert& alert, const CoachContext& context, d
         case AlertKind::dayReminder:     text = draw ("dayReminder", CoachTone::mentor, context); break;
         case AlertKind::dayUnplug:       text = draw ("dayUnplug", CoachTone::brutal, context); break;
         case AlertKind::weeklySummary:   return {}; // numbers, not a coach line (AlertPresenter)
+        case AlertKind::checkIn:         return {}; // a question with buttons (AlertPresenter)
     }
 
     say (text, nowSeconds);
@@ -209,7 +208,7 @@ std::optional<Hint> Coach::update (const CoachContext& context, double nowSecond
 
             lastHintSeconds = lastHintOfKind[rule.event] = nowSeconds;
             say (text, nowSeconds);
-            return Hint { rule.headline, text, rule.offerBreak, juce::String (rule.event) == "loud" };
+            return Hint { rule.headline, text, rule.offerBreak };
         }
     }
 

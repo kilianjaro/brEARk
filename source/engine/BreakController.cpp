@@ -30,7 +30,7 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
 
     auto alert = [&] (AlertKind kind, Tone tone, bool withSound)
     {
-        alerts.push_back ({ kind, tone, withSound, in.battery, in.suggestedBreakMinutes, {} });
+        alerts.push_back ({ kind, tone, withSound, in.battery, in.suggestedBreakMinutes, {}, 0, 0.0 });
     };
 
     // A new day (or the dose under 100 % again): the end of day is over.
@@ -117,7 +117,7 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
             breakSecondsLeft = requestedBreakMinutes * 60.0;
             soundOnBreakSeconds = 0.0;
             phase = BreakPhase::onBreak;
-            alerts.push_back ({ AlertKind::breakStarted, Tone::calm, false, in.battery, requestedBreakMinutes, {} });
+            alerts.push_back ({ AlertKind::breakStarted, Tone::calm, false, in.battery, requestedBreakMinutes, {}, 0, 0.0 });
             return alerts;
         }
     }

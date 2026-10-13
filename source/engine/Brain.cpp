@@ -249,22 +249,32 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     {
         loops.update (onSeconds, silent);
         creep.add (lufs, onSeconds, silent);
-        loudWindow.add (silent ? Snapshot::minusInfinity : lufs, onSeconds);
-        levelAWindow.add (silent ? Snapshot::minusInfinity : working.levelA, onSeconds);
+        // The windows only count playing time: a pause neither dilutes them
+        // nor ends them; only a real break (5 min of silence) starts them over.
+        if (! silent)
+        {
+            loudWindow.add (lufs, onSeconds);
+            levelAWindow.add (working.levelA, onSeconds);
+            nowWindow.add (lufs, onSeconds);
+        }
+        else if (exposure.getState().silenceSeconds >= model::breakMinimumSeconds)
+        {
+            loudWindow.reset();
+            levelAWindow.reset();
+            nowWindow.reset();
+        }
     }
 
-    if (const auto db = monitorVolumeRequestDb.exchange (0); db != 0)
-        exposure.adjustMonitorOffset (db);
-
-    // NOT THAT LOUD: the last 2 minutes (or, if shorter, what plays now) become
-    // your normal level, i.e. the preset's dB.
-    if (notThatLoudRequested.exchange (false))
+    // A level click or a check-in answer (M11): what plays now (the last 30 s
+    // of play, or the last 3 s at first) is that level on your ears.
+    if (const auto requested = levelRequest.exchange (-1); requested >= 0)
     {
-        const auto recent = loudWindow.getLufs();
-        const auto normal = std::isfinite (recent) ? recent : lufs;
+        const auto playingNow = std::isfinite (nowWindow.getLufs()) ? nowWindow.getLufs() : lufs;
 
-        if (std::isfinite (normal) && normal > model::silenceThresholdLufs)
-            exposure.calibrateNormal (normal);
+        if (! silent && std::isfinite (playingNow) && playingNow > model::silenceThresholdLufs)
+            exposure.anchorLevel (playingNow);
+
+        checkIn.answered();
     }
 
     FactorInputs inputs;
@@ -308,6 +318,23 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     breakInputs.doseFull = exposure.getState().doseToday >= 100.0;
     advanceBreaks (breakInputs);
 
+    // Check-ins (M11): "How loud is it on your ears now?"
+    if (! frozen)
+    {
+        const auto recent = loudWindow.getLufs();
+        const auto reason = checkIn.update (onSeconds, ! silent, recent, exposure.getState().referenceLufs);
+
+        if (reason != CheckInPolicy::Reason::none)
+        {
+            Alert ask;
+            ask.kind = AlertKind::checkIn;
+            ask.checkIn = (int) reason;
+            ask.deviationLu = std::isfinite (recent) ? recent - exposure.getState().referenceLufs : 0.0;
+            const std::scoped_lock lock (alertsMutex);
+            pendingAlerts.push_back (ask);
+        }
+    }
+
     // The weekly summary, once a week, the first time you listen in a new week.
     if (const auto week = ExposureModel::weekNumber (exposure.getState().day);
         ! silent && activeWarp == 1 && exposure.getState().lastSummaryWeek < week)
@@ -334,15 +361,17 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     working.doseToday = (float) state.doseToday;
     working.doseWeek = (float) exposure.weeklyDose();
     working.perceivedSpl = period.silent ? Snapshot::minusInfinity : (float) exposure.perceivedSpl (lufs);
-    const auto lufs2Min = loudWindow.getLufs();
-    working.perceivedSpl2Min = std::isfinite (lufs2Min) ? (float) exposure.perceivedSpl (lufs2Min) : Snapshot::minusInfinity;
     working.doseSpl = period.silent ? Snapshot::minusInfinity : (float) exposure.doseSpl (working.levelA);
     working.referenceLufs = (float) state.referenceLufs;
     working.listeningSecondsToday = state.listeningSecondsToday;
     working.secondsSinceBreak = state.secondsSinceBreak;
     working.breaksToday = state.breaksToday;
     working.offSecondsToday = state.offSecondsToday;
-    working.monitorOffsetDb = state.monitorOffsetDb;
+    working.levelAnchored = state.levelAnchored;
+    {
+        const auto recent = std::isfinite (loudWindow.getLufs()) ? loudWindow.getLufs() : lufs;
+        working.signalVsAnchorLu = silent || ! std::isfinite (recent) ? 0.0f : (float) (recent - state.referenceLufs);
+    }
     working.dayDone = state.doseToday >= 100.0;
     working.unpluggedForDay = breaks.isUnpluggedForTheDay();
     working.longestStretchToday = state.longestStretchToday;
@@ -356,7 +385,8 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
         const auto fatigue = factors.product();
 
         working.minutesToBreak = playing ? exposure.minutesToEmpty (recentLufs, fatigue) : std::numeric_limits<double>::infinity();
-        working.minutesToBreakQuieter = playing ? exposure.minutesToEmpty (recentLufs, fatigue, -6.0) : std::numeric_limits<double>::infinity();
+        working.minutesToBreakQuieter = playing && exposure.stepDownDb() < 0.0 ? exposure.minutesToEmpty (recentLufs, fatigue, exposure.stepDownDb())
+                                                                               : std::numeric_limits<double>::infinity();
         working.minutesToFullDose = playing ? exposure.minutesToFullDose (recentLevelA) : std::numeric_limits<double>::infinity();
         working.minutesToRecover = exposure.minutesToRecover (model::suggestedBreakTargetBattery);
     }

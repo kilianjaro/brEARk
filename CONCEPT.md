@@ -21,7 +21,7 @@
 | Layer | Name in UI | What it models | Drains with | Recovers |
 |---|---|---|---|---|
 | Short-term | **EAR BATTERY** 100 → 0 % (main index) | Listening fatigue / loss of objectivity | Time × loudness × harshness × compression × repetition × time of day | During breaks, on a **realistic curve** (fast at first, then slower; ~15 min ≈ nearly full) |
-| Long-term | **DAILY DOSE** 0 → 100 % (small, secondary) | Cumulative sound exposure (energy dose) | Time × estimated level (equal-energy principle) | **Never during the day**; resets overnight |
+| Long-term | **HEARING DOSE** 0 → 100 % used *(M11 name; was DAILY DOSE)*, e.g. "18 % USED · ~4:20 H LEFT" | Cumulative sound exposure (energy dose, WHO) | Time × your level setting × loudness against your anchor (equal-energy principle) | **Never during the day**; resets overnight |
 
 Weekly stats complement the daily dose (reference frameworks to evaluate in step 2: WHO/ITU safe-listening weekly allowance, NIOSH 85 dB(A)/8 h with a 3 dB exchange rate).
 
@@ -50,6 +50,12 @@ Weekly stats complement the daily dose (reference frameworks to evaluate in step
 - **Level preset (no SPL calibration for now):** `QUIET / NORMAL / LOUD` maps digital loudness to an *estimated* SPL band.
 - Because these are estimates, the UI shows **bands and percentages, never fake-precise dB SPL**.
 - Optional real calibration (phone SPL app + reference noise) can be added later without changing the concept.
+
+**M11 (Kilian): your ears set the level, brEARk measures the signal.**
+- **QUIET / NORMAL / LOUD is the main control**, a three-way switch on the main window: how loud it is *on your ears* (QUIET: you can talk normally; NORMAL: you'd raise your voice; LOUD: you'd have to shout). Switch it when you turn the monitor knob.
+- **A click while music plays anchors it:** "this loudness is NORMAL on my ears". From then on the signal counts relative to that moment, in LU: "NORMAL +4 LU" means 4 LU louder than when you set it. Before the first anchor, brEARk learns your usual loudness from playback.
+- **Check-in:** a pop-up asks "How loud is it on your ears now?" with QUIET / NORMAL / LOUD, at the first sound of each session, and when the music stays 6 LU or more away from the anchor over 2 minutes of play (at most every 20 min). One click answers, anchors and closes it.
+- **No dB at your ears anywhere** (no estimated level, no VOLUME buttons, no NOT THAT LOUD, no 88 dB LOUD pop-up). Shown are signal facts: loudness in LUFS, the LU against your anchor, peak dBFS in DATA.
 
 ---
 
@@ -154,8 +160,9 @@ Example lines:
   - Loudness: short-term LUFS, estimated level band, level creep
   - Factor breakdown: harshness, dynamics, loop count, time of day, i.e. *why* it's draining. *M9: in plain words and percentages ("BATTERY DRAINS 21 % FASTER: HARSH HIGHS +3 % …")*
 - **Hover explanations** *(M9)* on every button and value: one sentence on what it shows (technical), one on what it means.
-- **Time left** *(M10)*: "BREAK IN ~42 MIN · -6 dB: ~1:37 H · DOSE FULL IN ~4:22 H", forecast at the level of the last 2 minutes. While resting: how long until 90 %.
-- **VOLUME -6 / -3 / +3** *(M10)*: brEARk can't see the monitor knob (nor Live's master fader: devices on the master sit before it), so you tell it when you turn down or up. Level, time left and dose follow; NOT THAT LOUD or the next day resets it.
+- **Time left** *(M10, M11 wording)*: "BREAK IN ~42 MIN · AT QUIET ~1:37 H", forecast at your level and the loudness of the last 2 minutes of play; the hearing dose line says how long it lasts ("~4:20 H LEFT"). While resting: how long until 90 %.
+- *(M10 had VOLUME -6 / -3 / +3 buttons; M11 replaced them with the anchored level switch.)*
+- **Tidy, two sizes** *(M11)*: COMPACT shows the time line, the hearing dose, the signal and the level switch; POSTER adds the week's hearing dose, listening time and time since the break. The drain reasons appear only when one adds 10 % or more ("DRAINS FASTER: LITTLE DYNAMICS +16 %").
 - **History graph** (today's curve + weekly bars) is **hidden behind a button**, not always visible. Time switched off is hatched and labelled **OFF**, with a daily total.
 - **Controls:**
   - `MONITORS/HEADPHONES` · `QUIET/NORMAL/LOUD` · `GENTLE/ESCALATING/HARD`

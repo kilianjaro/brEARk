@@ -28,6 +28,8 @@ juce::String times (double factor)
     return "x" + juce::String (factor, 2);
 }
 
+const char* levelNames[] = { "QUIET", "NORMAL", "LOUD" };
+
 juce::String phaseName (breark::BreakPhase phase)
 {
     switch (phase)
@@ -102,12 +104,7 @@ DebugView::DebugView (BrearkProcessor& p)
         brain.setSettings (settings);
     };
 
-    presetSwitch.onChange = [&brain] (int index)
-    {
-        auto settings = brain.getSettings();
-        settings.preset = (breark::LevelPreset) index;
-        brain.setSettings (settings);
-    };
+    presetSwitch.onChange = [&brain] (int index) { brain.setLevelNow ((breark::LevelPreset) index); };
 
     strictnessSwitch.onChange = [&brain] (int index)
     {
@@ -118,23 +115,20 @@ DebugView::DebugView (BrearkProcessor& p)
 
     warpSwitch.onChange = [&brain] (int index) { brain.setTimeWarp (index == 1 ? 60 : 1); };
 
-    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton, &notThatLoudButton })
+    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton })
     {
         Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
     }
 
     setupSwitch.setTooltip (tips::setup);
-    presetSwitch.setTooltip (tips::preset);
+    presetSwitch.setTooltip (tips::level);
     strictnessSwitch.setTooltip (tips::strictness);
     warpSwitch.setTooltip (tips::timeWarp);
     breakButton.setTooltip (tips::breakNow);
     snoozeButton.setTooltip (tips::snooze);
     testAlertButton.setTooltip (tips::testAlert);
     backButton.setTooltip (tips::back);
-    notThatLoudButton.setTooltip (tips::notThatLoud);
-
-    notThatLoudButton.onClick = [&brain] { brain.notThatLoud(); };
     breakButton.onClick = [&brain] { brain.toggleBreak(); };
     snoozeButton.onClick = [&brain] { brain.snooze(); };
     backButton.onClick = [this] { if (onBack != nullptr) onBack(); };
@@ -165,14 +159,12 @@ void DebugView::update (const breark::Snapshot& newSnapshot)
     breakButton.setButtonText (snapshot.breakPhase == breark::BreakPhase::onBreak ? "END BREAK" : "BREAK");
     breakButton.setTooltip (snapshot.breakPhase == breark::BreakPhase::onBreak ? tips::endBreak : tips::breakNow);
     snoozeButton.setEnabled (snapshot.breakPhase == breark::BreakPhase::unplugged);
-    notThatLoudButton.setEnabled (! snapshot.silent);
     repaint();
 }
 
 void DebugView::resized()
 {
     backButton.setBounds (getWidth() - 24 - 90, 24, 90, 30);
-    notThatLoudButton.setBounds (backButton.getX() - 10 - 140, 24, 140, 30);
 
     auto controls = getLocalBounds().reduced (24).removeFromBottom (rowHeight + 70);
     auto top = controls.removeFromTop (28);
@@ -224,7 +216,9 @@ void DebugView::paint (juce::Graphics& g)
 
     const juce::StringArray rows {
         "STATUS        " + status + "   (" + transport + ")",
-        "LOUDNESS      M " + db (s.lufsMomentary) + "   S " + db (s.lufsShortTerm) + " LUFS   REF " + db (s.referenceLufs),
+        "LOUDNESS      M " + db (s.lufsMomentary) + "   S " + db (s.lufsShortTerm) + " LUFS   ANCHOR " + db (s.referenceLufs)
+            + " LUFS (" + levelNames[(int) s.settings.preset] + (s.levelAnchored ? ", SET)" : ", LEARNING)"),
+        "VS ANCHOR     " + (s.silent ? juce::String ("-") : signedDb (s.signalVsAnchorLu) + " LU") + "  (LAST 2 MIN OF PLAY)",
         "LEVEL (A)     " + db (s.levelA) + " dBFS(A)   PEAK " + db (s.peakShortTerm) + " dBFS",
         "",
         "HARSHNESS     PRESENCE " + db (s.presenceToBody) + " dB   HIGHS " + db (s.highsToBody) + " dB  (VS 250-2K)   " + times (f.harshness),
@@ -242,12 +236,9 @@ void DebugView::paint (juce::Graphics& g)
         "DRAIN         " + times (s.drainFactor) + "  (FACTORS x DAILY LOAD, MAX " + times (breark::model::maxCombinedFactor) + ")   CREEP " + signedDb (s.levelCreepDb) + " dB / 1 H",
         "",
         "EAR BATTERY   " + juce::String (s.battery, 1) + " %",
-        "DOSE          " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",
-        "EST. LEVEL    ~" + db (s.perceivedSpl, 0) + " dB PERCEIVED   ~" + db (s.perceivedSpl2Min, 0) + " dB OVER 2 MIN   ~"
-            + db (s.doseSpl, 0) + " dB(A) DOSE",
-        "FORECAST      " + forecast (s.minutesToBreak) + " TO EMPTY   " + forecast (s.minutesToBreakQuieter) + " AT -6 dB   DOSE FULL "
-            + forecast (s.minutesToFullDose) + "   VOLUME " + juce::String (juce::roundToInt (s.monitorOffsetDb)) + " dB"
-            + (s.dayDone ? "   DAY DONE" : "") + (s.unpluggedForDay ? " (UNPLUGGED)" : ""),
+        "HEARING DOSE  " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",
+        "FORECAST      " + forecast (s.minutesToBreak) + " TO EMPTY   " + forecast (s.minutesToBreakQuieter) + " ONE LEVEL QUIETER   DOSE USED UP IN "
+            + forecast (s.minutesToFullDose) + (s.dayDone ? "   DAY DONE" : "") + (s.unpluggedForDay ? " (UNPLUGGED)" : ""),
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)
             + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   LONGEST " + clock (s.longestStretchToday)
             + "   EMPTY " + juce::String (s.emptyBatteryToday) + "x   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",

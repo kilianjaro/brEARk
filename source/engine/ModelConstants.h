@@ -6,25 +6,26 @@
 //   Heuristic = engineered from studio practice; tune by ear
 namespace breark::model
 {
-//── Level estimate ────────────────────────────────────────────────────────────
-// brEARk can't see the monitor knob. A preset states how loud your *typical*
-// playback is; deviations from your own long-term average loudness (the
-// reference) move the estimate up or down.
+//── Level on your ears ────────────────────────────────────────────────────────
+// brEARk can't see the monitor knob, so you rate it: QUIET / NORMAL / LOUD.
+// M11: rated while music plays, the loudness at that moment is the anchor
+// (the reference); louder or quieter music counts from there. The dB values
+// below are internal only (the model's scale); the UI never shows dB at the ears.
 inline constexpr double presetSplQuiet  = 70.0; // Heuristic: you can talk over it easily
 inline constexpr double presetSplNormal = 80.0; // Heuristic: you raise your voice slightly
 inline constexpr double presetSplLoud   = 90.0; // Heuristic: you have to shout
 inline constexpr double headphoneOffsetDb = 3.0; // Heuristic: no room, sound at the eardrum
 
-// Hybrid level model: the reference adapts slowly, so a short louder session
-// counts as louder, while a whole day at master loudness becomes the new normal.
+// Until you rate the level while music plays, the reference learns from your
+// playback (hybrid): a short louder session counts as louder, while a whole
+// day at master loudness becomes the new normal.
 inline constexpr double initialReferenceLufs = -14.0;               // Heuristic: typical work in progress
 inline constexpr double referenceTimeConstantSeconds = 2.0 * 3600.0; // Heuristic: ~2 h of playback
 // Until ~2 h of playback have been heard, the reference is a running average
 // (it knows your level within minutes); afterwards it moves with the 2 h constant.
 inline constexpr double referenceFastLearningSeconds = 60.0;
 inline constexpr float  silenceThresholdLufs = -55.0f;               // Heuristic: inaudible at sane levels
-inline constexpr double loudWindowSeconds = 120.0;                  // M9: the LOUD pop-up needs a loud 2 min, not a loud moment
-inline constexpr double loudHintSpl = 88.0;                         // Heuristic: estimated dB at the listening position
+inline constexpr double loudWindowSeconds = 120.0;                  // the last 2 minutes of play: forecasts and check-ins (M10/M11)
 
 //── Daily / weekly dose: WHO safe listening (ITU-T H.870) ─────────────────────
 // Equal-energy principle with a 3 dB exchange rate: +3 dB = half the time.

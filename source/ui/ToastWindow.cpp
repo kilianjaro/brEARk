@@ -1,4 +1,5 @@
 #include "ToastWindow.h"
+#include "Tooltips.h"
 #include "platform/WindowTweaks.h"
 
 namespace
@@ -39,10 +40,23 @@ ToastWindow::ToastWindow()
     setOpaque (true);
     setLookAndFeel (&look);
 
-    for (auto* button : { &breakButton, &snoozeButton, &notThatLoudButton, &closeButton })
+    for (auto* button : { &breakButton, &snoozeButton, &closeButton, &levelButtons[0], &levelButtons[1], &levelButtons[2] })
     {
         Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
+    }
+
+    // The check-in: one click answers and closes the pop-up.
+    for (int level = 0; level < 3; ++level)
+    {
+        levelButtons[level].setTooltip (breark::ui::tips::levelAnswer);
+        levelButtons[level].onClick = [this, level]
+        {
+            dismiss();
+
+            if (onLevel != nullptr)
+                onLevel (level);
+        };
     }
 
     breakButton.onClick = [this]
@@ -61,17 +75,8 @@ ToastWindow::ToastWindow()
         dismiss();
     };
 
-    notThatLoudButton.onClick = [this]
-    {
-        dismiss(); // first: the callback may show a confirmation in this window
-
-        if (onNotThatLoud != nullptr)
-            onNotThatLoud();
-    };
-
     breakButton.setTooltip ("Starts a guided break with a countdown. It ends by itself when you play again for 10 seconds.");
     snoozeButton.setTooltip ("Plugs the sound back in for exactly 10 minutes. After that, the plug comes out again if you're still drained.");
-    notThatLoudButton.setTooltip ("Tells brEARk that what plays now is your normal listening level. It can't see your volume knob, so this corrects its estimate from now on.");
 
     closeButton.onClick = [this] { dismiss(); };
     setSize (width, height);
@@ -86,9 +91,11 @@ ToastWindow::~ToastWindow()
 void ToastWindow::show (const ToastContent& newContent)
 {
     content = newContent;
-    breakButton.setVisible (content.offerBreak && ! content.offerSnooze && ! content.offerNotThatLoud);
+    breakButton.setVisible (content.offerBreak && ! content.offerSnooze && ! content.offerLevels);
     snoozeButton.setVisible (content.offerSnooze);
-    notThatLoudButton.setVisible (content.offerNotThatLoud);
+
+    for (auto& button : levelButtons)
+        button.setVisible (content.offerLevels);
 
     if (! isOnDesktop())
     {
@@ -127,7 +134,16 @@ void ToastWindow::resized()
     const auto buttonRow = area.removeFromBottom (26).removeFromRight (130);
     breakButton.setBounds (buttonRow);
     snoozeButton.setBounds (buttonRow);
-    notThatLoudButton.setBounds (buttonRow);
+
+    // The check-in's three answers fill the bottom row.
+    auto answers = getLocalBounds().reduced (margin, 12).removeFromBottom (26);
+    const auto answerWidth = (answers.getWidth() - 2 * 8) / 3;
+
+    for (auto& button : levelButtons)
+    {
+        button.setBounds (answers.removeFromLeft (answerWidth));
+        answers.removeFromLeft (8);
+    }
 }
 
 void ToastWindow::paint (juce::Graphics& g)

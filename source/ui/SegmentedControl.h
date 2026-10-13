@@ -41,11 +41,27 @@ public:
     void setSelectedIndex (int index)
     {
         for (int i = 0; i < buttons.size(); ++i)
+        {
             buttons[i]->setToggleState (i == index, juce::dontSendNotification);
+            buttons[i]->setColour (juce::ComboBox::outlineColourId, i == index ? selectedOutline : outline);
+        }
+    }
+
+    // The selected option's border. On a background that can be ink (the
+    // meter's mass), a paper border keeps the ink-filled selection visible.
+    void setSelectedOutline (juce::Colour colour)
+    {
+        selectedOutline = colour;
+
+        for (auto* button : buttons)
+            if (button->getToggleState())
+                button->setColour (juce::ComboBox::outlineColourId, colour);
     }
 
     void setColours (juce::Colour ink, juce::Colour paper)
     {
+        outline = selectedOutline = ink;
+
         for (auto* button : buttons)
         {
             button->setColour (juce::TextButton::buttonColourId, paper);
@@ -67,6 +83,7 @@ public:
 
 private:
     juce::OwnedArray<juce::TextButton> buttons;
+    juce::Colour outline, selectedOutline;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SegmentedControl)
 };

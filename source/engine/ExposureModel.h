@@ -82,10 +82,10 @@ struct ExposureState
     double offSecondsToday = 0.0;        // switched off in Live: not measured
     double longestStretchToday = 0.0;    // M10, see DayRecord
     int emptyBatteryToday = 0;
-    double monitorOffsetDb = 0.0;        // VOLUME: "I turned my monitors down/up" (M10), until NOT THAT LOUD or the next day
     int lastSummaryWeek = 0;             // the weekly pop-up was shown for this week
-    double referenceLufs = model::initialReferenceLufs;
+    double referenceLufs = model::initialReferenceLufs; // the signal loudness that matches your level setting
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
+    bool levelAnchored = false;          // M11: you set the level while music played; the reference stays put
     std::vector<CurvePoint> todayCurve;  // battery, one point per minute the plugin ran
     std::vector<DayRecord> history;      // previous days, oldest first
 };
@@ -126,20 +126,18 @@ public:
     double suggestedBreakMinutes() const noexcept;
     bool isRecovering() const noexcept { return state.silenceSeconds >= model::recoveryOnsetSeconds; }
 
-    // NOT THAT LOUD: this loudness is your normal listening level (the preset).
-    // Forgets any VOLUME adjustment: the level you hear now is the normal one.
-    void calibrateNormal (double lufs) noexcept
+    // M11: "what plays now is QUIET / NORMAL / LOUD on my ears" (a level click
+    // or a check-in answer while music plays). The signal loudness now is the
+    // anchor; louder or quieter signal counts relative to it until the next
+    // anchor. Before the first anchor, the reference learns from your playback.
+    void anchorLevel (double lufs) noexcept
     {
         state.referenceLufs = lufs;
-        state.monitorOffsetDb = 0.0;
+        state.levelAnchored = true;
     }
 
-    // VOLUME: you turned the monitors down (negative) or up. brEARk can't see
-    // the knob (nor Live's master fader: devices sit before it).
-    void adjustMonitorOffset (double db) noexcept
-    {
-        state.monitorOffsetDb = juce::jlimit (-30.0, 12.0, state.monitorOffsetDb + db);
-    }
+    // dB from your level setting down to the next quieter one (0 at QUIET), for "AT QUIET ~1:40 H".
+    double stepDownDb() const noexcept;
 
     // Forecasts at a steady level (M10). extraDb: "what if it were this much quieter/louder".
     double minutesToEmpty (float lufsShortTerm, double fatigueFactor, double extraDb = 0.0) const noexcept;

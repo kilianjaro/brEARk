@@ -36,9 +36,9 @@ private:
     breark::Snapshot snapshot;
     breark::ui::MeterModel model;
 
-    juce::TextButton setupButton, presetButton, modeButton, sizeButton, dataButton { "DATA" };
+    juce::TextButton setupButton, modeButton, sizeButton, dataButton { "DATA" };
     juce::TextButton historyButton { "HISTORY" }, breakButton { "BREAK" };
-    juce::TextButton volumeDown6 { "-6" }, volumeDown3 { "-3" }, volumeUp3 { "+3" }; // VOLUME, M10
+    SegmentedControl levelSwitch { { "QUIET", "NORMAL", "LOUD" } }; // how loud on your ears (M11)
     breark::ui::HistoryOverlay history;
     DebugView data;
     juce::TooltipWindow tooltips { this, 600 };

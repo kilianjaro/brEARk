@@ -6,7 +6,6 @@ namespace
 using namespace breark;
 
 const char* setupNames[] = { "MONITORS", "HEADPHONES" };
-const char* presetNames[] = { "QUIET", "NORMAL", "LOUD" };
 const char* strictnessNames[] = { "GENTLE", "ESCALATING", "HARD" };
 } // namespace
 
@@ -19,22 +18,20 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
     setLookAndFeel (&look);
     auto& brain = brearkProcessor.getBrain();
 
-    for (auto* button : { &setupButton, &presetButton, &modeButton, &sizeButton, &dataButton, &historyButton, &breakButton })
+    for (auto* button : { &setupButton, &modeButton, &sizeButton, &dataButton, &historyButton, &breakButton })
     {
         ui::Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
     }
 
-    for (auto [button, db] : { std::pair { &volumeDown6, -6 }, std::pair { &volumeDown3, -3 }, std::pair { &volumeUp3, 3 } })
-    {
-        ui::Look::stylePaperButton (*button);
-        button->setTooltip (ui::tips::volumeButtons);
-        button->onClick = [&brain, step = db] { brain.adjustMonitorVolume (step); };
-        addAndMakeVisible (*button);
-    }
+    // How loud on your ears: a click while music plays anchors that level.
+    levelSwitch.setColours (ui::colours::ink, ui::colours::paper);
+    levelSwitch.setSelectedOutline (ui::colours::paper);
+    levelSwitch.setTooltip (ui::tips::level);
+    levelSwitch.onChange = [&brain] (int index) { brain.setLevelNow ((LevelPreset) index); };
+    addAndMakeVisible (levelSwitch);
 
     setupButton.setTooltip (ui::tips::setup);
-    presetButton.setTooltip (ui::tips::preset);
     modeButton.setTooltip (ui::tips::strictness);
     sizeButton.setTooltip (ui::tips::size);
     dataButton.setTooltip (ui::tips::data);
@@ -46,13 +43,6 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
     {
         auto settings = brain.getSettings();
         settings.setup = (Setup) (((int) settings.setup + 1) % 2);
-        brain.setSettings (settings);
-    };
-
-    presetButton.onClick = [&brain]
-    {
-        auto settings = brain.getSettings();
-        settings.preset = (LevelPreset) (((int) settings.preset + 1) % 3);
         brain.setSettings (settings);
     };
 
@@ -147,7 +137,7 @@ void BrearkEditor::timerCallback()
 
     const auto settings = brain.getSettings();
     setupButton.setButtonText (setupNames[(int) settings.setup]);
-    presetButton.setButtonText (presetNames[(int) settings.preset]);
+    levelSwitch.setSelectedIndex ((int) settings.preset);
     modeButton.setButtonText (strictnessNames[(int) settings.strictness]);
     sizeButton.setButtonText (brearkProcessor.isPosterSize() ? "COMPACT" : "POSTER");
     breakButton.setButtonText (snapshot.breakPhase == BreakPhase::unplugged ? "SNOOZE 10 MIN"
@@ -178,10 +168,10 @@ void BrearkEditor::resized()
 
     // Settings, size and DATA: top right.
     auto top = juce::Rectangle<int> (0, poster ? 22 : 14, getWidth() - inset, rowHeight);
-    const int widths[] = { poster ? 100 : 84, poster ? 76 : 62, poster ? 104 : 86, poster ? 82 : 66, poster ? 58 : 48 };
-    juce::TextButton* row[] = { &setupButton, &presetButton, &modeButton, &sizeButton, &dataButton };
+    const int widths[] = { poster ? 100 : 84, poster ? 104 : 86, poster ? 82 : 66, poster ? 58 : 48 };
+    juce::TextButton* row[] = { &setupButton, &modeButton, &sizeButton, &dataButton };
 
-    for (int i = 4; i >= 0; --i)
+    for (int i = 3; i >= 0; --i)
     {
         row[i]->setBounds (top.removeFromRight (widths[i]));
         top.removeFromRight (gap);
@@ -192,16 +182,7 @@ void BrearkEditor::resized()
     auto bottom = juce::Rectangle<int> (0, getHeight() - (poster ? 26 : 16) - actionHeight, getWidth() - inset, actionHeight);
     breakButton.setBounds (bottom.removeFromRight (poster ? 150 : 124));
 
-    // VOLUME: where the meter leaves room for it.
-    auto volume = ui::volumeButtonsArea (meterSize());
-    const auto volumeWidth = (volume.getWidth() - 8) / 3;
-
-    for (auto* button : { &volumeDown6, &volumeDown3, &volumeUp3 })
-    {
-        button->setBounds (volume.removeFromLeft (volumeWidth));
-        volume.removeFromLeft (4);
-    }
-
+    levelSwitch.setBounds (ui::levelSwitchArea (meterSize()));
 
     bottom.removeFromRight (poster ? 10 : 8);
     historyButton.setBounds (bottom.removeFromRight (110));

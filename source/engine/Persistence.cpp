@@ -83,7 +83,7 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("offSecondsToday", e.offSecondsToday);
     exposure->setProperty ("longestStretchToday", e.longestStretchToday);
     exposure->setProperty ("emptyBatteryToday", e.emptyBatteryToday);
-    exposure->setProperty ("monitorOffsetDb", e.monitorOffsetDb);
+    exposure->setProperty ("levelAnchored", e.levelAnchored);
     exposure->setProperty ("lastSummaryWeek", e.lastSummaryWeek);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
@@ -137,7 +137,7 @@ std::optional<PersistedState> load (const juce::File& file)
     x.offSecondsToday = (double) e["offSecondsToday"];
     x.longestStretchToday = (double) e["longestStretchToday"];
     x.emptyBatteryToday = (int) e["emptyBatteryToday"];
-    x.monitorOffsetDb = juce::jlimit (-30.0, 12.0, (double) e["monitorOffsetDb"]);
+    x.levelAnchored = (bool) e["levelAnchored"]; // M11; missing in older files: still learning
     x.lastSummaryWeek = (int) e["lastSummaryWeek"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly

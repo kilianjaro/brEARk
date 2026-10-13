@@ -31,11 +31,10 @@ private:
     breark::Snapshot snapshot;
 
     SegmentedControl setupSwitch { { "MONITORS", "HEADPHONES" } };
-    SegmentedControl presetSwitch { { "QUIET ~70", "NORMAL ~80", "LOUD ~90" } };
+    SegmentedControl presetSwitch { { "QUIET", "NORMAL", "LOUD" } };
     SegmentedControl warpSwitch { { "TIME x1", "x60 TEST" } };
     SegmentedControl strictnessSwitch { { "GENTLE", "ESCALATING", "HARD" } };
     juce::TextButton breakButton { "BREAK" }, snoozeButton { "SNOOZE" }, testAlertButton { "TEST ALERT" }, backButton { "BACK" };
-    juce::TextButton notThatLoudButton { "NOT THAT LOUD" };
     juce::StringArray rowLabels; // as painted, for the tooltips
     int rowsTop = 0;
 

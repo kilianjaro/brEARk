@@ -48,14 +48,14 @@ double ExposureModel::presetSpl() const noexcept
 
 double ExposureModel::perceivedSpl (float lufsShortTerm) const noexcept
 {
-    return presetSpl() + ((double) lufsShortTerm - state.referenceLufs) + state.monitorOffsetDb;
+    return presetSpl() + ((double) lufsShortTerm - state.referenceLufs);
 }
 
 double ExposureModel::doseSpl (float levelA) const noexcept
 {
     // Same monitor gain, applied to the A-weighted level: bass-heavy material
     // at the same perceived loudness carries less dose, as in the standards.
-    return presetSpl() + ((double) levelA - state.referenceLufs) + state.monitorOffsetDb;
+    return presetSpl() + ((double) levelA - state.referenceLufs);
 }
 
 //==============================================================================
@@ -137,12 +137,28 @@ void ExposureModel::listen (const ListeningPeriod& period)
         state.doseToday += dosePerSecond (doseSpl (period.levelA)) * dt;
 
     // Hybrid level model: a running average of your playback loudness at first,
-    // then a slow (~2 h) follower once enough playback has been heard.
+    // then a slow (~2 h) follower once enough playback has been heard. Once you
+    // anchor the level (M11), the reference stays where you put it.
+    if (state.levelAnchored)
+        return;
+
     state.referencePlaybackSeconds += dt;
     const auto timeConstant = std::clamp (state.referencePlaybackSeconds,
                                           model::referenceFastLearningSeconds,
                                           model::referenceTimeConstantSeconds);
     state.referenceLufs += ((double) period.lufsShortTerm - state.referenceLufs) * std::min (1.0, dt / timeConstant);
+}
+
+double ExposureModel::stepDownDb() const noexcept
+{
+    switch (settings.preset)
+    {
+        case LevelPreset::loud:   return model::presetSplNormal - model::presetSplLoud;
+        case LevelPreset::normal: return model::presetSplQuiet - model::presetSplNormal;
+        case LevelPreset::quiet:  break;
+    }
+
+    return 0.0;
 }
 
 double ExposureModel::drainPerMinute (double spl, double fatigueFactor) const noexcept
@@ -246,7 +262,6 @@ void ExposureModel::rollOverIfNewDay (juce::Time now)
     state.offSecondsToday = 0.0;
     state.longestStretchToday = 0.0;
     state.emptyBatteryToday = 0;
-    state.monitorOffsetDb = 0.0; // a new day starts at your normal level
     state.todayCurve.clear();
 }
 

@@ -33,7 +33,7 @@ public:
             e.offSecondsToday = 900.0;
             e.longestStretchToday = 4321.0;
             e.emptyBatteryToday = 2;
-            e.monitorOffsetDb = -6.0;
+            e.levelAnchored = true;
             e.lastSummaryWeek = 2924;
             e.history = { { 20369, 55.0, 7200.0, 4 }, { 20370, 81.5, 10800.0, 2, 0, 0, 1500.0, 3600.0, 3 } };
             e.todayCurve = { { 270, 100 }, { 271, 99 }, { 300, 60, true }, { 400, 31 } };
@@ -68,7 +68,7 @@ public:
                 expectEquals (x.history[0].offSeconds, 0.0);
                 expectEquals (x.longestStretchToday, 4321.0);
                 expectEquals (x.emptyBatteryToday, 2);
-                expectEquals (x.monitorOffsetDb, -6.0);
+                expect (x.levelAnchored);
                 expectEquals (x.lastSummaryWeek, 2924);
                 expectEquals (x.history[1].longestStretchSeconds, 3600.0);
                 expectEquals (x.history[1].emptyBattery, 3);

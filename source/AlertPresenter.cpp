@@ -9,8 +9,20 @@ using breark::AlertKind;
 using breark::Tone;
 using breark::ui::separator;
 
+// M11: the check-in's question, from why it asks and the level you set.
+juce::String checkInQuestion (const breark::Alert& alert, breark::LevelPreset level)
+{
+    if (alert.checkIn == (int) breark::CheckInPolicy::Reason::firstSound)
+        return "A new session. How loud is it on your ears right now?";
+
+    const auto lu = juce::String (juce::roundToInt (std::abs (alert.deviationLu)));
+    const auto name = level == breark::LevelPreset::quiet ? "QUIET" : level == breark::LevelPreset::loud ? "LOUD" : "NORMAL";
+    return "Your music is " + lu + " LU " + (alert.deviationLu > 0.0 ? "louder" : "quieter")
+         + " than when you set " + name + ". How loud is it on your ears now?";
+}
+
 // The headline and layout per alert; the message comes from the coach.
-ToastContent toastFor (const breark::Alert& alert, const juce::String& message)
+ToastContent toastFor (const breark::Alert& alert, const juce::String& message, breark::LevelPreset level)
 {
     const auto minutes = juce::String (juce::roundToInt (alert.breakMinutes));
     const auto battery = "EAR BATTERY " + juce::String (juce::roundToInt (alert.battery)) + " %";
@@ -27,10 +39,11 @@ ToastContent toastFor (const breark::Alert& alert, const juce::String& message)
         case AlertKind::snoozed:         return { "SNOOZED.", message, battery, false, false };
         case AlertKind::breakStarted:    return { "RESTING.", message, "BREAK " + minutes + " MIN", false, false };
         case AlertKind::breakOver:       return { "WELCOME BACK.", message, battery, false, false };
-        case AlertKind::dayDone:         return { "DONE.", message, "WHO DAILY DOSE FULL" + separator + "NEW DAY AT 05:00", false, false };
-        case AlertKind::dayReminder:     return { "DONE.", message, "WHO DAILY DOSE FULL" + separator + "STILL LISTENING", false, false };
+        case AlertKind::dayDone:         return { "DONE.", message, "HEARING DOSE USED UP" + separator + "NEW DAY AT 05:00", false, false };
+        case AlertKind::dayReminder:     return { "DONE.", message, "HEARING DOSE USED UP" + separator + "STILL LISTENING", false, false };
         case AlertKind::dayUnplug:       return { "DONE.", message, "UNPLUGGED UNTIL 05:00", true, false, true };
         case AlertKind::weeklySummary:   return { "LAST WEEK.", breark::ui::describeWeek (alert.week), "DETAILS IN HISTORY (POSTER)", false, false };
+        case AlertKind::checkIn:         return { "HOW LOUD?", checkInQuestion (alert, level), "", false, false, false, true };
     }
 
     return {};
@@ -126,7 +139,6 @@ breark::CoachContext AlertPresenter::makeContext (const breark::Snapshot& s) con
     c.loopBars = s.loopBars;
     c.barPlays = s.barPlays;
     c.loopStrain = s.loopStrain;
-    c.perceivedSpl = s.perceivedSpl2Min; // the LOUD pop-up needs a loud 2 minutes
     c.psr = s.psr;
     c.factors = s.factors;
     c.phase = s.breakPhase;
@@ -147,13 +159,13 @@ void AlertPresenter::timerCallback()
         present (alert);
 
     if (const auto hint = coach.update (context, juce::Time::getMillisecondCounterHiRes() / 1000.0))
-        showToast ({ hint->headline, hint->text, "", false, hint->offerBreak, false, hint->offerNotThatLoud }, false);
+        showToast ({ hint->headline, hint->text, "", false, hint->offerBreak }, false);
 }
 
 void AlertPresenter::present (const breark::Alert& alert)
 {
     const auto message = coach.speakFor (alert, context, juce::Time::getMillisecondCounterHiRes() / 1000.0);
-    showToast (toastFor (alert, message), alert.withSound);
+    showToast (toastFor (alert, message, brain->getSettings().preset), alert.withSound);
 }
 
 void AlertPresenter::showToast (const ToastContent& content, bool withSound)
@@ -166,12 +178,7 @@ void AlertPresenter::showToast (const ToastContent& content, bool withSound)
         toast = std::make_unique<ToastWindow>();
         toast->onBreak = [this] { brain->toggleBreak(); };
         toast->onSnooze = [this] { brain->snooze(); };
-        toast->onNotThatLoud = [this]
-        {
-            brain->notThatLoud();
-            showToast ({ "NOTED.", "Got it: this loudness is your normal level now. Change your monitor volume? Set it again in DATA.",
-                         "", false, false }, false);
-        };
+        toast->onLevel = [this] (int level) { brain->setLevelNow ((breark::LevelPreset) level); };
     }
 
     toast->show (content);

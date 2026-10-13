@@ -31,7 +31,8 @@ enum class AlertKind
     dayDone,         // M10: 100 % of the daily dose (GENTLE, ESCALATING)
     dayReminder,     // M10: ESCALATING, every 30 min of listening after that
     dayUnplug,       // M10: HARD, unplugged for the rest of the day
-    weeklySummary    // M10: last week's numbers, once a week (from the Brain)
+    weeklySummary,   // M10: last week's numbers, once a week (from the Brain)
+    checkIn          // M11: "How loud is it on your ears now?" (from the Brain)
 };
 
 enum class Tone { calm, firm, brutal };
@@ -43,7 +44,9 @@ struct Alert
     bool withSound = false;
     double battery = 0.0;
     double breakMinutes = 0.0;
-    WeekSummary week; // weeklySummary only
+    WeekSummary week;       // weeklySummary only
+    int checkIn = 0;        // checkIn only: CheckInPolicy::Reason
+    double deviationLu = 0.0; // checkIn only: the last 2 minutes against your anchor
 };
 
 enum class BreakPhase { listening, warned, due, onBreak, unplugged };

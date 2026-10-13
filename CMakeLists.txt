@@ -133,6 +133,7 @@ if(BREARK_BUILD_TOOLS)
         tests/MeterModelTests.cpp
         tests/HostActivityTests.cpp
         tests/RealFftTests.cpp
+        tests/CheckInTests.cpp
         source/coach/Coach.cpp
         source/coach/CoachLines.cpp
         source/ui/Look.cpp

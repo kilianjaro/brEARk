@@ -80,10 +80,12 @@ juce::Rectangle<float> compactLine (const Layout& L, size_t index)
     return { L.margin, L.dataTop + (float) index * L.dataLine, L.width - 2.0f * L.margin, L.dataLine };
 }
 
+constexpr size_t statCount = 5; // POSTER: hearing dose today and this week, listened, since break, signal
+
 juce::Rectangle<float> statColumn (const Layout& L, size_t index)
 {
     const auto inner = L.width - 2.0f * L.margin;
-    const auto columnWidth = (inner - 5.0f * 12.0f) / 6.0f;
+    const auto columnWidth = (inner - (float) (statCount - 1) * 12.0f) / (float) statCount;
     return { L.margin + (float) index * (columnWidth + 12.0f), L.dataTop + 12.0f, columnWidth, 46.0f };
 }
 
@@ -139,7 +141,7 @@ void drawContent (juce::Graphics& g, const MeterModel& m, const Layout& L, Meter
         // Six columns of stats under a rule, then why the battery drains.
         g.fillRect (juce::Rectangle<float> (L.margin, L.dataTop, inner, L.rule));
 
-        for (size_t i = 0; i < std::min<size_t> (6, m.stats.size()); ++i)
+        for (size_t i = 0; i < std::min (statCount, m.stats.size()); ++i)
         {
             auto column = statColumn (L, i);
             g.setFont (fonts.mono (10.0f));
@@ -164,16 +166,16 @@ juce::Rectangle<int> meterBounds (MeterSize size)
     return { (int) L.width, (int) L.height };
 }
 
-juce::Rectangle<int> volumeButtonsArea (MeterSize size)
+juce::Rectangle<int> levelSwitchArea (MeterSize size)
 {
     const auto L = layoutFor (size);
 
-    // POSTER: at the end of the time line. COMPACT: at the end of the dose
-    // line, the one line with room on the right (BREAK sits below).
+    // POSTER: at the end of the time line. COMPACT: right of the data lines,
+    // above BREAK.
     if (size == MeterSize::poster)
-        return juce::Rectangle<float> (L.width - L.margin - 150.0f, L.timeTop - 3.0f, 150.0f, 24.0f).toNearestInt();
+        return juce::Rectangle<float> (L.width - L.margin - 270.0f, L.timeTop - 5.0f, 270.0f, 28.0f).toNearestInt();
 
-    return juce::Rectangle<float> (L.width - L.margin - 108.0f, L.dataTop - 1.0f, 108.0f, 17.0f).toNearestInt();
+    return juce::Rectangle<float> (L.width - L.margin - 180.0f, L.dataTop - 2.0f, 180.0f, 22.0f).toNearestInt();
 }
 
 MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, bool activeInstance, PowerDown::Stage powerStage)
@@ -207,7 +209,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     else if (s.dayDone)
     {
         m.word = "DONE.";
-        m.status = "WHO DAILY DOSE FULL" + separator + "CALL IT A DAY";
+        m.status = "HEARING DOSE USED UP" + separator + "CALL IT A DAY";
     }
     else if (s.breakPhase == BreakPhase::unplugged)
     {
@@ -252,17 +254,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
 
     m.massRed = battery <= model::warnBattery && ! m.alarm;
 
-    // The numbers.
-    const auto level = std::isfinite (s.perceivedSpl) ? "~" + db (s.perceivedSpl, 0) + " dB" : juce::String ("-");
-    const auto& f = s.factors;
-
-    // A factor as "+N %": how much faster the battery drains because of it.
-    auto percent = [] (double factor) { return "+" + juce::String (juce::roundToInt ((factor - 1.0) * 100.0)) + " %"; };
-    const auto drainPercent = juce::roundToInt ((s.drainFactor - 1.0f) * 100.0f);
-    const auto drain = drainPercent > 0 ? "DRAIN " + juce::String (drainPercent) + " % FASTER" : juce::String ("DRAIN NORMAL");
-    const auto dayLoad = 1.0 + model::dailyLoadFactorMax * std::min (s.doseToday / 100.0, 1.0);
-
-    // Time left, and what 6 dB quieter would buy (M10).
+    // Time left, and what one level quieter would buy (M10/M11).
     auto approx = [] (double forecastMinutes) -> juce::String
     {
         if (! std::isfinite (forecastMinutes) || forecastMinutes >= 600.0)
@@ -273,49 +265,79 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
                           : "~" + juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2) + " H";
     };
 
+    const auto playing = ! s.silent;
+    const auto levelName = juce::String (s.settings.preset == LevelPreset::quiet ? "QUIET" : s.settings.preset == LevelPreset::loud ? "LOUD" : "NORMAL");
+    const auto lowerName = juce::String (s.settings.preset == LevelPreset::loud ? "NORMAL" : "QUIET");
+
     if (s.dayDone)
-        m.timeLine = { { "WHO DAILY DOSE FULL" + separator + "CALL IT A DAY", tips::dayDone } };
+        m.timeLine = { { "HEARING DOSE USED UP" + separator + "CALL IT A DAY", tips::dayDone } };
     else if (s.breakPhase == BreakPhase::due || s.breakPhase == BreakPhase::unplugged)
         m.timeLine = { { "BREAK DUE" + separator + approx (s.minutesToRecover) + " TO RECOVER", tips::recover } };
-    else if (s.silent)
+    else if (! playing)
         m.timeLine = { { battery < model::suggestedBreakTargetBattery ? "RECOVERING" + separator + "90 % IN " + approx (s.minutesToRecover)
                                                                       : juce::String ("RESTED"), tips::recover } };
     else
     {
-        m.timeLine = { { "BREAK IN " + approx (s.minutesToBreak), tips::timeLeft },
-                       { "-6 dB: " + approx (s.minutesToBreakQuieter), tips::quieter } };
+        m.timeLine = { { "BREAK IN " + approx (s.minutesToBreak), tips::timeLeft } };
 
-        if (s.doseToday < 100.0f)
-            m.timeLine.push_back ({ "DOSE FULL IN " + approx (s.minutesToFullDose), tips::doseLeft });
+        if (std::isfinite (s.minutesToBreakQuieter))
+            m.timeLine.push_back ({ "AT " + lowerName + " " + approx (s.minutesToBreakQuieter), tips::quieter });
     }
 
-    if (std::abs (s.monitorOffsetDb) >= 0.5)
-        m.timeLine.push_back ({ "VOLUME " + juce::String (s.monitorOffsetDb > 0.0 ? "+" : "") + juce::String (juce::roundToInt (s.monitorOffsetDb)) + " dB",
-                                tips::volumeSet });
+    // The hearing dose: how much of today's is used, how long it lasts at this level.
+    const auto doseUsed = juce::String (juce::roundToInt (s.doseToday)) + " % USED";
+    const auto doseLeft = s.dayDone ? juce::String ("USED UP")
+                        : playing   ? approx (s.minutesToFullDose) + " LEFT"
+                                    : juce::String();
 
-    const Item doseItem { "DOSE " + juce::String (juce::roundToInt (s.doseToday)) + " %", tips::doseToday };
-    const Item listenedItem { "LISTENED " + hoursMinutes (s.listeningSecondsToday), tips::listened };
-    const Item sinceBreakItem { "SINCE BREAK " + hoursMinutes (s.secondsSinceBreak), tips::sinceBreak };
+    // The signal, honestly: its loudness, and against the moment you set your level.
+    const auto signal = db (s.lufsShortTerm) + " LUFS";
+    const auto vsAnchor = ! (s.levelAnchored && playing) ? juce::String()
+                        : std::abs (s.signalVsAnchorLu) < 1.0f ? levelName + " AS SET"
+                                                               : levelName + " " + (s.signalVsAnchorLu > 0.0f ? "+" : "")
+                                                                   + juce::String (juce::roundToInt (s.signalVsAnchorLu)) + " LU";
 
-    m.compactLines = { { doseItem, listenedItem, sinceBreakItem },
-                       { { db (s.lufsShortTerm) + " LUFS", tips::loudness }, { level, tips::level }, { drain, tips::drain } } };
+    // Why the battery drains faster, only the reasons that really matter (+10 % or more).
+    const auto& f = s.factors;
+    const auto dayLoad = 1.0 + model::dailyLoadFactorMax * std::min (s.doseToday / 100.0, 1.0);
+    std::vector<Item> reasons;
 
-    m.stats = { { "DOSE TODAY", juce::String (juce::roundToInt (s.doseToday)) + " %", tips::doseToday },
-                { "WEEK (WHO)", juce::String (juce::roundToInt (s.doseWeek)) + " %", tips::doseWeek },
-                { "LISTENED", hoursMinutes (s.listeningSecondsToday), tips::listened },
+    auto reason = [&] (const char* name, double factor, const juce::String& tip)
+    {
+        if (playing && factor >= 1.095)
+            reasons.push_back ({ juce::String (name) + " +" + juce::String (juce::roundToInt ((factor - 1.0) * 100.0)) + " %", tip });
+    };
+
+    reason ("BRIGHT MIX", f.harshness, tips::harsh (s.presenceToBody, s.highsToBody));
+    reason ("LITTLE DYNAMICS", f.dynamics, tips::dynamics (s.psr));
+    reason ("SAME LOOP", f.repetition, tips::loop (s.loopBars, s.loopingSeconds, s.loopStrain));
+    reason ("LATE HOUR", f.night, tips::lateHour);
+    reason ("FULL DAY", dayLoad, tips::todaysDose);
+
+    if (! reasons.empty())
+        reasons.insert (reasons.begin(), { "DRAINS FASTER:", tips::drain });
+
+    m.factors = reasons;
+
+    // COMPACT: the dose, then the signal (and the strongest reason, if any).
+    std::vector<Item> doseItems { { "HEARING DOSE " + doseUsed, tips::doseToday } };
+    if (doseLeft.isNotEmpty())
+        doseItems.push_back ({ doseLeft, tips::doseLeft });
+
+    std::vector<Item> signalItems { { signal, tips::signal } };
+    if (vsAnchor.isNotEmpty())
+        signalItems.push_back ({ vsAnchor, tips::vsAnchor });
+    if (reasons.size() > 1)
+        signalItems.push_back (reasons[1]);
+
+    m.compactLines = { doseItems, signalItems };
+
+    // POSTER: five numbers.
+    m.stats = { { "HEARING DOSE" + (doseLeft.isNotEmpty() ? separator + doseLeft : juce::String()), doseUsed, tips::doseToday },
+                { "HEARING DOSE WEEK", juce::String (juce::roundToInt (s.doseWeek)) + " % USED", tips::doseWeek },
+                { "LISTENED TODAY", hoursMinutes (s.listeningSecondsToday), tips::listened },
                 { "SINCE BREAK", hoursMinutes (s.secondsSinceBreak), tips::sinceBreak },
-                { "LEVEL", level, tips::level },
-                { "LOUDNESS", db (s.lufsShortTerm) + " LUFS", tips::loudness } };
-
-    // Why the battery drains, in plain words.
-    m.factors = { { (s.silent ? juce::String ("SILENCE, NO DRAIN") : (drainPercent > 0 ? "BATTERY DRAINS " + juce::String (drainPercent) + " % FASTER"
-                                                                                       : juce::String ("BATTERY DRAINS AT THE NORMAL RATE"))) + ":",
-                    tips::drain },
-                  { "HARSH HIGHS " + percent (f.harshness), tips::harsh (s.presenceToBody, s.highsToBody) },
-                  { "LITTLE DYNAMICS " + percent (f.dynamics), tips::dynamics (s.psr) },
-                  { "SAME LOOP " + percent (f.repetition), tips::loop (s.loopBars, s.loopingSeconds, s.loopStrain) },
-                  { "LATE HOUR " + percent (f.night), tips::lateHour },
-                  { "TODAY'S DOSE " + percent (s.silent ? 1.0 : dayLoad), tips::todaysDose } };
+                { "SIGNAL" + (vsAnchor.isNotEmpty() ? separator + vsAnchor : juce::String()), signal, tips::signal } };
 
     return m;
 }
@@ -349,7 +371,7 @@ juce::String tooltipAt (const MeterModel& m, MeterSize size, juce::Point<float> 
     }
     else
     {
-        for (size_t i = 0; i < std::min<size_t> (6, m.stats.size()); ++i)
+        for (size_t i = 0; i < std::min (statCount, m.stats.size()); ++i)
             if (statColumn (L, i).contains (p))
                 return m.stats[i].tip;
 

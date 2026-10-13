@@ -17,10 +17,10 @@ juce::String describeWeek (const WeekSummary& w)
         return juce::String (minutes / 60) + ":" + juce::String (minutes % 60).paddedLeft ('0', 2);
     };
 
-    auto text = juce::String (juce::roundToInt (w.whoWeekPercent)) + " % of the WHO weekly dose";
+    auto text = juce::String (juce::roundToInt (w.whoWeekPercent)) + " % of the weekly hearing dose used";
 
     if (w.daysOverDose > 0)
-        text << ", " << w.daysOverDose << (w.daysOverDose == 1 ? " day" : " days") << " over the daily dose";
+        text << ", " << w.daysOverDose << (w.daysOverDose == 1 ? " day" : " days") << " used up";
 
     text << ". " << clock (w.listeningSeconds) << " listened on " << w.daysListened << (w.daysListened == 1 ? " day" : " days")
          << ", longest stretch " << clock (w.longestStretchSeconds) << ". Battery ran empty " << w.emptyBattery
@@ -187,7 +187,7 @@ void paintHistory (juce::Graphics& g, juce::Rectangle<float> bounds, const Brain
     g.drawText ("NOW " + clockFor (history.nowMinute), labels, juce::Justification::centredRight, false);
 
     //── Last 7 days ──────────────────────────────────────────────────────────
-    sectionTitle (g, l.weekTitle, "LAST 7 DAYS" + separator + "DAILY DOSE (WHO)", fonts);
+    sectionTitle (g, l.weekTitle, "LAST 7 DAYS" + separator + "HEARING DOSE USED (WHO)", fonts);
 
     // Always the last 7 calendar days; a day without listening is 0 %.
     const auto today = history.lastDays.empty() ? 0 : history.lastDays.back().day;

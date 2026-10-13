@@ -236,7 +236,7 @@ void DebugView::paint (juce::Graphics& g)
         "DRAIN         " + times (s.drainFactor) + "  (FACTORS x DAILY LOAD, MAX " + times (breark::model::maxCombinedFactor) + ")   CREEP " + signedDb (s.levelCreepDb) + " dB / 1 H",
         "",
         "EAR BATTERY   " + juce::String (s.battery, 1) + " %",
-        "HEARING DOSE  " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % WEEK  (WHO)",
+        "HEARING DOSE  " + juce::String (s.doseToday, 1) + " % TODAY   " + juce::String (s.doseWeek, 1) + " % LAST 7 DAYS  (WHO)",
         "FORECAST      " + forecast (s.minutesToBreak) + " TO EMPTY   " + forecast (s.minutesToBreakQuieter) + " ONE LEVEL QUIETER   DOSE USED UP IN "
             + forecast (s.minutesToFullDose) + (s.dayDone ? "   DAY DONE" : "") + (s.unpluggedForDay ? " (UNPLUGGED)" : ""),
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)

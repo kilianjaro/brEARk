@@ -334,7 +334,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
 
     // POSTER: five numbers.
     m.stats = { { "HEARING DOSE" + (doseLeft.isNotEmpty() ? separator + doseLeft : juce::String()), doseUsed, tips::doseToday },
-                { "HEARING DOSE WEEK", juce::String (juce::roundToInt (s.doseWeek)) + " % USED", tips::doseWeek },
+                { "HEARING DOSE 7 DAYS", juce::String (juce::roundToInt (s.doseWeek)) + " % USED", tips::doseWeek },
                 { "LISTENED TODAY", hoursMinutes (s.listeningSecondsToday), tips::listened },
                 { "SINCE BREAK", hoursMinutes (s.secondsSinceBreak), tips::sinceBreak },
                 { "SIGNAL" + (vsAnchor.isNotEmpty() ? separator + vsAnchor : juce::String()), signal, tips::signal } };

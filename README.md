@@ -2,6 +2,7 @@
 
 A plugin for Ableton Live's master channel that listens to everything you hear and tells you **when to stop listening**, protecting your hearing and keeping your ears fresh.
 
+- **About brEARk** (what it is, for whom, with screenshots): [ABOUT.md](ABOUT.md)
 - Concept: [CONCEPT.md](CONCEPT.md)
 - Implementation plan & milestones: [IMPLEMENTATION.md](IMPLEMENTATION.md)
 - What it does and every alert: [docs/ALERTS.md](docs/ALERTS.md)
@@ -50,6 +51,8 @@ BREARK_STATE_FILE=/tmp/breark-pluginval.json /Applications/pluginval.app/Content
 - that every state was reached.
 
 It writes `soak.csv` (one row per 10 s). `quick` shortens the phases to a tenth for a smoke test. No pop-ups or sounds (`BREARK_QUIET`). The Intel half runs under Rosetta with `arch -x86_64 -e DYLD_INSERT_LIBRARIES=<path>/libbrEARk_RealtimeCheck.dylib <path>/brEARk_Soak 25`. `arch` is a system tool, so macOS strips `DYLD_` variables passed any other way.
+
+`brEARk_Soak showcase [folder]` makes the ABOUT.md screenshots: a scripted day plus 2.5 minutes of real-time listening to a rendered house loop, saved as `showcase-poster.png`, `showcase-history.png` and `showcase-compact.png`. Run it as `brEARk_Soak showcase docs/images`.
 
 All tools redirect the listening history (`BREARK_STATE_FILE`), so testing never touches your real `~/Library/Application Support/brEARk/state.json`.
 

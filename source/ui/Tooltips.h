@@ -43,7 +43,7 @@ inline const juce::String status = tip ("Details of the current state, in minute
 inline const juce::String doseToday = tip ("HEARING DOSE: how much of today's safe sound you've used, after the WHO (8 hours at 80 dB(A)). From your level setting, the music's loudness and time.",
                                            "It doesn't recover during the day: at 100 % it's used up. A new day starts at 05:00.");
 
-inline const juce::String doseWeek = tip ("This week's hearing dose, after the WHO weekly allowance (40 hours at 80 dB(A), i.e. 5 full days).",
+inline const juce::String doseWeek = tip ("The last 7 days' hearing dose (rolling, today included), after the WHO weekly allowance (40 hours at 80 dB(A), i.e. 5 full days).",
                                           "Above 100 % the risk of lasting hearing damage rises. A quiet day brings it down.");
 
 inline const juce::String doseLeft = tip ("How long today's hearing dose lasts at your level setting and the loudness of the last 2 minutes.",

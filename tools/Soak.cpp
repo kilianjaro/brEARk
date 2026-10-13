@@ -15,6 +15,7 @@
 // state seen. Writes soak.csv (one row per 10 s). Pop-ups and sounds are off.
 //
 // Usage: brEARk_Soak [minutes = 180] [output folder = current folder] [quick]
+//        brEARk_Soak showcase [folder]: the ABOUT.md screenshots (a scripted session, 2.5 min)
 //        "quick" shortens every phase to a tenth: a smoke test of the soak itself.
 // Exit code 0 = all checks passed.
 
@@ -296,9 +297,139 @@ void insertRealtimeCheck (char* argv[])
 } // namespace
 
 //==============================================================================
+// A scripted session for the README / ABOUT screenshots: a realistic day so far
+// is loaded (two hours in, one break, a week of history, the level set to
+// NORMAL a while ago), then brEARk listens in real time to a mastered house
+// loop for 2.5 minutes. Everything on screen is measured or computed by the
+// running plugin; only the past (the loaded state) is scripted.
+static int runShowcase (const juce::File& folder)
+{
+    const auto stateFile = juce::File::getSpecialLocation (juce::File::tempDirectory).getNonexistentChildFile ("brEARk-showcase-state", ".json");
+    setenv ("BREARK_STATE_FILE", stateFile.getFullPathName().toRawUTF8(), 1);
+    setenv ("BREARK_QUIET", "1", 1);
+    const juce::ScopeGuard removeStateFile { [&] { stateFile.deleteFile(); } };
+
+    juce::ScopedJuceInitialiser_GUI juceInitialiser;
+    folder.createDirectory();
+
+    // The music: 8 bars of house at 48 kHz, soft-limited like a finished master.
+    test::HouseOptions options;
+    options.sampleRate = 48000.0;
+    options.hatJitterDb = 1.5;
+    options.padLfoDb = 1.0;
+    juce::Random human (7);
+    auto music = test::renderHouse (8, [] (int bar) { return bar % 4; }, options, human);
+
+    auto peak = 0.0f;
+    for (const auto x : music) peak = std::max (peak, std::abs (x));
+    for (auto& x : music) x = 0.89f * std::tanh (4.0f * x / peak) / std::tanh (4.0f);
+
+    // Its loudness, as the audio device will play it (left, right at 90 %).
+    std::vector<float> right (music.size());
+    for (size_t i = 0; i < music.size(); ++i) right[i] = 0.9f * music[i];
+    LoudnessMeter meter;
+    meter.prepare (48000.0);
+    meter.process (music.data(), right.data(), (int) music.size());
+    const auto musicLufs = (double) meter.getShortTermLufs();
+
+    // The day so far.
+    const auto now = juce::Time::getCurrentTime();
+    const auto today = ExposureModel::dayNumber (now);
+    const auto nowMinute = ExposureModel::minuteOfDay (now);
+
+    PersistedState state;
+    state.savedAtMs = juce::Time::currentTimeMillis();
+    state.settings = { Setup::monitors, LevelPreset::normal, Strictness::escalating };
+
+    auto& e = state.exposure;
+    e.day = today;
+    e.battery = 52.0;
+    e.doseToday = 38.0;
+    e.listeningSecondsToday = 2.2 * 3600.0;
+    e.secondsSinceBreak = 51.0 * 60.0;
+    e.breaksToday = 1;
+    e.longestStretchToday = 75.0 * 60.0;
+    e.referenceLufs = musicLufs - 3.0; // set NORMAL on a slightly quieter track
+    e.levelAnchored = true;
+    e.referencePlaybackSeconds = 6.0 * 3600.0;
+    e.lastSummaryWeek = ExposureModel::weekNumber (today);
+
+    // Today's curve: 75 min of work, a 15 min break, an hour since.
+    for (int t = 0; t < 156; ++t)
+    {
+        const auto minute = nowMinute - 156 + t;
+
+        if (minute < 0)
+            continue;
+
+        const auto battery = t < 75 ? 100.0 - 0.56 * t
+                           : t < 90 ? 100.0 - 42.0 * std::exp (-(t - 75) / 5.0)
+                                    : 97.9 - 0.69 * (t - 90);
+        e.todayCurve.push_back ({ minute, juce::roundToInt (battery), false });
+    }
+
+    const double doses[] = { 34.0, 61.0, 0.0, 48.0, 112.0, 22.0 };
+    for (int d = 0; d < 6; ++d)
+        if (doses[d] > 0.0)
+            e.history.push_back ({ today - 6 + d, doses[d], doses[d] / 100.0 * 4.5 * 3600.0, 2 + d % 3, 0, 0, 0.0, (55.0 + 10.0 * d) * 60.0, d == 4 ? 2 : 0 });
+
+    persistence::save (stateFile, state);
+
+    // brEARk on the master, listening in real time.
+    auto processor = std::make_unique<BrearkProcessor>();
+    juce::AudioProcessor::BusesLayout layout;
+    layout.inputBuses.add (juce::AudioChannelSet::stereo());
+    layout.outputBuses.add (juce::AudioChannelSet::stereo());
+    processor->setBusesLayout (layout);
+    processor->prepareToPlay (48000.0, 512);
+
+    AudioDevice device;
+    device.configure ({ 48000.0, 512, false, 2 }, music, { processor.get() });
+    device.mode = Mode::play;
+    device.start();
+
+    std::cout << "brEARk showcase: listening for 150 s (" << juce::String (musicLufs, 1) << " LUFS) ...\n";
+    const auto startMs = juce::Time::getMillisecondCounterHiRes();
+
+    while (juce::Time::getMillisecondCounterHiRes() - startMs < 150000.0)
+        pump (100.0);
+
+    auto save = [&] (juce::Component& c, const juce::String& name)
+    {
+        const auto image = c.createComponentSnapshot (c.getLocalBounds(), true, 2.0f);
+        const auto file = folder.getChildFile (name);
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        juce::PNGImageFormat().writeImageToStream (image, out);
+        std::cout << "  " << file.getFullPathName() << "\n";
+    };
+
+    for (const auto poster : { true, false })
+    {
+        processor->setPosterSize (poster);
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor->createEditor());
+        pump (600.0);
+        save (*editor, poster ? "showcase-poster.png" : "showcase-compact.png");
+
+        if (poster && clickButton (*editor, "HISTORY"))
+        {
+            pump (300.0);
+            save (*editor, "showcase-history.png");
+        }
+    }
+
+    device.stop();
+    processor.reset();
+    return 0;
+}
+
+//==============================================================================
 int main (int argc, char* argv[])
 {
     insertRealtimeCheck (argv);
+
+    if (argc > 1 && juce::String (argv[1]) == "showcase")
+        return runShowcase (juce::File::getCurrentWorkingDirectory().getChildFile (argc > 2 ? argv[2] : "."));
 
     const auto minutes = argc > 1 ? juce::jmax (1, juce::String (argv[1]).getIntValue()) : 180;
     const juce::File folder (juce::File::getCurrentWorkingDirectory().getChildFile (argc > 2 ? argv[2] : "."));

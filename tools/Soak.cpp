@@ -15,7 +15,7 @@
 // state seen. Writes soak.csv (one row per 10 s). Pop-ups and sounds are off.
 //
 // Usage: brEARk_Soak [minutes = 180] [output folder = current folder] [quick]
-//        brEARk_Soak showcase [folder]: the ABOUT.md screenshots (a scripted session, 2.5 min)
+//        brEARk_Soak showcase [folder]: the README screenshots (a scripted session, 2.5 min)
 //        "quick" shortens every phase to a tenth: a smoke test of the soak itself.
 // Exit code 0 = all checks passed.
 
@@ -297,7 +297,7 @@ void insertRealtimeCheck (char* argv[])
 } // namespace
 
 //==============================================================================
-// A scripted session for the README / ABOUT screenshots: a realistic day so far
+// A scripted session for the README screenshots: a realistic day so far
 // is loaded (two hours in, one break, a week of history, the level set to
 // NORMAL a while ago), then brEARk listens in real time to a mastered house
 // loop for 2.5 minutes. Everything on screen is measured or computed by the

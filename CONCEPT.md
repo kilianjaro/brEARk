@@ -55,6 +55,7 @@ Weekly stats complement the daily dose (reference frameworks to evaluate in step
 - **QUIET / NORMAL / LOUD is the main control**, a three-way switch on the main window: how loud it is *on your ears* (QUIET: you can talk normally; NORMAL: you'd raise your voice; LOUD: you'd have to shout). Switch it when you turn the monitor knob.
 - **A click while music plays anchors it:** "this loudness is NORMAL on my ears". From then on the signal counts relative to that moment, in LU: "NORMAL +4 LU" means 4 LU louder than when you set it. Before the first anchor, brEARk learns your usual loudness from playback.
 - **Check-in:** a pop-up asks "How loud is it on your ears now?" with QUIET / NORMAL / LOUD, at the first sound of each session, and when the music stays 6 LU or more away from the anchor over 2 minutes of play (at most every 20 min). One click answers, anchors and closes it.
+- **Session start** *(M11.1)*: the first check-in of a session is **NEW SESSION.** and also asks **MONITORS / HEADPHONES** (applies at once, highlighted), above the QUIET / NORMAL / LOUD answers.
 - **No dB at your ears anywhere** (no estimated level, no VOLUME buttons, no NOT THAT LOUD, no 88 dB LOUD pop-up). Shown are signal facts: loudness in LUFS, the LU against your anchor, peak dBFS in DATA.
 
 ---
@@ -125,6 +126,7 @@ The plugin window is usually closed, so alerts must reach you anyway:
    - Always on top, also over full-screen Live, and not blocked by Focus / Do Not Disturb.
    - Never steals keyboard focus.
    - Has BREAK / SNOOZE buttons.
+   - *M11.1 (Kilian):* closes itself after a few seconds, 6 s for a message and 12 s when it asks something (check-in, SNOOZE). It stays open while the mouse is over it; every answer closes it. X is only for closing early.
 
 ---
 

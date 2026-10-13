@@ -7,7 +7,10 @@ namespace
 using namespace breark::ui;
 
 constexpr int margin = 16;
-constexpr int visibleMs = 20000;
+constexpr int rowHeight = 26, rowGap = 8;
+constexpr int visibleMs = 6000;          // a message: read it, it goes
+constexpr int askingVisibleMs = 12000;   // a question or SNOOZE: a little longer
+constexpr int afterHoverMs = 1500;       // the mouse was over it: close soon after it leaves
 } // namespace
 
 void paintToast (juce::Graphics& g, juce::Rectangle<float> bounds, const ToastContent& content, const Fonts& fonts)
@@ -24,13 +27,16 @@ void paintToast (juce::Graphics& g, juce::Rectangle<float> bounds, const ToastCo
     g.setFont (fonts.grotesk (36.0f));
     g.drawText (content.headline, area.removeFromTop (44.0f), juce::Justification::centredLeft, true);
 
-    // Up to three lines: coach lines are ≤ 104 characters, ~56 fit on a line.
+    // The bottom rows hold the buttons (and the detail line); the message gets
+    // the rest, up to three lines (coach lines are ≤ 104 characters, ~56 a line).
+    auto bottom = area.removeFromBottom ((float) (content.offerSetup ? 2 * rowHeight + rowGap : rowHeight));
+
     g.setFont (fonts.mono (11.5f));
-    g.drawFittedText (content.message, area.removeFromTop (48.0f).toNearestInt(), juce::Justification::topLeft, 3, 1.0f);
+    g.drawFittedText (content.message, area.toNearestInt(), juce::Justification::topLeft, 3, 1.0f);
 
     g.setColour (colours::white.withAlpha (0.8f));
     g.setFont (fonts.mono (10.5f));
-    g.drawText (content.detail, area.removeFromBottom (26.0f).withTrimmedRight (140.0f), juce::Justification::centredLeft, true);
+    g.drawText (content.detail, bottom.removeFromBottom ((float) rowHeight).withTrimmedRight (140.0f), juce::Justification::centredLeft, true);
 }
 
 //==============================================================================
@@ -45,6 +51,19 @@ ToastWindow::ToastWindow()
         Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
     }
+
+    // The session check-in's setup: applies at once, keeps the pop-up open.
+    setupSwitch.setColours (colours::ink, colours::paper);
+    setupSwitch.setSelectedOutline (colours::paper);
+    setupSwitch.setTooltip (breark::ui::tips::setup);
+    setupSwitch.onChange = [this] (int index)
+    {
+        if (onSetup != nullptr)
+            onSetup (index);
+
+        startTimer (askingVisibleMs); // still answering
+    };
+    addChildComponent (setupSwitch);
 
     // The check-in: one click answers and closes the pop-up.
     for (int level = 0; level < 3; ++level)
@@ -97,6 +116,10 @@ void ToastWindow::show (const ToastContent& newContent)
     for (auto& button : levelButtons)
         button.setVisible (content.offerLevels);
 
+    setupSwitch.setSelectedIndex (content.setupSelected);
+    setupSwitch.setVisible (content.offerSetup);
+    setSize (width, heightFor (content));
+
     if (! isOnDesktop())
     {
         setAlwaysOnTop (true);
@@ -112,7 +135,7 @@ void ToastWindow::show (const ToastContent& newContent)
 
     setVisible (true);
     repaint();
-    startTimer (visibleMs);
+    startTimer (content.offerLevels || content.offerSetup || content.offerSnooze ? askingVisibleMs : visibleMs);
 }
 
 void ToastWindow::dismiss()
@@ -123,6 +146,13 @@ void ToastWindow::dismiss()
 
 void ToastWindow::timerCallback()
 {
+    // Being read (the mouse is over it): stay, and close soon after.
+    if (isMouseOver (true))
+    {
+        startTimer (afterHoverMs);
+        return;
+    }
+
     dismiss();
 }
 
@@ -135,8 +165,11 @@ void ToastWindow::resized()
     breakButton.setBounds (buttonRow);
     snoozeButton.setBounds (buttonRow);
 
-    // The check-in's three answers fill the bottom row.
-    auto answers = getLocalBounds().reduced (margin, 12).removeFromBottom (26);
+    // The check-in's three answers fill the bottom row; the setup sits above them.
+    auto rows = getLocalBounds().reduced (margin, 12);
+    auto answers = rows.removeFromBottom (rowHeight);
+    rows.removeFromBottom (rowGap);
+    setupSwitch.setBounds (rows.removeFromBottom (rowHeight));
     const auto answerWidth = (answers.getWidth() - 2 * 8) / 3;
 
     for (auto& button : levelButtons)

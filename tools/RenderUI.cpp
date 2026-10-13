@@ -160,6 +160,10 @@ int main (int argc, char* argv[])
         toast.setVisible (false);
         toast.show (content);
         save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-checkin-window.png"));
+
+        // The session check-in (M11.1): where you listen, and how loud.
+        toast.show ({ "NEW SESSION.", "Where do you listen, and how loud is it on your ears?", "", false, false, false, true, true, 0 });
+        save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-session-window.png"));
         toast.dismiss();
     }
 

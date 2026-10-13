@@ -22,7 +22,7 @@ juce::String checkInQuestion (const breark::Alert& alert, breark::LevelPreset le
 }
 
 // The headline and layout per alert; the message comes from the coach.
-ToastContent toastFor (const breark::Alert& alert, const juce::String& message, breark::LevelPreset level)
+ToastContent toastFor (const breark::Alert& alert, const juce::String& message, breark::LevelPreset level, breark::Setup setup)
 {
     const auto minutes = juce::String (juce::roundToInt (alert.breakMinutes));
     const auto battery = "EAR BATTERY " + juce::String (juce::roundToInt (alert.battery)) + " %";
@@ -43,7 +43,11 @@ ToastContent toastFor (const breark::Alert& alert, const juce::String& message, 
         case AlertKind::dayReminder:     return { "DONE.", message, "HEARING DOSE USED UP" + separator + "STILL LISTENING", false, false };
         case AlertKind::dayUnplug:       return { "DONE.", message, "UNPLUGGED UNTIL 05:00", true, false, true };
         case AlertKind::weeklySummary:   return { "LAST WEEK.", breark::ui::describeWeek (alert.week), "DETAILS IN HISTORY (POSTER)", false, false };
-        case AlertKind::checkIn:         return { "HOW LOUD?", checkInQuestion (alert, level), "", false, false, false, true };
+        case AlertKind::checkIn:
+            if (alert.checkIn == (int) breark::CheckInPolicy::Reason::firstSound) // M11.1: the session check-in asks both
+                return { "NEW SESSION.", "Where do you listen, and how loud is it on your ears?", "", false, false, false, true, true, (int) setup };
+
+            return { "HOW LOUD?", checkInQuestion (alert, level), "", false, false, false, true };
     }
 
     return {};
@@ -165,7 +169,7 @@ void AlertPresenter::timerCallback()
 void AlertPresenter::present (const breark::Alert& alert)
 {
     const auto message = coach.speakFor (alert, context, juce::Time::getMillisecondCounterHiRes() / 1000.0);
-    showToast (toastFor (alert, message, brain->getSettings().preset), alert.withSound);
+    showToast (toastFor (alert, message, brain->getSettings().preset, brain->getSettings().setup), alert.withSound);
 }
 
 void AlertPresenter::showToast (const ToastContent& content, bool withSound)
@@ -179,6 +183,12 @@ void AlertPresenter::showToast (const ToastContent& content, bool withSound)
         toast->onBreak = [this] { brain->toggleBreak(); };
         toast->onSnooze = [this] { brain->snooze(); };
         toast->onLevel = [this] (int level) { brain->setLevelNow ((breark::LevelPreset) level); };
+        toast->onSetup = [this] (int setup)
+        {
+            auto settings = brain->getSettings();
+            settings.setup = (breark::Setup) setup;
+            brain->setSettings (settings);
+        };
     }
 
     toast->show (content);

@@ -22,9 +22,10 @@ void paintToast (juce::Graphics& g, juce::Rectangle<float> bounds, const ToastCo
 //==============================================================================
 // brEARk's own banner: top right of the main screen, above everything (also
 // full-screen Live), on every Space, and never takes keyboard focus away from
-// Live. Closes itself after a few seconds (M11.1: 6 s, 12 s when it asks
-// something), but not while the mouse is over it; every answer closes it too.
-// Message thread only.
+// Live. M11.2: a message closes itself after 6 s, one with a button (BREAK
+// NOW, SNOOZE) after 30 s, but not while the mouse is over it; a question
+// (QUIET / NORMAL / LOUD) stays until it's answered or closed. Every answer
+// closes it. Message thread only.
 class ToastWindow final : public juce::Component,
                           private juce::Timer
 {
@@ -39,7 +40,12 @@ public:
     void show (const ToastContent& newContent);
     void dismiss();
 
+    // Showing a question that waits for its answer (M11.2).
+    bool isAsking() const noexcept { return isVisible() && content.offerLevels; }
+    const ToastContent& getContent() const noexcept { return content; }
+
     std::function<void()> onBreak, onSnooze;
+    std::function<void()> onClosed; // after it closed: timed out, answered or X
     std::function<void (int)> onLevel; // 0 QUIET, 1 NORMAL, 2 LOUD
     std::function<void (int)> onSetup; // 0 MONITORS, 1 HEADPHONES
 

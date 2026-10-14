@@ -29,6 +29,7 @@ public:
             e.secondsSinceBreak = 1800.0;
             e.breaksToday = 3;
             e.referenceLufs = -9.75;
+            e.referenceLevelA = -16.5;
             e.referencePlaybackSeconds = 4321.0;
             e.offSecondsToday = 900.0;
             e.longestStretchToday = 4321.0;
@@ -58,6 +59,7 @@ public:
                 expectEquals (x.breaksToday, e.breaksToday);
                 expectEquals (x.referenceLufs, e.referenceLufs);
                 expectEquals (x.referencePlaybackSeconds, e.referencePlaybackSeconds);
+                expectEquals (x.referenceLevelA, -16.5);
                 expectEquals ((int) x.history.size(), 2);
                 expectEquals ((int) x.todayCurve.size(), 4);
                 expect (x.todayCurve[2].off && ! x.todayCurve[3].off && ! x.todayCurve[0].off);
@@ -104,6 +106,7 @@ public:
                 expectEquals (loaded->exposure.history[0].offSeconds, 0.0);
                 expect (! loaded->exposure.todayCurve[1].off);
                 expectEquals (loaded->exposure.todayCurve[1].battery, 99);
+                expect (std::isnan (loaded->exposure.referenceLevelA), "before M11.2: the A reference is learned on the next play");
             }
         }
 

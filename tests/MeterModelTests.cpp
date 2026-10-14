@@ -49,7 +49,7 @@ public:
 
             const auto unplugged = wordFor ([] (Snapshot& s) { s.breakPhase = BreakPhase::unplugged; s.unpluggedSeconds = 190.0; });
             expectEquals (unplugged.word, juce::String ("UNPLUGGED."));
-            expect (unplugged.alarm && unplugged.status.contains ("3:10 OF 5:00"));
+            expect (unplugged.alarm && unplugged.status.contains ("SOUND BACK IN 1:50"));
 
             expectEquals (wordFor ([] (Snapshot& s) { s.recovering = true; }).word, juce::String ("RESTING."));
             expectEquals (wordFor ([] (Snapshot&) {}, false).word, juce::String ("INACTIVE."));
@@ -135,10 +135,59 @@ public:
             expect (! playing.compactLines[1][0].text.contains (" dB"), "no dB at the ears: only the signal in LUFS");
 
             const auto resting = wordFor ([] (Snapshot& s) { s.silent = true; s.battery = 40.0f; s.minutesToRecover = 8.4; });
-            expect (resting.timeLine[0].text.startsWith ("RECOVERING") && resting.timeLine[0].text.endsWith ("~8 MIN"));
+            expectEquals (resting.timeLine[0].text, juce::String ("90 % IN ~8 MIN"));
+
+            const auto due = wordFor ([] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.suggestedBreakMinutes = 12.4f; });
+            expectEquals (due.timeLine[0].text, juce::String ("TAKE ~12 MIN OF QUIET"));
 
             for (const auto& item : playing.timeLine)
                 expect (item.tip.containsChar ('\n'), item.text + " has no explanation");
+        }
+
+        beginTest ("M11.2: one line, one job: no state says the same thing twice");
+        {
+            const std::function<void (Snapshot&)> states[] = {
+                [] (Snapshot& s) { s.dayDone = true; s.doseToday = 413.0f; s.battery = 60.0f; s.minutesToBreak = 25.0; s.minutesToFullDose = 0.0; },
+                [] (Snapshot& s) { s.dayDone = true; s.doseToday = 413.0f; s.silent = true; s.battery = 60.0f; s.minutesToRecover = 6.0; },
+                [] (Snapshot& s) { s.dayDone = true; s.unpluggedForDay = true; s.breakPhase = BreakPhase::unplugged; s.silent = true; },
+                [] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 60.0; },
+                [] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 1000.0; },
+                [] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.silent = true; s.minutesToRecover = 12.0; },
+                [] (Snapshot& s) { s.breakPhase = BreakPhase::unplugged; s.unpluggedSeconds = 100.0; s.silent = true; s.minutesToRecover = 9.0; },
+                [] (Snapshot& s) { s.breakPhase = BreakPhase::onBreak; s.breakSecondsLeft = 300.0; s.silent = true; s.battery = 50.0f; s.minutesToRecover = 9.0; },
+                [] (Snapshot& s) { s.recovering = true; s.silent = true; s.battery = 50.0f; s.minutesToRecover = 9.0; },
+            };
+
+            for (const auto& state : states)
+            {
+                const auto m = wordFor (state);
+                juce::StringArray texts { m.word, m.status };
+
+                for (const auto& item : m.timeLine)
+                    texts.add (item.text);
+
+                for (const auto& stat : m.stats)
+                    texts.add (stat.label + " " + stat.value);
+
+                const auto all = texts.joinIntoString (" | ");
+
+                for (const auto* phrase : { "USED UP", "CALL IT A DAY", "BREAK DUE", "RECOVERING", "UNPLUGGED", "EMPTY", "05:00" })
+                    expect (all.indexOf (phrase) == all.lastIndexOf (phrase), "POSTER says '" + juce::String (phrase) + "' twice: " + all);
+
+                juce::StringArray compact { m.word, m.status };
+
+                for (const auto& item : m.timeLine)
+                    compact.add (item.text);
+
+                for (const auto& line : m.compactLines)
+                    for (const auto& item : line)
+                        compact.add (item.text);
+
+                const auto small = compact.joinIntoString (" | ");
+
+                for (const auto* phrase : { "USED UP", "CALL IT A DAY", "BREAK DUE", "RECOVERING", "UNPLUGGED", "EMPTY", "05:00" })
+                    expect (small.indexOf (phrase) == small.lastIndexOf (phrase), "COMPACT says '" + juce::String (phrase) + "' twice: " + small);
+            }
         }
 
         beginTest ("Hover: the explanation under the mouse");

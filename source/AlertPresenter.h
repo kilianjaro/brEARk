@@ -5,6 +5,8 @@
 #include "platform/AlertSound.h"
 #include "ui/ToastWindow.h"
 
+#include <optional>
+
 //==============================================================================
 // One per Live process (juce::SharedResourcePointer): turns the Brain's alerts
 // and the coach's hints into the toast and the alert sound, whether or not the
@@ -37,6 +39,11 @@ private:
 
     std::unique_ptr<AlertSound> sound;
     std::unique_ptr<ToastWindow> toast;
+
+    // M11.2: a question pushed aside by another pop-up comes back after it;
+    // setting the level anywhere answers it.
+    std::optional<ToastContent> heldQuestion;
+    int levelAnswersSeen = 0;
 
     // Keeps the typefaces alive while brEARk is loaded. Otherwise every editor
     // would load them anew, and JUCE's text caches (128 entries each) would

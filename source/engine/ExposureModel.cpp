@@ -39,23 +39,28 @@ int ExposureModel::minuteOfDay (juce::Time localTime) noexcept
 
 double ExposureModel::presetSpl() const noexcept
 {
-    const auto base = settings.preset == LevelPreset::quiet ? model::presetSplQuiet
-                    : settings.preset == LevelPreset::loud  ? model::presetSplLoud
-                                                            : model::presetSplNormal;
+    return settings.preset == LevelPreset::quiet ? model::presetSplQuiet
+         : settings.preset == LevelPreset::loud  ? model::presetSplLoud
+                                                 : model::presetSplNormal;
+}
 
-    return base + (settings.setup == Setup::headphones ? model::headphoneOffsetDb : 0.0);
+double ExposureModel::referenceA() const noexcept
+{
+    // Before M11.2 files are relearned: the old scale (A level against the LUFS anchor).
+    return std::isfinite (state.referenceLevelA) ? state.referenceLevelA : state.referenceLufs;
 }
 
 double ExposureModel::perceivedSpl (float lufsShortTerm) const noexcept
 {
-    return presetSpl() + ((double) lufsShortTerm - state.referenceLufs);
+    const auto headphones = settings.setup == Setup::headphones ? model::headphoneOffsetDb : 0.0;
+    return presetSpl() + headphones + ((double) lufsShortTerm - state.referenceLufs);
 }
 
 double ExposureModel::doseSpl (float levelA) const noexcept
 {
-    // Same monitor gain, applied to the A-weighted level: bass-heavy material
-    // at the same perceived loudness carries less dose, as in the standards.
-    return presetSpl() + ((double) levelA - state.referenceLufs);
+    // M11.2: the music you rated is your level in dB(A), whatever its bass;
+    // changes from there count (more bass at the same loudness: less dose).
+    return presetSpl() + ((double) levelA - referenceA());
 }
 
 //==============================================================================
@@ -132,6 +137,11 @@ void ExposureModel::listen (const ListeningPeriod& period)
 
     state.battery = std::max (0.0, state.battery - drainPerMinute (perceivedSpl (period.lufsShortTerm), period.fatigueFactor) * dt / 60.0);
 
+    // A file from before M11.2: the music playing now tells how its A level
+    // relates to its loudness, which places the A reference next to the anchor.
+    if (! std::isfinite (state.referenceLevelA) && std::isfinite (period.levelA))
+        state.referenceLevelA = (double) period.levelA - ((double) period.lufsShortTerm - state.referenceLufs);
+
     // Dose: A-weighted energy against the WHO daily allowance.
     if (std::isfinite (period.levelA))
         state.doseToday += dosePerSecond (doseSpl (period.levelA)) * dt;
@@ -146,7 +156,11 @@ void ExposureModel::listen (const ListeningPeriod& period)
     const auto timeConstant = std::clamp (state.referencePlaybackSeconds,
                                           model::referenceFastLearningSeconds,
                                           model::referenceTimeConstantSeconds);
-    state.referenceLufs += ((double) period.lufsShortTerm - state.referenceLufs) * std::min (1.0, dt / timeConstant);
+    const auto follow = std::min (1.0, dt / timeConstant);
+    state.referenceLufs += ((double) period.lufsShortTerm - state.referenceLufs) * follow;
+
+    if (std::isfinite (period.levelA))
+        state.referenceLevelA += ((double) period.levelA - state.referenceLevelA) * follow;
 }
 
 double ExposureModel::stepDownDb() const noexcept

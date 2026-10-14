@@ -40,7 +40,7 @@ inline const juce::String status = tip ("Details of the current state, in minute
                                         "Exports are never counted; TEST MODE is never saved.");
 
 //── Main window: numbers ──────────────────────────────────────────────────────
-inline const juce::String doseToday = tip ("HEARING DOSE: how much of today's safe sound you've used, after the WHO (8 hours at 80 dB(A)). From your level setting, the music's loudness and time.",
+inline const juce::String doseToday = tip ("HEARING DOSE: how much of today's safe sound you've used, after the WHO: 8 hours at NORMAL. From your level setting, the music's loudness and time.",
                                            "It doesn't recover during the day: at 100 % it's used up. A new day starts at 05:00.");
 
 inline const juce::String doseWeek = tip ("The last 7 days' hearing dose (rolling, today included), after the WHO weekly allowance (40 hours at 80 dB(A), i.e. 5 full days).",
@@ -106,7 +106,10 @@ inline const juce::String quieter = tip ("The same forecast one level quieter (1
 inline const juce::String recover = tip ("How long silence takes to bring the battery back to 90 %, the end of a suggested break.",
                                          "Recovery starts after 60 s of silence; the BREAK button starts it at once.");
 
-inline const juce::String dayDone = tip ("Today's hearing dose is used up: the WHO's 8 hours at 80 dB(A).",
+inline const juce::String breakLength = tip ("The suggested break: silence until the battery is back at 90 %, longer on a heavy day.",
+                                             "Away from the speakers if you can. Press BREAK, or just stop playing.");
+
+inline const juce::String dayDone = tip ("Today's hearing dose is used up: the WHO's 8 hours at NORMAL (80 dB(A)), less when it's louder.",
                                          "Quiet work from here, or call it a day. A new day starts at 05:00.");
 
 inline const juce::String coach = tip ("The coach: what to do now, from brEARk's state.",
@@ -114,13 +117,13 @@ inline const juce::String coach = tip ("The coach: what to do now, from brEARk's
 
 //── Buttons ───────────────────────────────────────────────────────────────────
 inline const juce::String setup = tip ("Where you listen: MONITORS or HEADPHONES. Click to switch.",
-                                       "Headphones put the sound right at the eardrum: brEARk counts them 3 dB louder.");
+                                       "Headphones put the sound right at the eardrum: the ear battery drains a little faster.");
 
 inline const juce::String level = tip ("How loud it is on your ears: QUIET (you can talk normally), NORMAL (you'd raise your voice), LOUD (you'd have to shout).",
-                                       "Click when you change your monitor volume. While music plays, brEARk takes this loudness as that level.");
+                                       "Click when you change your monitor volume. While music plays, brEARk takes the next 2 minutes as that level.");
 
 inline const juce::String levelAnswer = tip ("Your answer: how loud it is on your ears right now.",
-                                             "brEARk takes what plays now as that level. The pop-up closes.");
+                                             "brEARk takes the music around now (about 2 minutes) as that level. The pop-up closes.");
 
 inline const juce::String strictness = tip ("What happens when the battery is empty. Click to switch.",
                                             "GENTLE: one sound. ESCALATING: firmer reminders. HARD: the sound is cut at 0 %.");

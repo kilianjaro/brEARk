@@ -4,6 +4,7 @@
 
 #include <juce_core/juce_core.h>
 
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -84,6 +85,10 @@ struct ExposureState
     int emptyBatteryToday = 0;
     int lastSummaryWeek = 0;             // the weekly pop-up was shown for this week
     double referenceLufs = model::initialReferenceLufs; // the signal loudness that matches your level setting
+    // M11.2: the A-weighted level at the same moment, for the dose: NORMAL is then
+    // exactly 80 dB(A) whatever the mix's bass. NaN until known (files before M11.2):
+    // taken from the next second of play.
+    double referenceLevelA = std::numeric_limits<double>::quiet_NaN();
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
     bool levelAnchored = false;          // M11: you set the level while music played; the reference stays put
     std::vector<CurvePoint> todayCurve;  // battery, one point per minute the plugin ran
@@ -94,9 +99,11 @@ struct ExposureState
 // The exposure model: pure and deterministic, no clock or threads inside.
 //
 //   EAR BATTERY  drains with *perceived* loudness (LUFS → estimated SPL,
-//                5 dB exchange rate), recovers exponentially after 60 s of silence.
-//   DAILY DOSE   accumulates A-weighted energy (WHO, 3 dB exchange rate),
-//                never recovers during the day, resets at 05:00.
+//                5 dB exchange rate, +3 dB on headphones), recovers
+//                exponentially after 60 s of silence.
+//   DAILY DOSE   accumulates A-weighted energy (WHO, 3 dB exchange rate):
+//                your level setting at the anchor = 70 / 80 / 85 dB(A), so
+//                NORMAL lasts 8 h. Never recovers during the day, resets at 05:00.
 class ExposureModel
 {
 public:
@@ -130,9 +137,14 @@ public:
     // or a check-in answer while music plays). The signal loudness now is the
     // anchor; louder or quieter signal counts relative to it until the next
     // anchor. Before the first anchor, the reference learns from your playback.
-    void anchorLevel (double lufs) noexcept
+    // M11.2: with the A-weighted level of the same music, for the dose.
+    void anchorLevel (double lufs, double levelA) noexcept
     {
         state.referenceLufs = lufs;
+
+        if (std::isfinite (levelA))
+            state.referenceLevelA = levelA;
+
         state.levelAnchored = true;
     }
 
@@ -164,7 +176,8 @@ public:
     static int minuteOfDay (juce::Time localTime) noexcept;
 
 private:
-    double presetSpl() const noexcept;
+    double presetSpl() const noexcept; // your level setting, without the headphone offset
+    double referenceA() const noexcept;
     double drainPerMinute (double spl, double fatigueFactor) const noexcept;
     double dosePerSecond (double splA) const noexcept;
     void rollOverIfNewDay (juce::Time now);

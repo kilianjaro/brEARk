@@ -215,7 +215,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     {
         m.word = "UNPLUGGED.";
         m.alarm = true;
-        m.status = "UNPLUGGED" + separator + minutesSeconds (s.unpluggedSeconds) + " OF " + minutesSeconds (model::minimumBreakSeconds);
+        m.status = "SOUND BACK IN " + minutesSeconds (std::max (0.0, model::minimumBreakSeconds - s.unpluggedSeconds));
     }
     else if (s.breakPhase == BreakPhase::onBreak)
     {
@@ -226,7 +226,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     {
         m.word = ignored ? "STOP." : "BREAK.";
         m.alarm = ignored;
-        m.status = ignored ? "BREAK DUE" + separator + minutesSeconds (s.secondsSinceDue) + " OVER" : "BREAK DUE" + separator + minutes + " MIN";
+        m.status = ignored ? "EAR BATTERY EMPTY" + separator + "BREAK OVERDUE " + minutesSeconds (s.secondsSinceDue) : juce::String ("EAR BATTERY EMPTY");
     }
     else if (s.recovering)
     {
@@ -254,7 +254,9 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
 
     m.massRed = battery <= model::warnBattery && ! m.alarm;
 
-    // Time left, and what one level quieter would buy (M10/M11).
+    // Time left, and what one level quieter would buy (M10/M11). M11.2: one
+    // line, one job: the status line says what's happening, this line only
+    // gives times, and neither repeats the other.
     auto approx = [] (double forecastMinutes) -> juce::String
     {
         if (! std::isfinite (forecastMinutes) || forecastMinutes >= 600.0)
@@ -265,16 +267,16 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
                           : "~" + juce::String (total / 60) + ":" + juce::String (total % 60).paddedLeft ('0', 2) + " H";
     };
 
-    const auto playing = ! s.silent;
+    const auto playing = ! s.silent && s.breakPhase != BreakPhase::unplugged; // unplugged: you hear nothing
     const auto levelName = juce::String (s.settings.preset == LevelPreset::quiet ? "QUIET" : s.settings.preset == LevelPreset::loud ? "LOUD" : "NORMAL");
     const auto lowerName = juce::String (s.settings.preset == LevelPreset::loud ? "NORMAL" : "QUIET");
 
-    if (s.dayDone)
-        m.timeLine = { { "HEARING DOSE USED UP" + separator + "CALL IT A DAY", tips::dayDone } };
-    else if (s.breakPhase == BreakPhase::due || s.breakPhase == BreakPhase::unplugged)
-        m.timeLine = { { "BREAK DUE" + separator + approx (s.minutesToRecover) + " TO RECOVER", tips::recover } };
+    if (! activeInstance || s.hostOff)
+        m.timeLine = {}; // nothing runs, nothing to time
+    else if (s.breakPhase == BreakPhase::due && playing)
+        m.timeLine = { { "TAKE ~" + minutes + " MIN OF QUIET", tips::breakLength } };
     else if (! playing)
-        m.timeLine = { { battery < model::suggestedBreakTargetBattery ? "RECOVERING" + separator + "90 % IN " + approx (s.minutesToRecover)
+        m.timeLine = { { battery < model::suggestedBreakTargetBattery ? "90 % IN " + approx (s.minutesToRecover)
                                                                       : juce::String ("RESTED"), tips::recover } };
     else
     {
@@ -284,11 +286,11 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
             m.timeLine.push_back ({ "AT " + lowerName + " " + approx (s.minutesToBreakQuieter), tips::quieter });
     }
 
-    // The hearing dose: how much of today's is used, how long it lasts at this level.
+    // The hearing dose: how much of today's is used, how long it lasts at this level
+    // (used up: the status line says so).
     const auto doseUsed = juce::String (juce::roundToInt (s.doseToday)) + " % USED";
-    const auto doseLeft = s.dayDone ? juce::String ("USED UP")
-                        : playing   ? approx (s.minutesToFullDose) + " LEFT"
-                                    : juce::String();
+    const auto doseLeft = playing && ! s.dayDone ? approx (s.minutesToFullDose) + " LEFT" : juce::String();
+    const auto& doseTip = s.dayDone ? tips::dayDone : tips::doseToday;
 
     // The signal, honestly: its loudness, and against the moment you set your level.
     const auto signal = db (s.lufsShortTerm) + " LUFS";
@@ -320,7 +322,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     m.factors = reasons;
 
     // COMPACT: the dose, then the signal (and the strongest reason, if any).
-    std::vector<Item> doseItems { { "HEARING DOSE " + doseUsed, tips::doseToday } };
+    std::vector<Item> doseItems { { "HEARING DOSE " + doseUsed, doseTip } };
     if (doseLeft.isNotEmpty())
         doseItems.push_back ({ doseLeft, tips::doseLeft });
 
@@ -333,7 +335,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     m.compactLines = { doseItems, signalItems };
 
     // POSTER: five numbers.
-    m.stats = { { "HEARING DOSE" + (doseLeft.isNotEmpty() ? separator + doseLeft : juce::String()), doseUsed, tips::doseToday },
+    m.stats = { { "HEARING DOSE" + (doseLeft.isNotEmpty() ? separator + doseLeft : juce::String()), doseUsed, doseTip },
                 { "HEARING DOSE 7 DAYS", juce::String (juce::roundToInt (s.doseWeek)) + " % USED", tips::doseWeek },
                 { "LISTENED TODAY", hoursMinutes (s.listeningSecondsToday), tips::listened },
                 { "SINCE BREAK", hoursMinutes (s.secondsSinceBreak), tips::sinceBreak },

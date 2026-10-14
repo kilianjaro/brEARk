@@ -106,6 +106,7 @@ AlertPresenter::AlertPresenter()
     if (const auto file = userLinesFile(); file.existsAsFile())
         userLinesModified = file.getLastModificationTime();
 
+    levelAnswersSeen = brain->getLevelAnswers();
     startTimerHz (4);
 }
 
@@ -164,6 +165,17 @@ void AlertPresenter::timerCallback()
 
     if (const auto hint = coach.update (context, juce::Time::getMillisecondCounterHiRes() / 1000.0))
         showToast ({ hint->headline, hint->text, "", false, hint->offerBreak }, false);
+
+    // The level was set (a check-in answer, the switch in the window or DATA): no
+    // question is open any more, including one that arrived in this same tick.
+    if (const auto answers = brain->getLevelAnswers(); answers != levelAnswersSeen)
+    {
+        levelAnswersSeen = answers;
+        heldQuestion.reset();
+
+        if (toast != nullptr && toast->isAsking())
+            toast->dismiss();
+    }
 }
 
 void AlertPresenter::present (const breark::Alert& alert)
@@ -189,7 +201,22 @@ void AlertPresenter::showToast (const ToastContent& content, bool withSound)
             settings.setup = (breark::Setup) setup;
             brain->setSettings (settings);
         };
+        toast->onClosed = [this]
+        {
+            if (! heldQuestion.has_value())
+                return;
+
+            auto question = *std::exchange (heldQuestion, std::nullopt);
+            question.setupSelected = (int) brain->getSettings().setup;
+            toast->show (question);
+        };
     }
+
+    // A question waits under any other pop-up; a newer question replaces it.
+    if (content.offerLevels)
+        heldQuestion.reset();
+    else if (toast->isAsking())
+        heldQuestion = toast->getContent();
 
     toast->show (content);
 

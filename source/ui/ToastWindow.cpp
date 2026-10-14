@@ -9,8 +9,9 @@ using namespace breark::ui;
 constexpr int margin = 16;
 constexpr int rowHeight = 26, rowGap = 8;
 constexpr int visibleMs = 6000;          // a message: read it, it goes
-constexpr int askingVisibleMs = 12000;   // a question or SNOOZE: a little longer
+constexpr int buttonVisibleMs = 30000;   // BREAK NOW or SNOOZE: time to decide (M11.2)
 constexpr int afterHoverMs = 1500;       // the mouse was over it: close soon after it leaves
+// A question (the check-in) has no timer: it waits for the answer (M11.2).
 } // namespace
 
 void paintToast (juce::Graphics& g, juce::Rectangle<float> bounds, const ToastContent& content, const Fonts& fonts)
@@ -60,8 +61,6 @@ ToastWindow::ToastWindow()
     {
         if (onSetup != nullptr)
             onSetup (index);
-
-        startTimer (askingVisibleMs); // still answering
     };
     addChildComponent (setupSwitch);
 
@@ -135,13 +134,24 @@ void ToastWindow::show (const ToastContent& newContent)
 
     setVisible (true);
     repaint();
-    startTimer (content.offerLevels || content.offerSetup || content.offerSnooze ? askingVisibleMs : visibleMs);
+
+    if (content.offerLevels)
+        stopTimer();
+    else
+        startTimer (content.offerBreak || content.offerSnooze ? buttonVisibleMs : visibleMs);
 }
 
 void ToastWindow::dismiss()
 {
     stopTimer();
+
+    if (! isVisible())
+        return;
+
     setVisible (false);
+
+    if (onClosed != nullptr)
+        onClosed();
 }
 
 void ToastWindow::timerCallback()

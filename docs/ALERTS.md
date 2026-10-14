@@ -1,6 +1,6 @@
 # brEARk: what it does and every alert
 
-*As of M11.1 (build `63d1f18`). Keep this file in step with the code when alerts change.*
+*As of M11.2. Keep this file in step with the code when alerts change.*
 
 ---
 
@@ -9,7 +9,7 @@
 brEARk sits on the master and listens. It never changes the audio, except for the power-down in HARD mode. It keeps two meters:
 
 - **Ear battery** (100 → 0 %): how tired your ears are, which also means how reliable your judgment is right now. It drains while you listen and refills in silence. Recovery starts after 60 s of silence; 5 minutes or more counts as a break.
-- **Hearing dose** (0 → 100 % used): how much of today's safe sound you've used, based on the WHO (8 h at 80 dB(A) a day, 40 h a week). It doesn't refill during the day; a new day starts at 05:00.
+- **Hearing dose** (0 → 100 % used): how much of today's safe sound you've used, based on the WHO (8 h at 80 dB(A) a day, 40 h a week). At your NORMAL setting a day is **8 hours**, at LOUD 2.5 hours, at QUIET practically unlimited; music louder than when you set the level uses it faster (+3 LU halves the time). Headphones don't change the dose, only the battery. It doesn't refill during the day; a new day starts at 05:00.
 
 Both depend on **your rating** (QUIET / NORMAL / LOUD and MONITORS / HEADPHONES) and on how loud the music is compared with the moment you set that rating. brEARk never shows dB at your ears: it can't see your monitor knob, so you rate the level, and it measures the signal.
 
@@ -42,9 +42,11 @@ Loudness itself doesn't trigger a warning pop-up (since M11). It drives the batt
 
 **How long pop-ups stay:**
 - Message pop-ups close after **6 s**.
-- Pop-ups that ask something (check-ins, SNOOZE) stay **12 s**.
-- Any pop-up stays open while the mouse is over it, and closes 1.5 s after you move away.
+- Pop-ups with a button (BREAK NOW, SNOOZE) stay **30 s**.
+- Questions (NEW SESSION., HOW LOUD?) **stay until you answer** or close them with X.
+- A timed pop-up stays open while the mouse is over it, and closes 1.5 s after you move away.
 - Every answer closes it. X is only for closing early.
+- If another pop-up arrives while a question is open, the question comes back after it. Setting the level in the window or in DATA answers an open question.
 
 ### 1. Break alerts (ear battery)
 
@@ -80,8 +82,9 @@ HARD never unplugs during a take here either (AFTER THIS TAKE.), and leaving HAR
 
 ### 4. Check-ins
 
-- **NEW SESSION.** After the first 10 seconds of sound each time Live starts brEARk. It asks MONITORS / HEADPHONES (applies at once, stays open) and QUIET / NORMAL / LOUD (answers and closes).
-- **HOW LOUD?** When the music has been 6 LU or more louder or quieter than your setting over 2 minutes of play, at most every 20 minutes. QUIET / NORMAL / LOUD answers, anchors the level to what plays now, and closes it.
+- **NEW SESSION.** After the first 10 seconds of sound each time Live starts brEARk. It asks MONITORS / HEADPHONES (applies at once, stays open) and QUIET / NORMAL / LOUD (answers and closes). It waits for your answer.
+- **HOW LOUD?** When the music has been 6 LU or more louder or quieter than your setting over 2 minutes of play, at most every 20 minutes. QUIET / NORMAL / LOUD answers, anchors the level, and closes it. It waits for your answer.
+- **The anchor listens for about 2 minutes:** the last 30 s of play before your click and the next 90 s after it, so a quiet intro or a soloed track can't set the level.
 
 Setting the level yourself (the switch in the window or in DATA) counts as an answer.
 
@@ -119,8 +122,9 @@ There's also **TEST ALERT** in DATA, which shows the BREAK pop-up with its sound
   - OFF. (switched off in Live) and INACTIVE. (a second brEARk in the same set).
 - **The colours:** the black area is the battery level. It turns red at 20 % or less. The whole window turns red for STOP., UNPLUGGED. and DONE. in HARD.
 - **The coach line** at the bottom of the window. During any break it shows a task, a care tip or an ear fact, changing every minute; otherwise an occasional line.
-- **The window's lines:**
-  - BREAK IN ~… · AT QUIET ~…;
+- **The window's lines** (one line, one job: nothing is said twice):
+  - under the big word, what's happening: e.g. HEARING DOSE USED UP · CALL IT A DAY, EAR BATTERY EMPTY, SOUND BACK IN 3:10;
+  - above the numbers, only times: BREAK IN ~… · AT QUIET ~… while playing, 90 % IN ~… in silence, TAKE ~12 MIN OF QUIET when a break is due;
   - HEARING DOSE … % USED · ~… LEFT;
   - the signal: LUFS and LU compared with your setting;
   - DRAINS FASTER: …, only when a reason adds 10 % or more.

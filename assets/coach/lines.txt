@@ -54,7 +54,7 @@ NOTHING YOU DO NOW WILL SURVIVE TOMORROW.
 SILENCE. {break} MINUTES.
 
 [unplug/brutal]
-UNPLUGGED. 5 MINUTES OF SILENCE.
+5 MINUTES OF SILENCE. STARTING NOW.
 EMPTY. THE PLUG IS OUT.
 NO SOUND FOR 5 MINUTES. USE THEM.
 POWER OFF. EARS ON.
@@ -211,21 +211,22 @@ PSR {psr} dB: very compressed. Try mixing without the master limiter for a while
 Half of today's hearing dose is used ({dose} %). Pace yourself.
 {dose} % of today's hearing dose. The rest of the day is still long.
 
+# M11.2: the window and the pop-up already say it's used up; the line says what to do.
 [dose100]
-Today's hearing dose is used up ({dose} %). Quieter from now, or call it a day.
-{dose} % of today's hearing dose. More today is borrowed from your future ears.
-Hearing dose used up for today. Switch to editing, arranging, anything quiet.
+Quieter from now: editing, arranging, naming tracks. Or stop for today.
+More listening today is borrowed from your future ears.
+Switch to editing, arranging, anything quiet. Tomorrow you'll hear it fresh.
 
 # M10: still listening after a full daily hearing dose (ESCALATING, every 30 min).
 [dayReminder/mentor]
 Still going at {dose} % of today's hearing dose. Every extra hour comes on top of a full day.
-{dose} % today. If it has to be today, go one level quieter: it lasts about ten times longer.
+{dose} % today. If it has to be today, go one level quieter: it lasts three to ten times longer.
 Past the full hearing dose ({dose} %). Arranging, editing, naming tracks: all fine without sound.
 
 # M10: HARD unplugs for the rest of the day.
 [dayUnplug/brutal]
-HEARING DOSE USED UP. UNPLUGGED UNTIL 05:00.
-TODAY'S HEARING DOSE IS USED UP. THE PLUG STAYS OUT UNTIL TOMORROW.
+SAVE THE SET. WRITE DOWN WHAT'S NEXT. GO.
+TOMORROW YOU'LL HEAR WHAT YOU DID TODAY. LET IT REST.
 DONE FOR TODAY. YOUR EARS THANK YOU TOMORROW.
 
 # Now and then, when nothing else is going on.

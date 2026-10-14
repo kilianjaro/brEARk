@@ -217,7 +217,7 @@ void DebugView::paint (juce::Graphics& g)
     const juce::StringArray rows {
         "STATUS        " + status + "   (" + transport + ")",
         "LOUDNESS      M " + db (s.lufsMomentary) + "   S " + db (s.lufsShortTerm) + " LUFS   ANCHOR " + db (s.referenceLufs)
-            + " LUFS (" + levelNames[(int) s.settings.preset] + (s.levelAnchored ? ", SET)" : ", LEARNING)"),
+            + " LUFS (" + levelNames[(int) s.settings.preset] + (s.anchorListening ? ", SETTING: 2 MIN)" : s.levelAnchored ? ", SET)" : ", LEARNING)"),
         "VS ANCHOR     " + (s.silent ? juce::String ("-") : signedDb (s.signalVsAnchorLu) + " LU") + "  (LAST 2 MIN OF PLAY)",
         "LEVEL (A)     " + db (s.levelA) + " dBFS(A)   PEAK " + db (s.peakShortTerm) + " dBFS",
         "",

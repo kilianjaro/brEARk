@@ -4,6 +4,7 @@
 #include "CheckIn.h"
 #include "ExposureModel.h"
 #include "HostActivity.h"
+#include "LevelAnchor.h"
 #include "LevelCreepTracker.h"
 #include "LoudnessMeter.h"
 #include "LoudnessWindow.h"
@@ -60,12 +61,17 @@ public:
 
     // M11: "what plays now is QUIET / NORMAL / LOUD on my ears" (the level
     // switch, a check-in answer). The level shows at once; while music plays,
-    // the current loudness becomes the anchor for it.
+    // the loudness around now becomes the anchor for it (M11.2: the last 30 s
+    // and the next 90 s of play).
     void setLevelNow (LevelPreset preset) noexcept
     {
         presetSetting.store ((int) preset);
         levelRequest.store ((int) preset);
+        levelAnswers.fetch_add (1);
     }
+
+    // How often the level was set (M11.2): an open check-in closes when you answer elsewhere.
+    int getLevelAnswers() const noexcept { return levelAnswers.load(); }
 
     // Alerts produced since the last call, for the message thread to present.
     std::vector<Alert> takeAlerts();
@@ -168,7 +174,7 @@ private:
     std::atomic<int> strictnessSetting { (int) Strictness::escalating };
     std::atomic<int> timeWarp { 1 };
     std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false };
-    std::atomic<int> levelRequest { -1 };
+    std::atomic<int> levelRequest { -1 }, levelAnswers { 0 };
     std::atomic<bool> unplugTarget { false }, exportDetected { false };
 
     // Worker thread only
@@ -180,7 +186,9 @@ private:
     // Loudness over the last minutes *of play* (silence doesn't count).
     LoudnessWindow loudWindow { model::loudWindowSeconds };   // forecasts, check-ins
     LoudnessWindow levelAWindow { model::loudWindowSeconds }; // the dose forecast
-    LoudnessWindow nowWindow { 30.0 };                         // "what plays now", for the anchor
+    LoudnessWindow nowWindow { model::anchorBeforeSeconds };   // "what plays now", for the anchor
+    LoudnessWindow nowAWindow { model::anchorBeforeSeconds };  // the same, A-weighted (M11.2)
+    LevelAnchor anchor;                                        // M11.2: listens on after a level click
     CheckInPolicy checkIn;
     double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed
     double smoothedPresence = -std::numeric_limits<double>::infinity();

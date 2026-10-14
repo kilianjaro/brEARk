@@ -58,6 +58,12 @@ Weekly stats complement the daily dose (reference frameworks to evaluate in step
 - **Session start** *(M11.1)*: the first check-in of a session is **NEW SESSION.** and also asks **MONITORS / HEADPHONES** (applies at once, highlighted), above the QUIET / NORMAL / LOUD answers.
 - **No dB at your ears anywhere** (no estimated level, no VOLUME buttons, no NOT THAT LOUD, no 88 dB LOUD pop-up). Shown are signal facts: loudness in LUFS, the LU against your anchor, peak dBFS in DATA.
 
+**M11.2 (Kilian: "the hearing dose ran out too early; I should be able to work up to 8 h"):**
+- **A day at NORMAL is 8 hours**, on any mix. The anchor also stores the music's A-weighted level, so the music you rate NORMAL *is* the WHO reference (80 dB(A)), however much bass it has. Before, the dose compared the A-weighted level with the LUFS anchor; the gap depends on the mix (measured: 10.5 dB on a bass-heavy house loop, 3.8 dB on pink noise), so NORMAL meant anything from ~20 to ~90 hours.
+- **LOUD lasts 2.5 hours a day** (85 dB(A)), not 48 minutes (90). It also tires the battery less harshly.
+- **HEADPHONES no longer halve the hearing dose**: your rating is already what you hear. They still drain the ear battery a little faster (no room, sound at the eardrum).
+- **A level click listens for about 2 minutes**: the last 30 s of play and the next 90 s. A quiet intro or a soloed track in the first seconds of a session can't set the level for the day.
+
 ---
 
 ## 5. Breaks & recovery
@@ -127,6 +133,7 @@ The plugin window is usually closed, so alerts must reach you anyway:
    - Never steals keyboard focus.
    - Has BREAK / SNOOZE buttons.
    - *M11.1 (Kilian):* closes itself after a few seconds, 6 s for a message and 12 s when it asks something (check-in, SNOOZE). It stays open while the mouse is over it; every answer closes it. X is only for closing early.
+   - *M11.2 (Kilian: pop-ups with buttons vanished too quickly):* a message closes after 6 s; one with a button (BREAK NOW, SNOOZE) after 30 s; a question (NEW SESSION., HOW LOUD?) stays until it's answered or closed. A question pushed aside by another pop-up comes back after it, and setting the level anywhere (window, DATA) answers it.
 
 ---
 

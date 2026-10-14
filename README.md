@@ -29,7 +29,7 @@ If you lose track of time when the music is working, and many producers with ADH
 brEARk is an outside clock that doesn't get pulled into the flow with you:
 
 - **It watches so you don't have to.** No timers to set and nothing to remember: it starts listening the moment Live plays.
-- **Its pop-ups find you.** They float over full-screen Live and on every Space, never steal your keyboard, and close on their own after a few seconds.
+- **Its pop-ups find you.** They float over full-screen Live and on every Space and never steal your keyboard. Messages close on their own; questions wait for your answer.
 - **It's honest without nagging.** One big word tells you where you stand: **FRESH.** **OK.** **TIRING.** **BREAK.** **STOP.** In ESCALATING mode, reminders only get firmer if you keep going.
 - **It can hold the line for you.** In HARD mode, brEARk pulls the plug when your ears are spent: the music slows down like a turntable losing power and stops, for at least 5 minutes. It never cuts a recording, and SNOOZE always buys you 10 minutes.
 - **It tells you what's left.** "BREAK IN ~17 MIN" and "AT QUIET ~40 MIN" turn an abstract warning into a choice you can act on.
@@ -61,9 +61,9 @@ Read the big word as a schedule: **FRESH.** is the time for the big calls (balan
 brEARk keeps two meters:
 
 - **Ear battery:** how tired your ears are right now. It drains while you listen (faster when it's loud, bright, squashed, repetitive or late) and refills in silence. A minute of silence starts recovery; 5 minutes counts as a break.
-- **Hearing dose:** how much of today's safe sound you've used, after the WHO. It doesn't refill during the day. At 100 % brEARk says **DONE.**
+- **Hearing dose:** how much of today's safe sound you've used, after the WHO. A full day at NORMAL is 8 hours; louder uses it faster. It doesn't refill during the day. At 100 % brEARk says **DONE.**
 
-**Your ears set the level; brEARk measures the music.** brEARk can't hear your room or see your volume knob, so it never guesses dB at your ears. Instead you rate it: **QUIET** (you could talk normally), **NORMAL** (you'd raise your voice) or **LOUD** (you'd have to shout), and **MONITORS** or **HEADPHONES**. brEARk asks at the start of each session. From then on it measures how much louder or quieter the music is than when you rated it, and asks again when it drifts.
+**Your ears set the level; brEARk measures the music.** brEARk can't hear your room or see your volume knob, so it never guesses dB at your ears. Instead you rate it: **QUIET** (you could talk normally), **NORMAL** (you'd raise your voice) or **LOUD** (you'd have to shout), and **MONITORS** or **HEADPHONES**. brEARk asks at the start of each session and listens to the music for about two minutes to lock your rating in. From then on it measures how much louder or quieter the music is than when you rated it, and asks again when it drifts.
 
 **You choose how strict it is:**
 

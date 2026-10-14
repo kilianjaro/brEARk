@@ -256,23 +256,36 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
             loudWindow.add (lufs, onSeconds);
             levelAWindow.add (working.levelA, onSeconds);
             nowWindow.add (lufs, onSeconds);
+            nowAWindow.add (working.levelA, onSeconds);
         }
         else if (exposure.getState().silenceSeconds >= model::breakMinimumSeconds)
         {
             loudWindow.reset();
             levelAWindow.reset();
             nowWindow.reset();
+            nowAWindow.reset();
+            anchor.cancel(); // after a break, the music may be another
         }
     }
 
+    // M11.2: after a level click the anchor keeps listening for 90 s of play.
+    if (! silent && anchor.add (lufs, working.levelA, onSeconds))
+        exposure.anchorLevel (anchor.getLufs(), anchor.getLevelA());
+
     // A level click or a check-in answer (M11): what plays now (the last 30 s
-    // of play, or the last 3 s at first) is that level on your ears.
+    // of play, or the last 3 s at first) is that level on your ears, refined
+    // by the next 90 s of play (M11.2).
     if (const auto requested = levelRequest.exchange (-1); requested >= 0)
     {
-        const auto playingNow = std::isfinite (nowWindow.getLufs()) ? nowWindow.getLufs() : lufs;
+        const auto windowFull = std::isfinite (nowWindow.getLufs());
+        const auto playingNow = windowFull ? nowWindow.getLufs() : lufs;
+        const auto playingNowA = windowFull && std::isfinite (nowAWindow.getLufs()) ? nowAWindow.getLufs() : working.levelA;
 
         if (! silent && std::isfinite (playingNow) && playingNow > model::silenceThresholdLufs)
-            exposure.anchorLevel (playingNow);
+        {
+            anchor.start (playingNow, playingNowA, windowFull ? model::anchorBeforeSeconds : 3.0);
+            exposure.anchorLevel (anchor.getLufs(), anchor.getLevelA());
+        }
 
         checkIn.answered();
     }
@@ -368,6 +381,7 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     working.breaksToday = state.breaksToday;
     working.offSecondsToday = state.offSecondsToday;
     working.levelAnchored = state.levelAnchored;
+    working.anchorListening = anchor.isListening();
     {
         const auto recent = std::isfinite (loudWindow.getLufs()) ? loudWindow.getLufs() : lufs;
         working.signalVsAnchorLu = silent || ! std::isfinite (recent) ? 0.0f : (float) (recent - state.referenceLufs);

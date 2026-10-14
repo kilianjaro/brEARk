@@ -1,4 +1,5 @@
 #include "engine/ExposureModel.h"
+#include "engine/LevelAnchor.h"
 #include "engine/LoudnessWindow.h"
 
 #include <juce_core/juce_core.h>
@@ -15,7 +16,7 @@ public:
         const auto noon = juce::Time (2026, 9, 10, 12, 0); // 10 Oct 2026, local time
 
         // With the reference equal to the playback loudness, the perceived level
-        // equals the preset level: 70 / 80 / 90 dB, +3 dB on headphones.
+        // equals the preset level: 70 / 80 / 85 dB (M11.2), +3 dB on headphones.
         beginTest ("Battery drain times match the plan (IMPLEMENTATION.md §4.3, 5 dB rule)");
         {
             struct Case { LevelPreset preset; Setup setup; double expectedMinutes; };
@@ -23,7 +24,7 @@ public:
             for (const auto& c : { Case { LevelPreset::quiet,  Setup::monitors,   149.3 },
                                    Case { LevelPreset::normal, Setup::monitors,    70.0 },
                                    Case { LevelPreset::normal, Setup::headphones,  51.3 },
-                                   Case { LevelPreset::loud,   Setup::monitors,    22.4 } })
+                                   Case { LevelPreset::loud,   Setup::monitors,    41.0 } })
             {
                 auto model = modelAt (-14.0, { c.setup, c.preset });
                 expectWithinAbsoluteError (minutesToEmpty (model, -14.0f, noon), c.expectedMinutes, 0.6);
@@ -67,15 +68,80 @@ public:
             expectWithinAbsoluteError (model.getState().doseToday, 100.0, 0.1);
 
             auto louder = modelAt (-14.0);
-            playFor (louder, -14.0f, 3600.0, noon, -5.0f); // +9 dB → 89 dB(A)
+            louder.anchorLevel (-14.0, -14.0);
+            playFor (louder, -5.0f, 3600.0, noon, -5.0f); // 9 LU above the anchor → 89 dB(A)
             expectWithinAbsoluteError (louder.getState().doseToday, 99.3, 0.2);
         }
 
-        beginTest ("Bass-heavy material: same perceived level, less A-weighted dose");
+        beginTest ("M11.2: NORMAL at your anchor lasts 8 h, whatever the mix's bass");
+        {
+            for (const auto gap : { -13.0f, -3.0f }) // bass-heavy house, a bright mix: A level under LUFS
+            {
+                auto model = modelAt (-9.0);
+                model.anchorLevel (-9.0, -9.0 + gap);
+                playFor (model, -9.0f, 8.0 * 3600.0, noon, -9.0f + gap);
+                expectWithinAbsoluteError (model.getState().doseToday, 100.0, 0.1);
+            }
+        }
+
+        beginTest ("M11.2: after the anchor, more bass at the same loudness carries less dose");
         {
             auto model = modelAt (-9.0);
-            playFor (model, -9.0f, 3600.0, noon, -22.0f); // your master: 13 dB(A) below its LUFS
-            expectWithinAbsoluteError (model.getState().doseToday, 100.0 / 8.0 * std::pow (10.0, -1.3), 0.05);
+            model.anchorLevel (-9.0, -14.0);
+            playFor (model, -9.0f, 3600.0, noon, -19.0f); // 5 dB less A-weighted
+            expectWithinAbsoluteError (model.getState().doseToday, 100.0 / 8.0 * std::pow (10.0, -0.5), 0.05);
+        }
+
+        beginTest ("M11.2: a file from before M11.2 learns the A reference from the next play");
+        {
+            ExposureState state;
+            state.referenceLufs = -9.0;
+            state.levelAnchored = true; // referenceLevelA unknown (NaN)
+            ExposureModel model (state);
+
+            playFor (model, -9.0f, 8.0 * 3600.0, noon, -20.0f);
+            expectWithinAbsoluteError (model.getState().referenceLevelA, -20.0, 1.0e-9);
+            expectWithinAbsoluteError (model.getState().doseToday, 100.0, 0.1, "the anchored music is NORMAL: 8 h");
+        }
+
+        beginTest ("M11.2: HEADPHONES drain the battery faster, the dose stays; LOUD lasts 2.5 h");
+        {
+            auto monitors = modelAt (-14.0, { Setup::monitors, LevelPreset::normal });
+            auto headphones = modelAt (-14.0, { Setup::headphones, LevelPreset::normal });
+            monitors.anchorLevel (-14.0, -18.0);
+            headphones.anchorLevel (-14.0, -18.0);
+
+            expectWithinAbsoluteError (headphones.perceivedSpl (-14.0f) - monitors.perceivedSpl (-14.0f), 3.0, 1.0e-9);
+            expectWithinAbsoluteError (headphones.doseSpl (-18.0f), 80.0, 1.0e-9);
+            expectWithinAbsoluteError (headphones.minutesToFullDose (-18.0f), 480.0, 0.01);
+
+            auto loud = modelAt (-14.0, { Setup::monitors, LevelPreset::loud });
+            loud.anchorLevel (-14.0, -18.0);
+            expectWithinAbsoluteError (loud.minutesToFullDose (-18.0f), 480.0 / std::pow (10.0, 0.5), 0.01, "85 dB(A): about 2.5 h");
+            expectWithinAbsoluteError (loud.stepDownDb(), -5.0, 1.0e-9, "LOUD to NORMAL: 5 dB");
+        }
+
+        beginTest ("M11.2: the level anchor listens to the last 30 s and the next 90 s of play");
+        {
+            LevelAnchor anchor;
+            anchor.start (-20.0, -27.0, 3.0); // clicked during a quiet intro
+            expectWithinAbsoluteError (anchor.getLufs(), -20.0, 1.0e-9);
+
+            for (int s = 0; s < 90; ++s)
+                expect (anchor.add (-8.0, -14.0, 1.0));
+
+            expect (! anchor.isListening());
+            expect (! anchor.add (0.0, 0.0, 1.0), "done after 90 s: louder music no longer moves it");
+
+            const auto expected = 10.0 * std::log10 ((3.0 * std::pow (10.0, -2.0) + 90.0 * std::pow (10.0, -0.8)) / 93.0);
+            expectWithinAbsoluteError (anchor.getLufs(), expected, 1.0e-9, "the energy mean: the full mix wins");
+            expect (anchor.getLufs() > -8.2);
+            expect (anchor.getLevelA() > -14.2);
+
+            anchor.start (-8.0, -14.0, 30.0);
+            anchor.cancel();
+            expect (! anchor.add (-30.0, -36.0, 1.0));
+            expectWithinAbsoluteError (anchor.getLufs(), -8.0, 1.0e-9, "cancelled: stays put");
         }
 
         beginTest ("Silence adds no dose");
@@ -203,11 +269,12 @@ public:
             auto model = modelAt (-14.0, { Setup::monitors, LevelPreset::normal });
             expectWithinAbsoluteError (model.perceivedSpl (-6.0f), 88.0, 1.0e-9);
 
-            model.anchorLevel (-6.0); // "this is NORMAL on my ears"
+            model.anchorLevel (-6.0, -12.0); // "this is NORMAL on my ears"
             expect (model.getState().levelAnchored);
             expectWithinAbsoluteError (model.perceivedSpl (-6.0f), 80.0, 1.0e-9);
             expectWithinAbsoluteError (model.perceivedSpl (0.0f), 86.0, 1.0e-9, "6 LU louder counts as 6 dB louder");
-            expectWithinAbsoluteError (model.doseSpl (-6.0f), 80.0, 1.0e-9, "the hearing dose follows too");
+            expectWithinAbsoluteError (model.doseSpl (-12.0f), 80.0, 1.0e-9, "the hearing dose follows too");
+            expectWithinAbsoluteError (model.doseSpl (-6.0f), 86.0, 1.0e-9);
 
             // Anchored: the reference no longer learns from playback.
             playFor (model, -2.0f, 3600.0, noon);

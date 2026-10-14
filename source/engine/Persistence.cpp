@@ -87,6 +87,8 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("lastSummaryWeek", e.lastSummaryWeek);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
+    if (std::isfinite (e.referenceLevelA))
+        exposure->setProperty ("referenceLevelA", e.referenceLevelA); // M11.2
     exposure->setProperty ("todayCurve", curve);
     exposure->setProperty ("history", history);
 
@@ -141,6 +143,8 @@ std::optional<PersistedState> load (const juce::File& file)
     x.lastSummaryWeek = (int) e["lastSummaryWeek"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly
+    x.referenceLevelA = e.hasProperty ("referenceLevelA") ? (double) e["referenceLevelA"] // M11.2; missing: from the next play
+                                                          : std::numeric_limits<double>::quiet_NaN();
 
     if (const auto* curve = e["todayCurve"].getArray())
         for (int i = 0; i + 1 < curve->size(); i += 2)

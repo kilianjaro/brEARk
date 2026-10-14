@@ -11,10 +11,19 @@ namespace breark::model
 // M11: rated while music plays, the loudness at that moment is the anchor
 // (the reference); louder or quieter music counts from there. The dB values
 // below are internal only (the model's scale); the UI never shows dB at the ears.
+// M11.2: NORMAL is the WHO reference itself, so a day at NORMAL is 8 h.
 inline constexpr double presetSplQuiet  = 70.0; // Heuristic: you can talk over it easily
 inline constexpr double presetSplNormal = 80.0; // Heuristic: you raise your voice slightly
-inline constexpr double presetSplLoud   = 90.0; // Heuristic: you have to shout
-inline constexpr double headphoneOffsetDb = 3.0; // Heuristic: no room, sound at the eardrum
+inline constexpr double presetSplLoud   = 85.0; // Heuristic: you have to shout (M11.2: was 90, 48 min a day; Kilian: too early)
+// Headphones tire the ears faster (no room, sound at the eardrum), but your
+// rating is already what you hear: the offset drives the battery, not the dose (M11.2).
+inline constexpr double headphoneOffsetDb = 3.0; // Heuristic
+
+// M11.2: a level click (or check-in answer) while music plays listens to the
+// last 30 s and the next 90 s of play, so a quiet intro or a soloed track
+// can't set the level.
+inline constexpr double anchorBeforeSeconds = 30.0;
+inline constexpr double anchorAfterSeconds = 90.0;
 
 // Until you rate the level while music plays, the reference learns from your
 // playback (hybrid): a short louder session counts as louder, while a whole

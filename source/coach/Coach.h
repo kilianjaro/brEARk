@@ -7,6 +7,7 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace breark
@@ -44,11 +45,13 @@ struct Hint
 // The coach (CONCEPT.md §9). Mostly quiet; speaks at events:
 //   - every alert gets a line, in a tone that shifts with severity:
 //     witty while fresh, mentor when tired, brutal when ignored;
-//   - during breaks, a new task, care tip or ear fact every minute;
+//   - during breaks, a new line every minute: a thought on the track, a care
+//     tip, a thought on the craft, an ear fact (M11.3: four topics);
 //   - hints (level creep, loops, late hours, harsh, squashed, loud, dose)
 //     as silent pop-ups: at most one every 20 min, each with its own cooldown;
 //   - now and then an idle line when nothing else happened.
-// No line repeats until all its siblings were used (a shuffle bag per section).
+// No line repeats until all its siblings were used (a shuffle bag per section),
+// and the bags survive a restart of Live (M11.3: getMemory / setMemory).
 // Pure: the caller passes the time. Message thread only.
 class Coach
 {
@@ -71,18 +74,32 @@ public:
 
     static juce::String fill (const juce::String& text, const CoachContext& context);
 
-private:
+    // M11.3: per section, the lines already shown in this round (as hashes of
+    // their text, so edited or added lines fit in) and the last one shown.
     struct Bag
     {
-        std::vector<int> order;
-        int size = 0, last = -1;
+        std::vector<juce::int64> shown;
+        juce::int64 last = 0;
     };
 
+    using Memory = std::map<juce::String, Bag>;
+    const Memory& getMemory() const noexcept { return bags; }
+    void setMemory (Memory memory) { bags = std::move (memory); }
+
+    // True once after a line was drawn: the memory needs saving.
+    bool takeMemoryChanged() noexcept { return std::exchange (memoryChanged, false); }
+
+    // The memory as JSON-ready data (hashes as hex text) and back.
+    static juce::var memoryToVar (const Memory& memory);
+    static Memory memoryFromVar (const juce::var& data);
+
+private:
     void say (const juce::String& text, double nowSeconds);
 
     CoachLines lines;
     juce::Random random;
-    std::map<juce::String, Bag> bags;
+    Memory bags;
+    bool memoryChanged = false;
 
     juce::String line { "Listening." };
     double lineSeconds = 0.0;

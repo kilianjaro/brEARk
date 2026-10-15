@@ -29,6 +29,7 @@ private:
     void timerCallback() override;
     void showToast (const ToastContent& content, bool withSound);
     void reloadLinesIfChanged();
+    void saveCoachMemory();
     breark::CoachContext makeContext (const breark::Snapshot& snapshot) const;
 
     juce::SharedResourcePointer<breark::Brain> brain;

@@ -62,20 +62,20 @@ public:
             expectEquals (parsed.get ("idle/witty")[0], juce::String ("Only mine."));
         }
 
-        beginTest ("About 190 built-in lines, and every event has lines for the tones it uses");
+        beginTest ("About 370 built-in lines (M11.3), and every event has lines for the tones it uses");
         {
             int total = 0;
 
             for (const auto& [key, section] : lines.all())
                 total += section.size();
 
-            expect (total >= 150, "only " + juce::String (total) + " lines");
+            expect (total >= 360, "only " + juce::String (total) + " lines");
 
             Coach coach (lines, 1);
             const auto c = sampleContext();
 
             for (const auto* event : { "headsUp", "breakDue", "reminder", "afterTake", "backOn", "snoozed", "breakStart",
-                                       "breakOver", "breakTask", "breakCare", "fact", "idle" })
+                                       "breakOver", "breakTask", "breakCare", "breakThought", "fact", "idle" })
                 expect (coach.draw (event, CoachTone::mentor, c).isNotEmpty(), juce::String (event) + "/mentor has no lines");
 
             for (const auto* event : { "dayReminder", "dose100" })
@@ -213,21 +213,61 @@ public:
             }
         }
 
-        beginTest ("Breaks: a new task, care tip or fact every minute; never a pop-up");
+        beginTest ("Breaks: a thought on the track, a care tip, a thought on the craft, a fact; one a minute, never a pop-up");
         {
             Coach coach (lines, 9);
             auto c = sampleContext();
             c.phase = BreakPhase::onBreak;
 
             std::set<juce::String> shown;
+            int thoughts = 0;
 
-            for (int minute = 0; minute < 6; ++minute)
+            for (int minute = 0; minute < 8; ++minute)
             {
                 expect (! coach.update (c, 1000.0 + minute * 60.0).has_value());
                 shown.insert (coach.getLine());
+                thoughts += lines.get ("breakThought").contains (coach.getLine()) ? 1 : 0;
             }
 
-            expectEquals ((int) shown.size(), 6);
+            expectEquals ((int) shown.size(), 8);
+            expectEquals (thoughts, 2, "every fourth minute");
+        }
+
+        beginTest ("M11.3: the coach remembers shown lines across a restart (and through JSON)");
+        {
+            const auto c = sampleContext();
+            const auto size = lines.get ("breakTask").size();
+            std::set<juce::String> before;
+
+            Coach first (lines, 3);
+
+            for (int i = 0; i < size / 2; ++i)
+                before.insert (first.draw ("breakTask", CoachTone::mentor, c));
+
+            expect (first.takeMemoryChanged());
+            expect (! first.takeMemoryChanged(), "reported once");
+
+            // Live restarts: a new coach with another seed, the memory from disk.
+            const auto json = juce::JSON::toString (Coach::memoryToVar (first.getMemory()));
+            Coach second (lines, 4);
+            second.setMemory (Coach::memoryFromVar (juce::JSON::parse (json)));
+
+            std::set<juce::String> after;
+
+            for (int i = 0; i < size - size / 2; ++i)
+            {
+                const auto text = second.draw ("breakTask", CoachTone::mentor, c);
+                expect (before.count (text) == 0, "came back after the restart: " + text);
+                after.insert (text);
+            }
+
+            expectEquals ((int) (before.size() + after.size()), size, "the whole section, each line once");
+
+            // A user line added later joins the round; edited lines don't break the memory.
+            CoachLines more = lines;
+            more.add ("[breakTask]\nMy own new prompt.\n");
+            second.setLines (more);
+            expectEquals (second.draw ("breakTask", CoachTone::mentor, c), juce::String ("My own new prompt."));
         }
     }
 };

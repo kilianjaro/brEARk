@@ -121,7 +121,7 @@ There's also **TEST ALERT** in DATA, which shows the BREAK pop-up with its sound
   - DONE.;
   - OFF. (switched off in Live) and INACTIVE. (a second brEARk in the same set).
 - **The colours:** the black area is the battery level. It turns red at 20 % or less. The whole window turns red for STOP., UNPLUGGED. and DONE. in HARD.
-- **The coach line** at the bottom of the window. During any break it shows a task, a care tip or an ear fact, changing every minute; otherwise an occasional line.
+- **The coach line** at the bottom of the window. During any break (or a minute of silence) it changes every minute, in turn: a thought on the track, a care tip, a thought on the craft, an ear fact. Otherwise an occasional line. About 370 lines in all; no line comes back until the rest of its kind was shown, and brEARk remembers that across restarts (`coach-memory.json`).
 - **The window's lines** (one line, one job: nothing is said twice):
   - under the big word, what's happening: e.g. HEARING DOSE USED UP · CALL IT A DAY, EAR BATTERY EMPTY, SOUND BACK IN 3:10;
   - above the numbers, only times: BREAK IN ~… · AT QUIET ~… while playing, 90 % IN ~… in silence, TAKE ~12 MIN OF QUIET when a break is due;

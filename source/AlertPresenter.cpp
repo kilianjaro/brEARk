@@ -64,18 +64,24 @@ breark::CoachLines loadLines()
     return lines;
 }
 
-// A template next to the user's file, so the format is easy to find.
-void writeExampleOnce()
+// M11.3: the coach's memory of shown lines, so a restart doesn't bring them back early.
+juce::File coachMemoryFile()
+{
+    if (juce::SystemStats::getEnvironmentVariable ("BREARK_STATE_FILE", {}).isNotEmpty())
+        return {}; // test tools: nothing to remember
+
+    return breark::persistence::defaultFile().getSiblingFile ("coach-memory.json");
+}
+
+// A template next to the user's file, so the format is easy to find. Kept up
+// to date (M11.3): it's brEARk's file; your own lines go in coach.txt.
+void writeExample()
 {
     if (juce::SystemStats::getEnvironmentVariable ("BREARK_STATE_FILE", {}).isNotEmpty())
         return; // test tools: don't write into real folders
 
     const auto example = AlertPresenter::userLinesFile().getSiblingFile ("coach.example.txt");
-
-    if (example.existsAsFile() || ! example.getParentDirectory().createDirectory())
-        return;
-
-    example.replaceWithText (
+    const juce::String text (
         "# brEARk: your own coach lines.\n"
         "# Copy this file to coach.txt (same folder) and edit it. brEARk picks up changes\n"
         "# within ~10 s. Same format as the built-in lines:\n"
@@ -84,8 +90,8 @@ void writeExampleOnce()
         "#   your lines are added; a header ending in '!' replaces the built-in section\n"
         "#\n"
         "# Events: headsUp breakDue reminder unplug afterTake backOn snoozed breakStart\n"
-        "#         breakOver breakTask breakCare fact creep loop late harsh squashed\n"
-        "#         loud dose50 dose100 idle\n"
+        "#         breakOver breakTask breakCare breakThought fact loop late harsh\n"
+        "#         squashed dose50 dose100 dayReminder dayUnplug idle\n"
         "# Placeholders: {break} {battery} {dose} {listened} {time} {creep} {loop}\n"
         "#               {looptime} {plays} {psr} {spl}\n"
         "\n"
@@ -94,6 +100,12 @@ void writeExampleOnce()
         "\n"
         "# [idle/witty!]\n"
         "# Lines here would replace all built-in witty idle lines.\n");
+
+    if (example.existsAsFile() && example.loadFileAsString() == text)
+        return;
+
+    if (example.getParentDirectory().createDirectory())
+        example.replaceWithText (text);
 }
 } // namespace
 
@@ -101,10 +113,13 @@ void writeExampleOnce()
 AlertPresenter::AlertPresenter()
     : coach (loadLines())
 {
-    writeExampleOnce();
+    writeExample();
 
     if (const auto file = userLinesFile(); file.existsAsFile())
         userLinesModified = file.getLastModificationTime();
+
+    if (const auto file = coachMemoryFile(); file.existsAsFile())
+        coach.setMemory (breark::Coach::memoryFromVar (juce::JSON::parse (file)));
 
     levelAnswersSeen = brain->getLevelAnswers();
     startTimerHz (4);
@@ -113,6 +128,16 @@ AlertPresenter::AlertPresenter()
 AlertPresenter::~AlertPresenter()
 {
     stopTimer();
+    saveCoachMemory();
+}
+
+void AlertPresenter::saveCoachMemory()
+{
+    if (! coach.takeMemoryChanged())
+        return;
+
+    if (const auto file = coachMemoryFile(); file != juce::File() && file.getParentDirectory().createDirectory())
+        file.replaceWithText (juce::JSON::toString (breark::Coach::memoryToVar (coach.getMemory())));
 }
 
 juce::File AlertPresenter::userLinesFile()
@@ -157,6 +182,9 @@ void AlertPresenter::timerCallback()
 {
     if (++ticks % 40 == 0) // every ~10 s
         reloadLinesIfChanged();
+
+    if (ticks % 240 == 0) // every ~minute, if a line was shown
+        saveCoachMemory();
 
     context = makeContext (brain->getSnapshot());
 

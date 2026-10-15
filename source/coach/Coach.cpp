@@ -1,6 +1,7 @@
 #include "Coach.h"
 #include "engine/ModelConstants.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace breark
@@ -64,8 +65,7 @@ Coach::Coach (CoachLines initialLines, int seed)
 
 void Coach::setLines (CoachLines newLines)
 {
-    lines = std::move (newLines);
-    bags.clear();
+    lines = std::move (newLines); // the bags stay: they know lines by their text
 }
 
 juce::String Coach::fill (const juce::String& text, const CoachContext& c)
@@ -106,29 +106,76 @@ juce::String Coach::draw (const juce::String& event, CoachTone tone, const Coach
     if (candidates.isEmpty())
         return {};
 
-    // Shuffle bag: every line once before any repeats, and never the same
-    // line twice in a row across refills.
+    // Shuffle bag: every line once before any repeats (also across restarts,
+    // M11.3), and never the same line twice in a row when a round starts over.
     auto& bag = bags[key.toLowerCase()];
-    const auto size = candidates.size();
+    auto wasShown = [&bag] (juce::int64 hash) { return std::find (bag.shown.begin(), bag.shown.end(), hash) != bag.shown.end(); };
 
-    if (bag.size != size)
-        bag = { {}, size, -1 };
+    std::vector<int> fresh;
 
-    if (bag.order.empty())
+    for (int i = 0; i < candidates.size(); ++i)
+        if (! wasShown (candidates[i].hashCode64()))
+            fresh.push_back (i);
+
+    if (fresh.empty()) // a new round
     {
-        for (int i = 0; i < size; ++i)
-            bag.order.push_back (i);
+        bag.shown.clear();
 
-        for (int i = size - 1; i > 0; --i)
-            std::swap (bag.order[(size_t) i], bag.order[(size_t) random.nextInt (i + 1)]);
-
-        if (size > 1 && bag.order.back() == bag.last)
-            std::swap (bag.order.front(), bag.order.back());
+        for (int i = 0; i < candidates.size(); ++i)
+            if (candidates.size() == 1 || candidates[i].hashCode64() != bag.last)
+                fresh.push_back (i);
     }
 
-    bag.last = bag.order.back();
-    bag.order.pop_back();
-    return fill (candidates[bag.last], context);
+    const auto& text = candidates[fresh[(size_t) random.nextInt ((int) fresh.size())]];
+    bag.last = text.hashCode64();
+    bag.shown.push_back (bag.last);
+    memoryChanged = true;
+    return fill (text, context);
+}
+
+juce::var Coach::memoryToVar (const Memory& memory)
+{
+    auto sections = std::make_unique<juce::DynamicObject>();
+
+    for (const auto& [key, bag] : memory)
+    {
+        juce::Array<juce::var> shown;
+
+        for (const auto hash : bag.shown)
+            shown.add (juce::String::toHexString (hash));
+
+        auto section = std::make_unique<juce::DynamicObject>();
+        section->setProperty ("shown", shown);
+        section->setProperty ("last", juce::String::toHexString (bag.last));
+        sections->setProperty (key, juce::var (section.release()));
+    }
+
+    auto root = std::make_unique<juce::DynamicObject>();
+    root->setProperty ("version", 1);
+    root->setProperty ("sections", juce::var (sections.release()));
+    return juce::var (root.release());
+}
+
+Coach::Memory Coach::memoryFromVar (const juce::var& data)
+{
+    Memory memory;
+
+    if (const auto* sections = data["sections"].getDynamicObject())
+    {
+        for (const auto& section : sections->getProperties())
+        {
+            Bag bag;
+
+            if (const auto* shown = section.value["shown"].getArray())
+                for (const auto& hash : *shown)
+                    bag.shown.push_back (hash.toString().getHexValue64());
+
+            bag.last = section.value["last"].toString().getHexValue64();
+            memory[section.name.toString()] = std::move (bag);
+        }
+    }
+
+    return memory;
 }
 
 void Coach::say (const juce::String& text, double nowSeconds)
@@ -181,8 +228,9 @@ std::optional<Hint> Coach::update (const CoachContext& context, double nowSecond
     {
         if (nowSeconds - lineSeconds >= breakRotationSeconds)
         {
-            static const char* topics[] = { "breakTask", "breakCare", "fact" };
-            say (draw (topics[breakTopic++ % 3], CoachTone::mentor, context), nowSeconds);
+            // The track, the body, the craft, the ear (M11.3: thoughts every other minute).
+            static const char* topics[] = { "breakTask", "breakCare", "breakThought", "fact" };
+            say (draw (topics[breakTopic++ % 4], CoachTone::mentor, context), nowSeconds);
         }
 
         return std::nullopt;

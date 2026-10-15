@@ -15,11 +15,12 @@
 // state seen. Writes soak.csv (one row per 10 s). Pop-ups and sounds are off.
 //
 // Usage: brEARk_Soak [minutes = 180] [output folder = current folder] [quick]
-//        brEARk_Soak showcase [folder]: the README screenshots (a scripted session, 2.5 min)
+//        brEARk_Soak showcase [folder]: the README screenshots (a scripted session, ~4 min)
 //        "quick" shortens every phase to a tenth: a smoke test of the soak itself.
 // Exit code 0 = all checks passed.
 
 #include "PluginProcessor.h"
+#include "ui/ToastWindow.h"
 #include "../tests/RealisticMusic.h"
 
 #include <dlfcn.h>
@@ -416,6 +417,53 @@ static int runShowcase (const juce::File& folder)
             pump (300.0);
             save (*editor, "showcase-history.png");
         }
+    }
+
+    // A break: the music stops, BREAK is pressed, and after a minute the coach
+    // shows its first thought on the track (whichever the shuffle picks).
+    {
+        device.mode = Mode::silence;
+        pump (2000.0);
+        processor->setPosterSize (true);
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor->createEditor());
+        pump (300.0);
+
+        if (clickButton (*editor, "BREAK"))
+        {
+            std::cout << "brEARk showcase: on a break for 65 s ...\n";
+            pump (65000.0);
+            save (*editor, "showcase-break.png");
+        }
+    }
+
+    // The two pop-ups, as the plugin draws them, side by side on a transparent backdrop.
+    {
+        constexpr float scale = 2.0f;
+        constexpr int gap = 24;
+        ToastWindow toast;
+
+        toast.show ({ "NEW SESSION.", "Where do you listen, and how loud is it on your ears?", "", false, false, false, true, true, 0 });
+        pump (200.0);
+        const auto session = toast.createComponentSnapshot (toast.getLocalBounds(), true, scale);
+
+        toast.show ({ "BREAK.", "Fresh ears are a production tool. Get some: 12 minutes.", "EAR BATTERY 0 %   BREAK 12 MIN", false, true });
+        pump (200.0);
+        const auto breakDue = toast.createComponentSnapshot (toast.getLocalBounds(), true, scale);
+        toast.dismiss();
+
+        juce::Image both (juce::Image::ARGB, session.getWidth() + breakDue.getWidth() + (int) (gap * scale),
+                          std::max (session.getHeight(), breakDue.getHeight()), true);
+        {
+            juce::Graphics g (both);
+            g.drawImageAt (session, 0, 0);
+            g.drawImageAt (breakDue, session.getWidth() + (int) (gap * scale), 0);
+        }
+
+        const auto file = folder.getChildFile ("showcase-popups.png");
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        juce::PNGImageFormat().writeImageToStream (both, out);
+        std::cout << "  " << file.getFullPathName() << "\n";
     }
 
     device.stop();

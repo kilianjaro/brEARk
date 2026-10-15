@@ -51,7 +51,7 @@ BREARK_STATE_FILE=/tmp/breark-pluginval.json /Applications/pluginval.app/Content
 
 It writes `soak.csv` (one row per 10 s). `quick` shortens the phases to a tenth for a smoke test. No pop-ups or sounds (`BREARK_QUIET`). The Intel half runs under Rosetta with `arch -x86_64 -e DYLD_INSERT_LIBRARIES=<path>/libbrEARk_RealtimeCheck.dylib <path>/brEARk_Soak 25`. `arch` is a system tool, so macOS strips `DYLD_` variables passed any other way.
 
-`brEARk_Soak showcase [folder]` makes the README screenshots: a scripted day plus 2.5 minutes of real-time listening to a rendered house loop, saved as `showcase-poster.png`, `showcase-history.png` and `showcase-compact.png`. Run it as `brEARk_Soak showcase docs/images`.
+`brEARk_Soak showcase [folder]` makes the README screenshots (about 4 minutes): a scripted day plus 2.5 minutes of real-time listening to a rendered house loop, saved as `showcase-poster.png`, `showcase-history.png` and `showcase-compact.png`; then a break (the music stops, BREAK is pressed, a minute later the coach shows a thought on the track: `showcase-break.png`); then the NEW SESSION. and BREAK. pop-ups side by side (`showcase-popups.png`; they flash on screen while being drawn). Run it as `brEARk_Soak showcase docs/images`.
 
 All tools redirect the listening history (`BREARK_STATE_FILE`), so testing never touches your real `~/Library/Application Support/brEARk/state.json`.
 

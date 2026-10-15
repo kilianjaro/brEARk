@@ -16,6 +16,7 @@ public:
         {
             Snapshot s;
             s.silent = false;
+            s.lufsShortTerm = -9.0f; // music playing
             setUp (s);
             return ui::makeMeterModel (s, "line", active, PowerDown::Stage::run);
         };
@@ -188,6 +189,19 @@ public:
                 for (const auto* phrase : { "USED UP", "CALL IT A DAY", "BREAK DUE", "RECOVERING", "UNPLUGGED", "EMPTY", "05:00" })
                     expect (small.indexOf (phrase) == small.lastIndexOf (phrase), "COMPACT says '" + juce::String (phrase) + "' twice: " + small);
             }
+        }
+
+        beginTest ("M11.4: silence shows as SILENCE, never -inf");
+        {
+            const auto quiet = wordFor ([] (Snapshot& s) { s.silent = true; s.lufsShortTerm = Snapshot::minusInfinity; s.breakPhase = BreakPhase::onBreak; });
+            expectEquals (quiet.stats[4].value, juce::String ("SILENCE"));
+            expectEquals (quiet.compactLines[1][0].text, juce::String ("SILENCE"));
+
+            juce::StringArray texts { quiet.status };
+            for (const auto& stat : quiet.stats) texts.add (stat.label + " " + stat.value);
+            for (const auto& line : quiet.compactLines) for (const auto& item : line) texts.add (item.text);
+            for (const auto& item : quiet.timeLine) texts.add (item.text);
+            expect (! texts.joinIntoString (" ").containsIgnoreCase ("inf"), texts.joinIntoString (" | "));
         }
 
         beginTest ("Hover: the explanation under the mouse");

@@ -293,7 +293,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     const auto& doseTip = s.dayDone ? tips::dayDone : tips::doseToday;
 
     // The signal, honestly: its loudness, and against the moment you set your level.
-    const auto signal = db (s.lufsShortTerm) + " LUFS";
+    const auto signal = std::isfinite (s.lufsShortTerm) ? db (s.lufsShortTerm) + " LUFS" : juce::String ("SILENCE"); // not -inf LUFS
     const auto vsAnchor = ! (s.levelAnchored && playing) ? juce::String()
                         : std::abs (s.signalVsAnchorLu) < 1.0f ? levelName + " AS SET"
                                                                : levelName + " " + (s.signalVsAnchorLu > 0.0f ? "+" : "")

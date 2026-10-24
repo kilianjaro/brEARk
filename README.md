@@ -151,6 +151,8 @@ brEARk lives on your master, so it's built to be invisible there:
 
 ## Install
 
+> **The signed 1.0.0 installer is on its way to the [releases page](https://github.com/kilianjaro/brEARk/releases).** Until it's there, you can build brEARk from source: see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 1. Download **brEARk-1.0.0-macOS.pkg** from the [latest release](https://github.com/kilianjaro/brEARk/releases/latest).
 2. Open it and follow the steps. It installs the VST3 and the Audio Unit for all users (`/Library/Audio/Plug-Ins/`), so macOS asks for your password.
 3. Open Live. If brEARk doesn't show up under Plug-Ins: Live › Preferences (Settings in Live 12) › Plug-Ins, turn on **Use VST3 Plug-In System Folders** (or **Use Audio Units**), then **Rescan**.
@@ -228,4 +230,4 @@ Bugs and ideas: [GitHub Issues](https://github.com/kilianjaro/brEARk/issues). Bu
 
 <!-- SUPPORT LINK: add "**Support brEARk:** [<page>](<url>)" here once Kilian sends the link. -->
 
-<sub>brEARk is made by Totemphonia Studio Berlin.</sub>
+<sub>brEARk is made by [Totemphonia Studio Berlin](https://totemphonia.com).</sub>

@@ -64,16 +64,19 @@ All tools redirect the listening history (`BREARK_STATE_FILE`), so testing never
 
 `tools/release.sh` builds a release from scratch in `build-release/`: universal binaries without TEST MODE, the unit tests, then an installer package in `dist/` with its SHA-256. The package installs the VST3 and the AU for all users (`/Library/Audio/Plug-Ins/`). Developer builds go to `~/Library/Audio/Plug-Ins/`; remove those before testing an installed release, or Live sees two copies.
 
-Signed and notarized (no Gatekeeper warning) it needs the Apple Developer Program and, once:
+Signed and notarized (no Gatekeeper warning) it needs an Apple Developer Program membership and, once:
 
-1. In Xcode › Settings › Accounts › Manage Certificates, create a **Developer ID Application** and a **Developer ID Installer** certificate.
-2. Create an app-specific password at appleid.apple.com and store it for notarytool:
-   `xcrun notarytool store-credentials breark-notary --apple-id <your Apple ID> --team-id <TEAMID>`
-3. Run:
+1. **Certificates.** In Xcode › Settings › Accounts, select your team, click **Manage Certificates…**, then **+** › **Developer ID Application**, and again **+** › **Developer ID Installer**. (Only the team's Account Holder can create these.) Check them with `security find-identity -v`: you should see `Developer ID Application: <Name> (<TEAMID>)` and `Developer ID Installer: <Name> (<TEAMID>)`.
+2. **Notarization login.** At account.apple.com › Sign-In and Security › App-Specific Passwords, create one (e.g. "breark-notary"). Then store it for notarytool, which asks for that password:
+   `xcrun notarytool store-credentials breark-notary --apple-id <your Apple ID email> --team-id <TEAMID>`
+   (The Team ID is on developer.apple.com › Account › Membership details.)
+3. **Release.** Run, with your names from step 1:
 
 ```bash
 BREARK_SIGN_APP="Developer ID Application: <Name> (<TEAMID>)" BREARK_SIGN_INSTALLER="Developer ID Installer: <Name> (<TEAMID>)" BREARK_NOTARY_PROFILE=breark-notary tools/release.sh
 ```
+
+   macOS may ask once whether codesign may use the certificates' keys: choose Always Allow. Notarization takes a few minutes; the script waits, staples the ticket and checks the package with Gatekeeper (`spctl`).
 
 Without these variables the script builds `brEARk-<version>-macOS-UNSIGNED.pkg`, for testing only. `BREARK_JUCE_DIR=<path>` reuses an existing JUCE 8.0.13 checkout instead of downloading it.
 

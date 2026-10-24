@@ -1,5 +1,6 @@
 # Build output
 build/
+dist/
 build-*/
 build-*.log
 cmake-build-*/
@@ -15,3 +16,6 @@ xcuserdata/
 
 # Local test audio (exported loops for calibration)
 testdata/
+
+# Local design notes (not published)
+dev-notes/

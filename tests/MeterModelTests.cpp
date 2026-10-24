@@ -32,13 +32,13 @@ public:
             expectWithinAbsoluteError (low.batteryFraction, 0.14, 1.0e-6);
         }
 
-        beginTest ("Break due: BREAK., then STOP. in signal red once it's ignored for 15 min");
+        beginTest ("Break due: BREAK., then STOP. in signal red once it's ignored for 20 min (v1.0)");
         {
             const auto due = wordFor ([] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 60.0; });
             expectEquals (due.word, juce::String ("BREAK."));
             expect (! due.alarm);
 
-            const auto ignored = wordFor ([] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 15.0 * 60.0; });
+            const auto ignored = wordFor ([] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 20.0 * 60.0; });
             expectEquals (ignored.word, juce::String ("STOP."));
             expect (ignored.alarm && ! ignored.massRed, "the whole window is red, not just the mass");
         }

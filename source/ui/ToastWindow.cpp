@@ -137,6 +137,8 @@ void ToastWindow::show (const ToastContent& newContent)
 
     if (content.offerLevels)
         stopTimer();
+    else if (content.closeAfterMs > 0)
+        startTimer (content.closeAfterMs);
     else
         startTimer (content.offerBreak || content.offerSnooze ? buttonVisibleMs : visibleMs);
 }

@@ -22,7 +22,7 @@ inline juce::String tip (const char* shows, const char* means)
 inline juce::String word (const juce::String& w)
 {
     if (w == "BREAK.")     return tip ("The ear battery is empty: a break is due.", "After 15 more minutes of listening it turns into STOP. Silence pauses that clock.");
-    if (w == "STOP.")      return tip ("The break has been due for over 15 minutes of listening.", "Tired ears misjudge level, highs and balance. Take the break, the mix will wait.");
+    if (w == "STOP.")      return tip ("The break has been due for over 20 minutes of listening.", "Tired ears misjudge level, highs and balance. Take the break, the mix will wait.");
     if (w == "RESTING.")   return tip ("Silence for over a minute, or a break you started: your ears recover.", "The battery refills (63 % of the gap in 5 min). Playing again ends it.");
     if (w == "UNPLUGGED.") return tip ("HARD mode pulled the plug: the output is muted for at least 5 minutes.", "SNOOZE buys 10 minutes. Leaving HARD mode plugs back in at once.");
     if (w == "OFF.")       return tip ("Live has switched brEARk off: nothing is measured.", "Nothing drains or recovers while it's off. HISTORY shows the time as OFF.");
@@ -127,6 +127,9 @@ inline const juce::String levelAnswer = tip ("Your answer: how loud it is on you
 
 inline const juce::String strictness = tip ("What happens when the battery is empty. Click to switch.",
                                             "GENTLE: one sound. ESCALATING: firmer reminders. HARD: the sound is cut at 0 %.");
+
+inline const juce::String sound = tip ("The alert sound with BREAK., STOP., UNPLUGGED. and DONE. Click to switch.",
+                                       "Off for client sessions or late nights: the pop-ups keep coming, silently.");
 
 inline const juce::String size = tip ("Window size: COMPACT or POSTER, saved with the Live set.",
                                       "POSTER adds the week's hearing dose, the reasons for the drain, and HISTORY.");

@@ -26,6 +26,19 @@ public:
             expect (run (policy, 3600.0, true, -14.0f, -14.0) == Reason::none, "once per session");
         }
 
+        beginTest ("v1.0: a session the Brain starts without asking stays quiet; one that asks, asks once");
+        {
+            CheckInPolicy quiet;
+            quiet.startSession (false);
+            expect (run (quiet, 60.0, true, none, -14.0) == Reason::none, "a quick restart keeps the last answer");
+
+            CheckInPolicy asking;
+            asking.startSession (false);
+            asking.startSession (true); // 2 hours away, or a new day
+            expect (run (asking, 10.0, true, none, -14.0) == Reason::firstSound);
+            expect (run (asking, 600.0, true, none, -14.0) == Reason::none);
+        }
+
         beginTest ("Setting the level yourself counts as an answer");
         {
             CheckInPolicy policy;

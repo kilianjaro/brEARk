@@ -17,7 +17,8 @@ public:
     AlertPresenter();
     ~AlertPresenter() override;
 
-    void present (const breark::Alert& alert);
+    // An alert from the Brain (or DATA's TEST ALERT, which always plays its sound).
+    void present (const breark::Alert& alert, bool test = false);
 
     // The coach's latest line, for the plugin window.
     juce::String getCoachLine() const { return coach.getLine(); }

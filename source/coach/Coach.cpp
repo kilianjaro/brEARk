@@ -12,6 +12,7 @@ constexpr double warmUpSeconds = 120.0;           // let the measurements settle
 constexpr double hintGapSeconds = 20.0 * 60.0;    // at most one hint pop-up per 20 min
 constexpr double breakRotationSeconds = 60.0;     // a new break line every minute
 constexpr double idleSeconds = 12.0 * 60.0;       // an idle line after 12 quiet minutes
+constexpr int maxHintsPerDay = 2;                 // v1.0: the same hint at most twice a day
 
 const char* toneName (CoachTone tone)
 {
@@ -108,7 +109,7 @@ juce::String Coach::draw (const juce::String& event, CoachTone tone, const Coach
 
     // Shuffle bag: every line once before any repeats (also across restarts,
     // M11.3), and never the same line twice in a row when a round starts over.
-    auto& bag = bags[key.toLowerCase()];
+    auto& bag = memory.bags[key.toLowerCase()];
     auto wasShown = [&bag] (juce::int64 hash) { return std::find (bag.shown.begin(), bag.shown.end(), hash) != bag.shown.end(); };
 
     std::vector<int> fresh;
@@ -137,7 +138,7 @@ juce::var Coach::memoryToVar (const Memory& memory)
 {
     auto sections = std::make_unique<juce::DynamicObject>();
 
-    for (const auto& [key, bag] : memory)
+    for (const auto& [key, bag] : memory.bags)
     {
         juce::Array<juce::var> shown;
 
@@ -150,9 +151,21 @@ juce::var Coach::memoryToVar (const Memory& memory)
         sections->setProperty (key, juce::var (section.release()));
     }
 
+    auto hints = std::make_unique<juce::DynamicObject>();
+
+    for (const auto& [kind, shownMs] : memory.hintShownMs)
+        hints->setProperty (kind, juce::String (shownMs)); // text: exact in JSON
+
+    auto days = std::make_unique<juce::DynamicObject>();
+
+    for (const auto& [kind, shown] : memory.hintDays)
+        days->setProperty (kind, juce::String (shown.day) + "," + juce::String (shown.count));
+
     auto root = std::make_unique<juce::DynamicObject>();
     root->setProperty ("version", 1);
     root->setProperty ("sections", juce::var (sections.release()));
+    root->setProperty ("hintsShownMs", juce::var (hints.release()));
+    root->setProperty ("hintDays", juce::var (days.release()));
     return juce::var (root.release());
 }
 
@@ -171,9 +184,18 @@ Coach::Memory Coach::memoryFromVar (const juce::var& data)
                     bag.shown.push_back (hash.toString().getHexValue64());
 
             bag.last = section.value["last"].toString().getHexValue64();
-            memory[section.name.toString()] = std::move (bag);
+            memory.bags[section.name.toString()] = std::move (bag);
         }
     }
+
+    if (const auto* hints = data["hintsShownMs"].getDynamicObject())
+        for (const auto& hint : hints->getProperties())
+            memory.hintShownMs[hint.name.toString()] = hint.value.toString().getLargeIntValue();
+
+    if (const auto* days = data["hintDays"].getDynamicObject())
+        for (const auto& day : days->getProperties())
+            memory.hintDays[day.name.toString()] = { day.value.toString().upToFirstOccurrenceOf (",", false, false).getIntValue(),
+                                                     day.value.toString().fromFirstOccurrenceOf (",", false, false).getIntValue() };
 
     return memory;
 }
@@ -219,8 +241,26 @@ juce::String Coach::speakFor (const Alert& alert, const CoachContext& context, d
 
 std::optional<Hint> Coach::update (const CoachContext& context, double nowSeconds)
 {
-    if (startSeconds < 0.0)
-        startSeconds = nowSeconds;
+    // Sound heard in this session: hints wait until the measurements have settled.
+    if (lastUpdateSeconds >= 0.0 && ! context.silent)
+        soundSeconds += std::max (0.0, nowSeconds - lastUpdateSeconds);
+
+    lastUpdateSeconds = nowSeconds;
+
+    // After a restart: the saved hint times become this session's cooldowns.
+    if (std::exchange (cooldownsToRestore, false) && context.now.toMilliseconds() > 0)
+    {
+        for (const auto& [kind, shownMs] : memory.hintShownMs)
+        {
+            const auto ago = (double) (context.now.toMilliseconds() - shownMs) / 1000.0;
+
+            if (ago >= 0.0)
+            {
+                lastHintOfKind[kind] = nowSeconds - ago;
+                lastHintSeconds = std::max (lastHintSeconds, nowSeconds - ago);
+            }
+        }
+    }
 
     // On a break (guided, unplugged, or just silent for a minute): a new
     // task, care tip or fact every minute. Never a pop-up.
@@ -240,13 +280,19 @@ std::optional<Hint> Coach::update (const CoachContext& context, double nowSecond
         return std::nullopt;
 
     // Hints: the most important applicable one, if the gap and its cooldown allow.
-    if (nowSeconds - startSeconds >= warmUpSeconds && nowSeconds - lastHintSeconds >= hintGapSeconds)
+    if (soundSeconds >= warmUpSeconds && nowSeconds - lastHintSeconds >= hintGapSeconds)
     {
+        const auto today = context.now.toMilliseconds() > 0 ? ExposureModel::dayNumber (context.now) : 0;
+
         for (const auto& rule : hintRules)
         {
             const auto it = lastHintOfKind.find (rule.event);
 
             if (! rule.applies (context) || (it != lastHintOfKind.end() && nowSeconds - it->second < rule.cooldownSeconds))
+                continue;
+
+            // Twice is a reminder; more is nagging. The window's DRAINS FASTER line keeps showing it.
+            if (const auto& shown = memory.hintDays[rule.event]; shown.day == today && shown.count >= maxHintsPerDay)
                 continue;
 
             const auto text = draw (rule.event, toneFor (context), context);
@@ -255,6 +301,16 @@ std::optional<Hint> Coach::update (const CoachContext& context, double nowSecond
                 continue;
 
             lastHintSeconds = lastHintOfKind[rule.event] = nowSeconds;
+
+            auto& shown = memory.hintDays[rule.event];
+            shown = { today, shown.day == today ? shown.count + 1 : 1 };
+            memoryChanged = true;
+
+            if (context.now.toMilliseconds() > 0)
+            {
+                memory.hintShownMs[rule.event] = context.now.toMilliseconds();
+                memoryChanged = true;
+            }
             say (text, nowSeconds);
             return Hint { rule.headline, text, rule.offerBreak };
         }

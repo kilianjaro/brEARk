@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 # Must be set before project(): minimum macOS for Apple-Silicon-native Live 11.
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 
-project(brEARk VERSION 0.1.0 LANGUAGES C CXX)
+project(brEARk VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,11 @@ FetchContent_Declare(JUCE
 FetchContent_MakeAvailable(JUCE)
 
 # ── Plugin ────────────────────────────────────────────────────────────────────
+# Developer builds install into ~/Library/Audio/Plug-Ins after every build and
+# show DATA's TEST MODE; release builds (tools/release.sh) do neither.
+option(BREARK_DEVELOPER_BUILD "Developer build: DATA shows TEST MODE (time x60)" ON)
+option(BREARK_COPY_AFTER_BUILD "Copy the VST3 and AU to ~/Library/Audio/Plug-Ins after every build" ON)
+
 juce_add_plugin(brEARk
     PRODUCT_NAME                "brEARk"
     COMPANY_NAME                "Totemphonia Studio Berlin"
@@ -36,7 +41,8 @@ juce_add_plugin(brEARk
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     VST3_CATEGORIES             Fx Analyzer
     AU_MAIN_TYPE                kAudioUnitType_Effect
-    COPY_PLUGIN_AFTER_BUILD     TRUE)
+    HARDENED_RUNTIME_ENABLED    TRUE
+    COPY_PLUGIN_AFTER_BUILD     ${BREARK_COPY_AFTER_BUILD})
 
 # Engine sources are shared by the plugin and the unit tests.
 set(BREARK_ENGINE_SOURCES
@@ -94,7 +100,8 @@ target_compile_definitions(brEARk PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
-    BREARK_DEV_METRICS=$<BOOL:${BREARK_DEV_METRICS}>)
+    BREARK_DEV_METRICS=$<BOOL:${BREARK_DEV_METRICS}>
+    BREARK_DEVELOPER_BUILD=$<BOOL:${BREARK_DEVELOPER_BUILD}>)
 
 target_link_libraries(brEARk
     PRIVATE
@@ -173,6 +180,8 @@ if(BREARK_BUILD_TOOLS)
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JucePlugin_Name="brEARk"
+        JucePlugin_VersionString="${PROJECT_VERSION}"
+        BREARK_DEVELOPER_BUILD=1
         BREARK_DEV_METRICS=1)
 
     target_link_libraries(brEARk_RenderUI
@@ -208,6 +217,8 @@ if(BREARK_BUILD_TOOLS)
         JUCE_USE_CURL=0
         JUCE_MODAL_LOOPS_PERMITTED=1
         JucePlugin_Name="brEARk"
+        JucePlugin_VersionString="${PROJECT_VERSION}"
+        BREARK_DEVELOPER_BUILD=1
         BREARK_DEV_METRICS=$<BOOL:${BREARK_DEV_METRICS}>)
 
     target_link_libraries(brEARk_Soak
@@ -216,6 +227,28 @@ if(BREARK_BUILD_TOOLS)
             juce::juce_audio_utils
             juce::juce_dsp
             "-framework AVFoundation"
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    # A producer's day, second by second: every pop-up, sound and question (UX study).
+    juce_add_console_app(brEARk_DaySim PRODUCT_NAME "brEARk_DaySim")
+
+    target_sources(brEARk_DaySim PRIVATE
+        tools/DaySim.cpp
+        source/coach/Coach.cpp
+        source/coach/CoachLines.cpp
+        ${BREARK_ENGINE_SOURCES})
+
+    target_include_directories(brEARk_DaySim PRIVATE source)
+    target_compile_definitions(brEARk_DaySim PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+
+    target_link_libraries(brEARk_DaySim
+        PRIVATE
+            breark_assets
+            juce::juce_core
+            juce::juce_events
+            juce::juce_audio_basics
         PUBLIC
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)

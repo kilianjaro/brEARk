@@ -18,7 +18,7 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
     setLookAndFeel (&look);
     auto& brain = brearkProcessor.getBrain();
 
-    for (auto* button : { &setupButton, &modeButton, &sizeButton, &dataButton, &historyButton, &breakButton })
+    for (auto* button : { &setupButton, &modeButton, &soundButton, &sizeButton, &dataButton, &historyButton, &breakButton })
     {
         ui::Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
@@ -33,6 +33,7 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
 
     setupButton.setTooltip (ui::tips::setup);
     modeButton.setTooltip (ui::tips::strictness);
+    soundButton.setTooltip (ui::tips::sound);
     sizeButton.setTooltip (ui::tips::size);
     dataButton.setTooltip (ui::tips::data);
     historyButton.setTooltip (ui::tips::history);
@@ -50,6 +51,13 @@ BrearkEditor::BrearkEditor (BrearkProcessor& p)
     {
         auto settings = brain.getSettings();
         settings.strictness = (Strictness) (((int) settings.strictness + 1) % 3);
+        brain.setSettings (settings);
+    };
+
+    soundButton.onClick = [&brain]
+    {
+        auto settings = brain.getSettings();
+        settings.sound = ! settings.sound;
         brain.setSettings (settings);
     };
 
@@ -139,6 +147,7 @@ void BrearkEditor::timerCallback()
     setupButton.setButtonText (setupNames[(int) settings.setup]);
     levelSwitch.setSelectedIndex ((int) settings.preset);
     modeButton.setButtonText (strictnessNames[(int) settings.strictness]);
+    soundButton.setButtonText (settings.sound ? "SOUND ON" : "SOUND OFF");
     sizeButton.setButtonText (brearkProcessor.isPosterSize() ? "COMPACT" : "POSTER");
     breakButton.setButtonText (snapshot.breakPhase == BreakPhase::unplugged ? "SNOOZE 10 MIN"
                              : snapshot.breakPhase == BreakPhase::onBreak   ? "END BREAK"
@@ -168,10 +177,10 @@ void BrearkEditor::resized()
 
     // Settings, size and DATA: top right.
     auto top = juce::Rectangle<int> (0, poster ? 22 : 14, getWidth() - inset, rowHeight);
-    const int widths[] = { poster ? 100 : 84, poster ? 104 : 86, poster ? 82 : 66, poster ? 58 : 48 };
-    juce::TextButton* row[] = { &setupButton, &modeButton, &sizeButton, &dataButton };
+    const int widths[] = { poster ? 100 : 84, poster ? 104 : 86, poster ? 96 : 80, poster ? 82 : 66, poster ? 58 : 48 };
+    juce::TextButton* row[] = { &setupButton, &modeButton, &soundButton, &sizeButton, &dataButton };
 
-    for (int i = 3; i >= 0; --i)
+    for (int i = 4; i >= 0; --i)
     {
         row[i]->setBounds (top.removeFromRight (widths[i]));
         top.removeFromRight (gap);

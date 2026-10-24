@@ -14,7 +14,7 @@ namespace breark::model
 // M11.2: NORMAL is the WHO reference itself, so a day at NORMAL is 8 h.
 inline constexpr double presetSplQuiet  = 70.0; // Heuristic: you can talk over it easily
 inline constexpr double presetSplNormal = 80.0; // Heuristic: you raise your voice slightly
-inline constexpr double presetSplLoud   = 85.0; // Heuristic: you have to shout (M11.2: was 90, 48 min a day; Kilian: too early)
+inline constexpr double presetSplLoud   = 85.0; // Heuristic: you have to shout (M11.2: was 90, 48 min a day: too early in a Live test)
 // Headphones tire the ears faster (no room, sound at the eardrum), but your
 // rating is already what you hear: the offset drives the battery, not the dose (M11.2).
 inline constexpr double headphoneOffsetDb = 3.0; // Heuristic
@@ -24,6 +24,10 @@ inline constexpr double headphoneOffsetDb = 3.0; // Heuristic
 // can't set the level.
 inline constexpr double anchorBeforeSeconds = 30.0;
 inline constexpr double anchorAfterSeconds = 90.0;
+
+// v1.0: the session question (NEW SESSION.) comes at the first music of the
+// day and after this long without sound; a quick restart keeps the last answer.
+inline constexpr double sessionGapSeconds = 2.0 * 3600.0;
 
 // Until you rate the level while music plays, the reference learns from your
 // playback (hybrid): a short louder session counts as louder, while a whole
@@ -78,7 +82,7 @@ inline constexpr double psrBrickwalledDb  = 7.0;  // Heuristic: full extra fatig
 inline constexpr double dynamicsFactorMax = 1.2;
 
 // Repetition ("loop blindness"): affects freshness, not the hearing dose.
-// M9 (Kilian): what wears is the number of plays, each weighing
+// M9 (Live test): what wears is the number of plays, each weighing
 // log2 (1 + loop seconds). 6 plays of a 1 s loop weigh less than 6 of a 10 s
 // loop, and a 60 s loop (one play a minute) less per minute than a 10 s loop.
 // Strain is counted in minutes of a reference loop: 4 bars at 124 bpm.
@@ -110,17 +114,20 @@ inline constexpr int creepWindowMinutes = 10;  // compare the last 10 playback m
 inline constexpr int creepSpanMinutes   = 60;  // … with the same window one hour ago
 inline constexpr double creepMinPlaybackSeconds = 180.0; // each window needs 3 min of playback
 
-//── Break alerts (CONCEPT.md §6) ──────────────────────────────────────────────
+//── Break alerts (docs/ALERTS.md) ─────────────────────────────────────────────
 inline constexpr double warnBattery  = 20.0; // heads-up (not in GENTLE)
 inline constexpr double emptyBattery = 0.5;  // the break is due
 inline constexpr double rearmBattery = 30.0; // recovered: alerts start over
-inline constexpr double firstReminderSeconds = 10.0 * 60.0; // listening time after empty
-inline constexpr double reminderIntervalSeconds = 5.0 * 60.0;
-// HARD unplugs at empty (M9, Kilian: "it came too late as the battery was already at 0 %").
+// ESCALATING, listening time after empty (v1.0, calmer for a long-term helper):
+// BREAK. again at +10 min, STOP. at +20 (was +15), then STOP. every 15 min (was 5).
+inline constexpr double firstReminderSeconds = 10.0 * 60.0;
+inline constexpr double stopSeconds = 20.0 * 60.0;
+inline constexpr double reminderIntervalSeconds = 15.0 * 60.0;
+// HARD unplugs at empty (M9, Live test: unplugging later felt too late).
 inline constexpr double breakEndsAfterSoundSeconds = 10.0;  // a BREAK ends once you play this long
 inline constexpr double dayReminderSeconds = 30.0 * 60.0;   // M10, ESCALATING after a full daily dose: listening time between reminders
 
-//── Hard mode: pulling the plug (CONCEPT.md §7) ───────────────────────────────
+//── Hard mode: pulling the plug ───────────────────────────────────────────────
 inline constexpr double spinDownSeconds = 3.5;        // Heuristic: a turntable losing power
 inline constexpr double spinUpSeconds = 0.8;          // Heuristic: back on, with a brief over-speed
 inline constexpr double minimumBreakSeconds = 5.0 * 60.0; // the mute lifts after this, battery full or not

@@ -69,6 +69,33 @@ public:
             brain.detach (&token);
         }
 
+        beginTest ("v1.0: a plugin scan (an instance that never hears audio) leaves the history alone");
+        {
+            const auto file = tempStateFile();
+            file.replaceWithText ("{\"version\": 1, \"marker\": \"untouched\"}");
+            const auto before = file.loadFileAsString();
+
+            {
+                Brain scanned (file);
+                int token = 0;
+                scanned.attach (&token);
+                scanned.prepare (rate);
+                juce::Thread::sleep (300); // loads, ticks, shuts down
+                scanned.detach (&token);
+            }
+
+            expectEquals (file.loadFileAsString(), before, "the scan rewrote state.json");
+
+            {
+                Brain touched (file); // the user changed a setting: that is saved
+                touched.setSettings ({ Setup::headphones, LevelPreset::normal });
+                juce::Thread::sleep (300);
+            }
+
+            expect (file.loadFileAsString() != before, "a changed setting was not saved");
+            file.deleteFile();
+        }
+
         beginTest ("State is saved when the Brain shuts down and restored on the next start");
         {
             const auto file = tempStateFile();
@@ -309,6 +336,36 @@ public:
             expectWithinAbsoluteError (s.referenceLufs, -23.0f, 0.5f, "the anchor is what played: the -23 LUFS sine");
             expectWithinAbsoluteError (s.signalVsAnchorLu, 0.0f, 0.5f);
             brain.detach (&token);
+        }
+
+        beginTest ("v1.0: a restart on a day you already set the level doesn't ask NEW SESSION. again");
+        {
+            const auto file = tempStateFile();
+            PersistedState saved;
+            saved.savedAtMs = juce::Time::currentTimeMillis();
+            saved.exposure.day = ExposureModel::dayNumber (juce::Time::getCurrentTime());
+            saved.exposure.lastLevelSetMs = juce::Time::currentTimeMillis() - 600000; // 10 min ago
+            persistence::save (file, saved);
+
+            Brain brain (file);
+            int token = 0;
+            start (brain, token, rate);
+
+            for (int i = 0; i < 1150; ++i) // 11.5 s of play
+            {
+                brain.push (makeBlock (i), false);
+                juce::Thread::sleep (10);
+            }
+
+            juce::Thread::sleep (300);
+            int checkIns = 0;
+
+            for (const auto& alert : brain.takeAlerts())
+                checkIns += alert.kind == AlertKind::checkIn ? 1 : 0;
+
+            expectEquals (checkIns, 0, "asked again after a quick restart");
+            brain.detach (&token);
+            file.deleteFile();
         }
 
         beginTest ("Several instances: the first listens, the next takes over when it is removed");

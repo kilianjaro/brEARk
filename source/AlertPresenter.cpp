@@ -30,7 +30,7 @@ ToastContent toastFor (const breark::Alert& alert, const juce::String& message, 
 
     switch (alert.kind)
     {
-        case AlertKind::headsUp:         return { "HEADS UP.", message, battery, false, true };
+        case AlertKind::headsUp:         return { "HEADS UP.", message, battery, false, true, false, false, false, 0, 10000 }; // v1.0: 10 s
         case AlertKind::breakDue:        return { "BREAK.", message, withBreak, false, true };
         case AlertKind::reminder:        return { alert.tone == Tone::brutal ? "STOP." : "BREAK.", message, withBreak, alert.tone == Tone::brutal, true };
         case AlertKind::unplug:          return { "UNPLUGGED.", message, battery, true, false, true };
@@ -206,10 +206,17 @@ void AlertPresenter::timerCallback()
     }
 }
 
-void AlertPresenter::present (const breark::Alert& alert)
+void AlertPresenter::present (const breark::Alert& alert, bool test)
 {
     const auto message = coach.speakFor (alert, context, juce::Time::getMillisecondCounterHiRes() / 1000.0);
-    showToast (toastFor (alert, message, brain->getSettings().preset, brain->getSettings().setup), alert.withSound);
+
+    // v1.0: no pop-up for what you just clicked (SNOOZE, BREAK): the window and
+    // its coach line show it.
+    if (alert.kind == AlertKind::snoozed || alert.kind == AlertKind::breakStarted)
+        return;
+
+    const auto settings = brain->getSettings();
+    showToast (toastFor (alert, message, settings.preset, settings.setup), alert.withSound && (settings.sound || test));
 }
 
 void AlertPresenter::showToast (const ToastContent& content, bool withSound)

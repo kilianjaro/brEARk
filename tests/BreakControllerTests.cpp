@@ -12,7 +12,7 @@ public:
 
     void runTest() override
     {
-        beginTest ("ESCALATING: heads-up at 20 %, sound at 0 %, then +10 firm, +15 and +20 brutal");
+        beginTest ("ESCALATING (v1.0, calmer): heads-up at 20 %, sound at 0 %, then +10 firm, +20 and +35 brutal");
         {
             BreakController breaks;
             auto alerts = drain (breaks, Strictness::escalating);
@@ -22,10 +22,11 @@ public:
             expect (! find (alerts, AlertKind::headsUp).withSound, "the heads-up must be silent");
             expect (find (alerts, AlertKind::breakDue).withSound);
 
-            const auto reminders = listen (breaks, Strictness::escalating, 0.0, 20.0 * 60.0 + 1.0);
-            expectEquals (count (reminders, AlertKind::reminder), 3); // +10, +15, +20 min
+            const auto reminders = listen (breaks, Strictness::escalating, 0.0, 35.0 * 60.0 + 1.0);
+            expectEquals (count (reminders, AlertKind::reminder), 3); // +10, +20, +35 min
             expect (reminders[0].tone == Tone::firm);
             expect (reminders[1].tone == Tone::brutal && reminders[2].tone == Tone::brutal);
+            expect (listen (breaks, Strictness::escalating, 0.0, 14.0 * 60.0).empty(), "STOP. comes back every 15 min, not sooner");
             expect (breaks.getPhase() == BreakPhase::due);
         }
 

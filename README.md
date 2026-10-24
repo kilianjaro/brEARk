@@ -162,7 +162,7 @@ For the engineers in the room:
 | **CPU** | Audio thread 0.017 % of one core (Instruments, 48 kHz / 512 samples). All analysis together about 0.1 % of one performance core (benchmark). |
 | **Memory** | 1.8 MB at 44.1 or 48 kHz, up to 3.0 MB at 192 kHz, allocated before playback. HARD mode adds a 2-second buffer for the power-down (1 MB at 48 kHz). |
 | **Host awareness** | Exports (flagged by the host, or audio faster than real time) are never counted. Switched off in Live: everything freezes and HISTORY shows the time as OFF. A sleeping Mac counts as rest. The first brEARk in Live listens; a second one shows INACTIVE. |
-| **Your data** | `~/Library/Application Support/brEARk/`: `state.json` (settings, today and 14 days of history), `coach-memory.json` (which coach lines you've seen) and your own `coach.txt`. brEARk contains no network code. |
+| **Your data** | `~/Library/Application Support/brEARk/`: `state.json` (settings, today and 14 days of history), `coach-memory.json` (which coach lines you've seen) and your own `coach.txt`. brEARk never connects to the internet: it makes no network requests at all. |
 | **Testing** | 3,408 automated checks, the null test, pluginval at strictness 10 (VST3 and AU), auval, and a 3-hour soak test across 8 audio device setups (44.1–192 kHz, 64–2048 samples, 32/64-bit, mono/stereo) with the editor opened 100 times and memory checked every hour. On Apple Silicon and, for Intel, under Rosetta. |
 
 ---
@@ -184,4 +184,4 @@ brEARk is a coach, not a medical device. The hearing dose follows the WHO's safe
 
 ---
 
-<sub>brEARk is made by Totemphonia Studio Berlin. Type: Space Grotesk and Space Mono (SIL Open Font License). Build, tests and your own coach lines: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Concept: [CONCEPT.md](CONCEPT.md). Every alert: [docs/ALERTS.md](docs/ALERTS.md).</sub>
+<sub>brEARk is made by Totemphonia Studio Berlin. Type: Space Grotesk and Space Mono (SIL Open Font License). Build, tests and your own coach lines: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every alert: [docs/ALERTS.md](docs/ALERTS.md).</sub>

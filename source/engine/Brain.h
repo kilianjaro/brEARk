@@ -65,6 +65,7 @@ public:
     // and the next 90 s of play).
     void setLevelNow (LevelPreset preset) noexcept
     {
+        settingsTouched.store (true);
         presetSetting.store ((int) preset);
         levelRequest.store ((int) preset);
         levelAnswers.fetch_add (1);
@@ -172,9 +173,11 @@ private:
     std::atomic<int> setupSetting { (int) Setup::monitors };
     std::atomic<int> presetSetting { (int) LevelPreset::normal };
     std::atomic<int> strictnessSetting { (int) Strictness::escalating };
+    std::atomic<bool> soundSetting { true };
     std::atomic<int> timeWarp { 1 };
     std::atomic<bool> breakToggleRequested { false }, snoozeRequested { false };
     std::atomic<int> levelRequest { -1 }, levelAnswers { 0 };
+    std::atomic<bool> settingsTouched { false }; // the user changed something: worth saving
     std::atomic<bool> unplugTarget { false }, exportDetected { false };
 
     // Worker thread only
@@ -190,6 +193,7 @@ private:
     LoudnessWindow nowAWindow { model::anchorBeforeSeconds };  // the same, A-weighted (M11.2)
     LevelAnchor anchor;                                        // M11.2: listens on after a level click
     CheckInPolicy checkIn;
+    bool firstModelTick = true, sessionQuestionDue = false; // v1.0: when NEW SESSION. asks
     double secondPresenceToBody = 0.0, secondHighsToBody = 0.0; // last second, unsmoothed
     double smoothedPresence = -std::numeric_limits<double>::infinity();
     double smoothedHighs = -std::numeric_limits<double>::infinity();

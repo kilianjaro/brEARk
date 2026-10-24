@@ -58,6 +58,7 @@ bool save (const juce::File& file, const PersistedState& state)
     settings->setProperty ("setup", setupNames[(int) state.settings.setup]);
     settings->setProperty ("preset", presetNames[(int) state.settings.preset]);
     settings->setProperty ("strictness", strictnessNames[(int) state.settings.strictness]);
+    settings->setProperty ("sound", state.settings.sound); // v1.0
 
     juce::Array<juce::var> history, curve;
 
@@ -84,6 +85,7 @@ bool save (const juce::File& file, const PersistedState& state)
     exposure->setProperty ("longestStretchToday", e.longestStretchToday);
     exposure->setProperty ("emptyBatteryToday", e.emptyBatteryToday);
     exposure->setProperty ("levelAnchored", e.levelAnchored);
+    exposure->setProperty ("lastLevelSetMs", e.lastLevelSetMs); // v1.0
     exposure->setProperty ("lastSummaryWeek", e.lastSummaryWeek);
     exposure->setProperty ("referenceLufs", e.referenceLufs);
     exposure->setProperty ("referencePlaybackSeconds", e.referencePlaybackSeconds);
@@ -125,6 +127,7 @@ std::optional<PersistedState> load (const juce::File& file)
     state.settings.setup = enumFromName (setupNames, s["setup"], Setup::monitors);
     state.settings.preset = enumFromName (presetNames, s["preset"], LevelPreset::normal);
     state.settings.strictness = enumFromName (strictnessNames, s["strictness"], Strictness::escalating);
+    state.settings.sound = s.hasProperty ("sound") ? (bool) s["sound"] : true; // v1.0; older files: on
 
     auto& x = state.exposure;
     x.day = (int) e["day"];
@@ -140,6 +143,7 @@ std::optional<PersistedState> load (const juce::File& file)
     x.longestStretchToday = (double) e["longestStretchToday"];
     x.emptyBatteryToday = (int) e["emptyBatteryToday"];
     x.levelAnchored = (bool) e["levelAnchored"]; // M11; missing in older files: still learning
+    x.lastLevelSetMs = (juce::int64) e["lastLevelSetMs"]; // v1.0; missing: ask at the next music
     x.lastSummaryWeek = (int) e["lastSummaryWeek"];
     x.referenceLufs = e.hasProperty ("referenceLufs") ? (double) e["referenceLufs"] : model::initialReferenceLufs;
     x.referencePlaybackSeconds = (double) e["referencePlaybackSeconds"]; // missing in old files → 0: relearn quickly

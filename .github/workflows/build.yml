@@ -1,0 +1,30 @@
+# Builds brEARk (universal VST3 + AU, release settings) and runs the unit tests
+# on every push and pull request.
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Configure (universal, release)
+        run: >
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          -DBREARK_DEVELOPER_BUILD=OFF -DBREARK_COPY_AFTER_BUILD=OFF
+
+      - name: Build plugin and tests
+        run: cmake --build build --target brEARk_VST3 brEARk_AU brEARk_Tests
+
+      - name: Unit tests
+        run: ./build/brEARk_Tests_artefacts/Release/brEARk_Tests | tail -40
+        shell: bash -o pipefail {0}

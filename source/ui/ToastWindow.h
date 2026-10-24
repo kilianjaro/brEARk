@@ -14,6 +14,7 @@ struct ToastContent
     bool offerLevels = false; // the check-in: QUIET / NORMAL / LOUD instead (M11)
     bool offerSetup = false;  // the session check-in also asks MONITORS / HEADPHONES (M11.1)
     int setupSelected = 0;    // the current setup, highlighted
+    int closeAfterMs = 0;     // v1.0: 0 = the default for its kind (6 s, 30 s with a button)
 };
 
 // The toast's drawing (buttons are separate components), for the window and the render tool.

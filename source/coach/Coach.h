@@ -42,7 +42,7 @@ struct Hint
 };
 
 //==============================================================================
-// The coach (CONCEPT.md §9). Mostly quiet; speaks at events:
+// The coach. Mostly quiet; speaks at events:
 //   - every alert gets a line, in a tone that shifts with severity:
 //     witty while fresh, mentor when tired, brutal when ignored;
 //   - during breaks, a new line every minute: a thought on the track, a care
@@ -51,7 +51,9 @@ struct Hint
 //     as silent pop-ups: at most one every 20 min, each with its own cooldown;
 //   - now and then an idle line when nothing else happened.
 // No line repeats until all its siblings were used (a shuffle bag per section),
-// and the bags survive a restart of Live (M11.3: getMemory / setMemory).
+// and the bags survive a restart of Live (M11.3: getMemory / setMemory), as do
+// the hints' cooldowns (v1.0: a restart doesn't bring HALF DOSE. back).
+// Hints wait for 2 minutes of sound in a session, not 2 minutes after start.
 // Pure: the caller passes the time. Message thread only.
 class Coach
 {
@@ -82,9 +84,20 @@ public:
         juce::int64 last = 0;
     };
 
-    using Memory = std::map<juce::String, Bag>;
-    const Memory& getMemory() const noexcept { return bags; }
-    void setMemory (Memory memory) { bags = std::move (memory); }
+    struct HintDay
+    {
+        int day = 0, count = 0; // ExposureModel::dayNumber, pop-ups that day
+    };
+
+    struct Memory
+    {
+        std::map<juce::String, Bag> bags;
+        std::map<juce::String, juce::int64> hintShownMs; // wall clock, per hint kind (v1.0)
+        std::map<juce::String, HintDay> hintDays;        // v1.0: each hint at most twice a day
+    };
+
+    const Memory& getMemory() const noexcept { return memory; }
+    void setMemory (Memory restored) { memory = std::move (restored); cooldownsToRestore = true; }
 
     // True once after a line was drawn: the memory needs saving.
     bool takeMemoryChanged() noexcept { return std::exchange (memoryChanged, false); }
@@ -98,12 +111,12 @@ private:
 
     CoachLines lines;
     juce::Random random;
-    Memory bags;
-    bool memoryChanged = false;
+    Memory memory;
+    bool memoryChanged = false, cooldownsToRestore = false;
 
     juce::String line { "Listening." };
     double lineSeconds = 0.0;
-    double startSeconds = -1.0;
+    double soundSeconds = 0.0, lastUpdateSeconds = -1.0; // sound heard in this session, for the warm-up
     double lastHintSeconds = -1.0e9;
     std::map<juce::String, double> lastHintOfKind;
     int breakTopic = 0;

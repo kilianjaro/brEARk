@@ -188,7 +188,7 @@ MeterModel makeMeterModel (const Snapshot& s, const juce::String& coachLine, boo
     m.battery = juce::String (juce::roundToInt (battery)) + " %";
 
     const auto minutes = juce::String (juce::roundToInt (s.suggestedBreakMinutes));
-    const auto ignored = s.secondsSinceDue >= model::firstReminderSeconds + model::reminderIntervalSeconds; // the brutal stage
+    const auto ignored = s.secondsSinceDue >= model::stopSeconds; // the brutal stage
 
     if (! activeInstance)
     {

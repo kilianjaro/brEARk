@@ -178,6 +178,47 @@ public:
 
             const auto fourth = coach.update (c, 200.0 + 92.0 * 60.0);
             expect (fourth.has_value() && fourth->headline == "BRIGHT.");
+
+            // v1.0: twice a day is enough; the third would be nagging.
+            const auto fifth = coach.update (c, 200.0 + 184.0 * 60.0);
+            expect (! fifth.has_value() || fifth->headline != "BRIGHT.", "a third BRIGHT. on the same day");
+            const auto squashedAgain = coach.update (c, 200.0 + 300.0 * 60.0);
+            expect (squashedAgain.has_value() && squashedAgain->headline == "SQUASHED.", "SQUASHED.'s second time");
+            expect (! coach.update (c, 200.0 + 500.0 * 60.0).has_value(), "BRIGHT. and SQUASHED. both used up for today");
+        }
+
+        beginTest ("v1.0: hint cooldowns survive a restart; the warm-up counts sound, not time");
+        {
+            auto c = sampleContext();
+            c.dose = 60.0; // HALF DOSE. applies, nothing else
+            c.silent = false;
+            c.battery = 70.0;
+            c.loopStrain = 0.0;
+            c.factors = {};
+            c.now = juce::Time (2026, 9, 26, 15, 0);
+
+            Coach first (lines, 11);
+            first.update (c, 0.0);
+            const auto half = first.update (c, 200.0);
+            expect (half.has_value() && half->headline == "HALF DOSE.");
+
+            // Live restarts an hour later: a new coach with the saved memory.
+            const auto json = juce::JSON::toString (Coach::memoryToVar (first.getMemory()));
+            Coach second (lines, 12);
+            second.setMemory (Coach::memoryFromVar (juce::JSON::parse (json)));
+            c.now = c.now + juce::RelativeTime::hours (1.0);
+            second.update (c, 5000.0);
+            expect (! second.update (c, 5300.0).has_value(), "HALF DOSE. came back after the restart");
+
+            // Hours of silence after start don't count as warm-up.
+            Coach fresh (lines, 13);
+            auto quiet = c;
+            quiet.silent = true;
+            fresh.update (quiet, 0.0);
+            fresh.update (quiet, 3.0 * 3600.0);
+            fresh.update (c, 3.0 * 3600.0 + 1.0);
+            expect (! fresh.update (c, 3.0 * 3600.0 + 20.0).has_value(), "a hint 20 s into the first music");
+            expect (fresh.update (c, 3.0 * 3600.0 + 130.0).has_value(), "after 2 minutes of sound it may speak");
         }
 
         beginTest ("No dB guesses (M11): no LOUD or CREEP pop-ups; LOOP waits for 60 strain minutes (M9)");

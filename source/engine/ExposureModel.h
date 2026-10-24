@@ -19,6 +19,7 @@ struct Settings
     Setup setup = Setup::monitors;
     LevelPreset preset = LevelPreset::normal;
     Strictness strictness = Strictness::escalating;
+    bool sound = true; // v1.0: the alert sound with BREAK., STOP., UNPLUGGED. and DONE.
 };
 
 // One measurement period, handed over by the analysis worker.
@@ -91,6 +92,7 @@ struct ExposureState
     double referenceLevelA = std::numeric_limits<double>::quiet_NaN();
     double referencePlaybackSeconds = 0.0; // how much playback the reference has learned from
     bool levelAnchored = false;          // M11: you set the level while music played; the reference stays put
+    juce::int64 lastLevelSetMs = 0;      // v1.0: when you last set the level (wall clock), for the session question
     std::vector<CurvePoint> todayCurve;  // battery, one point per minute the plugin ran
     std::vector<DayRecord> history;      // previous days, oldest first
 };
@@ -162,6 +164,19 @@ public:
 
     // Weeks since 1970 that start on Monday at 05:00 (the day numbers' weekday: Thursday = 0).
     static int weekNumber (int day) noexcept { return (day + 3) / 7; }
+
+    // v1.0: you set the level (a click or an answer), and whether that was today.
+    void noteLevelSet (juce::int64 wallMs) noexcept { state.lastLevelSetMs = wallMs; }
+    bool levelSetToday() const noexcept
+    {
+        return state.lastLevelSetMs > 0 && dayNumber (juce::Time (state.lastLevelSetMs)) == state.day;
+    }
+
+    // v1.0: the session question is due (no level set today, or 2 h without sound).
+    bool sessionQuestionDue() const noexcept
+    {
+        return ! levelSetToday() || state.silenceSeconds >= model::sessionGapSeconds;
+    }
 
     void countEmptyBattery() noexcept { ++state.emptyBatteryToday; }
     void setLastSummaryWeek (int week) noexcept { state.lastSummaryWeek = week; }

@@ -38,7 +38,7 @@ public:
 
         beginTest ("Loop strain (M9): plays × log2 (1 + loop seconds), in minutes of 4 bars at 124 bpm");
         {
-            // Kilian: "6 s of a 1 s loop is less straining" than 1 min of a 10 s loop
+            // Live test: 6 s of a 1 s loop is less straining than 1 min of a 10 s loop
             // (6 plays each), "and a 60 s loop is less straining".
             expect (loopStrainMinutes (6.0, 1.0) < loopStrainMinutes (6.0, 10.0));
             expect (loopStrainMinutes (1.0, 60.0) < loopStrainMinutes (6.0, 10.0), "a minute of a 60 s loop vs a 10 s loop");

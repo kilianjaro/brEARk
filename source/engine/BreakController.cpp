@@ -251,7 +251,7 @@ std::vector<Alert> BreakController::advance (const BreakInputs& in)
     {
         const auto first = nextReminderAt <= model::firstReminderSeconds;
         alert (AlertKind::reminder, first ? Tone::firm : Tone::brutal, true);
-        nextReminderAt += model::reminderIntervalSeconds;
+        nextReminderAt = first ? model::stopSeconds : nextReminderAt + model::reminderIntervalSeconds;
     }
 
     phase = BreakPhase::due;

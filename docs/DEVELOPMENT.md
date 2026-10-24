@@ -2,9 +2,10 @@
 
 For developers. What brEARk is: [README.md](../README.md).
 
-- Concept: [CONCEPT.md](../CONCEPT.md)
-- Implementation plan & milestones: [IMPLEMENTATION.md](../IMPLEMENTATION.md)
 - What it does and every alert: [ALERTS.md](ALERTS.md)
+- Changes per version: [CHANGELOG.md](../CHANGELOG.md)
+
+Code comments tagged M1 to M11 refer to the development milestones before 1.0; the git history has the details.
 
 ## Build (macOS)
 
@@ -54,6 +55,25 @@ It writes `soak.csv` (one row per 10 s). `quick` shortens the phases to a tenth 
 `brEARk_Soak showcase [folder]` makes the README screenshots (about 4 minutes): a scripted day plus 2.5 minutes of real-time listening to a rendered house loop, saved as `showcase-poster.png`, `showcase-history.png` and `showcase-compact.png`; then a break (the music stops, BREAK is pressed, a minute later the coach shows a thought on the track: `showcase-break.png`); then the NEW SESSION. and BREAK. pop-ups side by side (`showcase-popups.png`; they flash on screen while being drawn). Run it as `brEARk_Soak showcase docs/images`.
 
 All tools redirect the listening history (`BREARK_STATE_FILE`), so testing never touches your real `~/Library/Application Support/brEARk/state.json`.
+
+## Release
+
+`tools/release.sh` builds a release from scratch in `build-release/`: universal binaries without TEST MODE, the unit tests, then an installer package in `dist/` with its SHA-256. The package installs the VST3 and the AU for all users (`/Library/Audio/Plug-Ins/`). Developer builds go to `~/Library/Audio/Plug-Ins/`; remove those before testing an installed release, or Live sees two copies.
+
+Signed and notarized (no Gatekeeper warning) it needs the Apple Developer Program and, once:
+
+1. In Xcode › Settings › Accounts › Manage Certificates, create a **Developer ID Application** and a **Developer ID Installer** certificate.
+2. Create an app-specific password at appleid.apple.com and store it for notarytool:
+   `xcrun notarytool store-credentials breark-notary --apple-id <your Apple ID> --team-id <TEAMID>`
+3. Run:
+
+```bash
+BREARK_SIGN_APP="Developer ID Application: <Name> (<TEAMID>)" BREARK_SIGN_INSTALLER="Developer ID Installer: <Name> (<TEAMID>)" BREARK_NOTARY_PROFILE=breark-notary tools/release.sh
+```
+
+Without these variables the script builds `brEARk-<version>-macOS-UNSIGNED.pkg`, for testing only. `BREARK_JUCE_DIR=<path>` reuses an existing JUCE 8.0.13 checkout instead of downloading it.
+
+After a release: upload the `.pkg` and its `.sha256` to a GitHub release tagged `v<version>`, and add the changes to `CHANGELOG.md`.
 
 ## Your own coach lines
 

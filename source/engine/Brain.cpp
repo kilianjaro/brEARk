@@ -67,14 +67,16 @@ void Brain::prepare (double newSampleRate) noexcept
 
 void Brain::setSettings (Settings newSettings) noexcept
 {
+    settingsTouched.store (true);
     setupSetting.store ((int) newSettings.setup);
     presetSetting.store ((int) newSettings.preset);
     strictnessSetting.store ((int) newSettings.strictness);
+    soundSetting.store (newSettings.sound);
 }
 
 Settings Brain::getSettings() const noexcept
 {
-    return { (Setup) setupSetting.load(), (LevelPreset) presetSetting.load(), (Strictness) strictnessSetting.load() };
+    return { (Setup) setupSetting.load(), (LevelPreset) presetSetting.load(), (Strictness) strictnessSetting.load(), soundSetting.load() };
 }
 
 std::vector<Alert> Brain::takeAlerts()
@@ -161,7 +163,10 @@ void Brain::loadState()
     const auto restored = loaded.value_or (PersistedState {});
 
     exposure = ExposureModel (restored.exposure);
-    setSettings (restored.settings);
+    setupSetting.store ((int) restored.settings.setup); // not setSettings(): loading isn't a change
+    presetSetting.store ((int) restored.settings.preset);
+    strictnessSetting.store ((int) restored.settings.strictness);
+    soundSetting.store (restored.settings.sound);
     exposure.setSettings (restored.settings);
 
     // The time Live was closed counts as silence: the ears rested.
@@ -176,6 +181,12 @@ void Brain::loadState()
 void Brain::saveState()
 {
     if (activeWarp != 1) // time-warped state is a sandbox, never saved
+        return;
+
+    // A host's plugin scan or validation (Live's scanner, auval) creates a
+    // brEARk that never hears a sample: it leaves the history alone (v1.0).
+    // The time since the last save counts as rest on the next start anyway.
+    if (samplesProcessed.load() == 0 && samplesBypassed.load() == 0 && ! settingsTouched.load())
         return;
 
     persistence::save (stateFile, { exposure.getSettings(), exposure.getState(), juce::Time::currentTimeMillis() });
@@ -287,8 +298,18 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
             exposure.anchorLevel (anchor.getLufs(), anchor.getLevelA());
         }
 
+        exposure.noteLevelSet (juce::Time::currentTimeMillis());
         checkIn.answered();
     }
+
+    // v1.0: NEW SESSION. asks at the first music of the day and after 2 hours
+    // without sound (Live closed, the Mac asleep, a long pause), not at every
+    // restart of Live. It becomes due once; an unanswered question isn't repeated.
+    if (const auto due = exposure.sessionQuestionDue(); firstModelTick || (due && ! sessionQuestionDue))
+        checkIn.startSession (due);
+
+    sessionQuestionDue = exposure.sessionQuestionDue();
+    firstModelTick = false;
 
     FactorInputs inputs;
     inputs.presenceToBodyDb = smoothedPresence;
@@ -607,7 +628,10 @@ void Brain::publishSnapshot()
     working.lufsMomentary = loudness.getMomentaryLufs();
     working.lufsShortTerm = loudness.getShortTermLufs();
     working.peakShortTerm = loudness.getShortTermPeakDb();
-    working.silent = ! (working.lufsShortTerm > model::silenceThresholdLufs);
+    // Silent = nothing reaches the ears, as in the model: no signal, an export,
+    // HARD mode's mute, or switched off / no audio from the host (v1.0).
+    working.silent = ! (working.lufsShortTerm > model::silenceThresholdLufs) || rendering
+                  || host.getState() != HostState::playing || breaks.getPhase() == BreakPhase::unplugged;
     working.hostOff = host.getState() == HostState::off;
     working.audioStalled = host.getState() == HostState::stalled;
     working.sampleRate = preparedRate;

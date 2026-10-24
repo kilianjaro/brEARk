@@ -17,7 +17,7 @@ public:
         beginTest ("Everything survives a save/load round trip");
         {
             PersistedState original;
-            original.settings = { Setup::headphones, LevelPreset::loud };
+            original.settings = { Setup::headphones, LevelPreset::loud, Strictness::escalating, false };
             original.savedAtMs = 1760090000000;
 
             auto& e = original.exposure;
@@ -30,6 +30,7 @@ public:
             e.breaksToday = 3;
             e.referenceLufs = -9.75;
             e.referenceLevelA = -16.5;
+            e.lastLevelSetMs = 1760090000123;
             e.referencePlaybackSeconds = 4321.0;
             e.offSecondsToday = 900.0;
             e.longestStretchToday = 4321.0;
@@ -49,6 +50,7 @@ public:
                 const auto& x = loaded->exposure;
                 expect (loaded->settings.setup == Setup::headphones);
                 expect (loaded->settings.preset == LevelPreset::loud);
+                expect (! loaded->settings.sound, "SOUND OFF was not kept");
                 expectEquals (loaded->savedAtMs, original.savedAtMs);
                 expectEquals (x.day, e.day);
                 expectEquals (x.battery, e.battery);
@@ -60,6 +62,7 @@ public:
                 expectEquals (x.referenceLufs, e.referenceLufs);
                 expectEquals (x.referencePlaybackSeconds, e.referencePlaybackSeconds);
                 expectEquals (x.referenceLevelA, -16.5);
+                expect (x.lastLevelSetMs == 1760090000123);
                 expectEquals ((int) x.history.size(), 2);
                 expectEquals ((int) x.todayCurve.size(), 4);
                 expect (x.todayCurve[2].off && ! x.todayCurve[3].off && ! x.todayCurve[0].off);

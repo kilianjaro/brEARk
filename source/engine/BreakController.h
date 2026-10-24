@@ -52,9 +52,9 @@ struct Alert
 enum class BreakPhase { listening, warned, due, onBreak, unplugged };
 
 //==============================================================================
-// The escalation ladder (CONCEPT.md §6), as a pure state machine:
+// The escalation ladder (docs/ALERTS.md), as a pure state machine:
 //
-//                 20 %          0 %          +10 min      +15 min      every 5 min
+//                 20 %          0 %          +10 min      +20 min      every 15 min
 //   GENTLE        ·             ♪ + banner   ·            ·            ·
 //   ESCALATING    banner        ♪ calm       ♪ firm       ♪ BRUTAL     ♪ BRUTAL
 //   HARD          banner        ♪ UNPLUG (after the take while recording)

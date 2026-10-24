@@ -9,7 +9,7 @@
 //==============================================================================
 // brEARk's audio processor.
 //
-// Audio rule #1 (IMPLEMENTATION.md §1): the audio thread never writes to the
+// Audio rule #1: the audio thread never writes to the
 // buffer, so the output is bit-identical to the input. The only exception is
 // Hard mode's PowerDown, and only while the plug is pulled.
 class BrearkProcessor final : public juce::AudioProcessor,
@@ -25,8 +25,8 @@ public:
     breark::PowerDown::Stage getPowerStage() const noexcept { return powerDown.getStage(); }
 
     // The window size (COMPACT or POSTER), saved with the Live set.
-    bool isPosterSize() const noexcept { return posterSize; }
-    void setPosterSize (bool poster) noexcept { posterSize = poster; }
+    bool isPosterSize() const noexcept { return posterSize.load(); }
+    void setPosterSize (bool poster) noexcept { posterSize.store (poster); }
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
@@ -77,7 +77,7 @@ private:
     juce::SharedResourcePointer<breark::Brain> brain;
     juce::SharedResourcePointer<AlertPresenter> alertPresenter; // toast + sound, one per process
     breark::PowerDown powerDown;
-    bool posterSize = false; // message thread only
+    std::atomic<bool> posterSize { false }; // set on the message thread, saved by the host from any thread
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BrearkProcessor)
 };

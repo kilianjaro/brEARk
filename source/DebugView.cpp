@@ -114,6 +114,8 @@ DebugView::DebugView (BrearkProcessor& p)
     };
 
     warpSwitch.onChange = [&brain] (int index) { brain.setTimeWarp (index == 1 ? 60 : 1); };
+    // TEST MODE is a developer tool: release builds leave it out (v1.0).
+    warpSwitch.setVisible (BREARK_DEVELOPER_BUILD != 0);
 
     for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton })
     {
@@ -140,7 +142,7 @@ DebugView::DebugView (BrearkProcessor& p)
         alert.withSound = true;
         alert.battery = snapshot.battery;
         alert.breakMinutes = snapshot.suggestedBreakMinutes;
-        brearkProcessor.getAlertPresenter().present (alert);
+        brearkProcessor.getAlertPresenter().present (alert, true);
     };
 
     setSize (width, height);
@@ -208,6 +210,7 @@ void DebugView::paint (juce::Graphics& g)
                       : s.hostOff                           ? juce::String ("OFF - SWITCHED OFF BY THE HOST, FROZEN")
                       : s.audioStalled                      ? juce::String ("NO AUDIO FROM THE HOST - SILENCE")
                       : s.rendering                         ? juce::String ("EXPORT DETECTED - NOT COUNTING")
+                      : s.breakPhase == breark::BreakPhase::unplugged ? juce::String ("UNPLUGGED - MUTED, RESTING")
                       : s.recovering                        ? juce::String ("RECOVERING")
                       : s.silent                            ? juce::String ("SILENCE")
                                                             : juce::String ("LISTENING");
@@ -276,7 +279,7 @@ void DebugView::paint (juce::Graphics& g)
 
     g.setColour (colours::ink.withAlpha (0.6f));
     g.setFont (fonts->mono (10.0f));
-    g.drawText ("BUILD " BREARK_BUILD_ID, juce::Rectangle<int> (24, 62, getWidth() - 48, 14), juce::Justification::centredRight, false);
+    g.drawText ("brEARk " JucePlugin_VersionString "   BUILD " BREARK_BUILD_ID, juce::Rectangle<int> (24, 62, getWidth() - 48, 14), juce::Justification::centredRight, false);
 }
 
 juce::String DebugView::getTooltip()

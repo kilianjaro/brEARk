@@ -83,7 +83,7 @@ int main (int argc, char* argv[])
         { "4-low",       [] (Snapshot& s) { s.battery = 14.0f; s.breakPhase = BreakPhase::warned; }, "14 % left. Finish the thought, then plan a break." },
         { "5-break",     [] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 120.0; },
                          "Take a break of 12 minutes and take care of your ears." },
-        { "6-stop",      [] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 920.0; }, "STOP. 12 MIN. NO AUDIO." },
+        { "6-stop",      [] (Snapshot& s) { s.battery = 0.0f; s.breakPhase = BreakPhase::due; s.secondsSinceDue = 1220.0; }, "STOP. 12 MIN. NO AUDIO." },
         { "7-resting",   [] (Snapshot& s) { s.battery = 58.0f; s.silent = true; s.breakPhase = BreakPhase::onBreak; s.breakSecondsLeft = 432.0; s.lufsShortTerm = Snapshot::minusInfinity; s.perceivedSpl = Snapshot::minusInfinity; },
                          "Hum the hook. Does it still stand without the production?" },
         { "8-unplugged", [] (Snapshot& s) { s.battery = 21.0f; s.breakPhase = BreakPhase::unplugged; s.unpluggedSeconds = 190.0; s.silent = true; s.minutesToRecover = 9.0; },

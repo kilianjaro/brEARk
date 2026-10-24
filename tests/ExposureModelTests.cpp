@@ -17,7 +17,7 @@ public:
 
         // With the reference equal to the playback loudness, the perceived level
         // equals the preset level: 70 / 80 / 85 dB (M11.2), +3 dB on headphones.
-        beginTest ("Battery drain times match the plan (IMPLEMENTATION.md §4.3, 5 dB rule)");
+        beginTest ("Battery drain times match the plan (5 dB rule)");
         {
             struct Case { LevelPreset preset; Setup setup; double expectedMinutes; };
 
@@ -284,6 +284,24 @@ public:
             expectWithinAbsoluteError (model.stepDownDb(), -10.0, 1.0e-9);
             model.setSettings ({ Setup::monitors, LevelPreset::quiet });
             expectEquals (model.stepDownDb(), 0.0, "nothing below QUIET");
+        }
+
+        beginTest ("v1.0: the session question is due without a level set today, or after 2 hours without sound");
+        {
+            ExposureState state;
+            state.day = ExposureModel::dayNumber (noon);
+            ExposureModel model (state);
+            expect (model.sessionQuestionDue(), "never set: ask");
+
+            model.noteLevelSet (noon.toMilliseconds());
+            expect (model.levelSetToday() && ! model.sessionQuestionDue(), "set today: a restart doesn't ask");
+
+            model.advance (silence (2.0 * 3600.0), noon);
+            expect (model.sessionQuestionDue(), "2 hours without sound: ask again");
+
+            const auto tomorrow = noon + juce::RelativeTime::days (1.0);
+            playFor (model, -14.0f, 10.0, tomorrow);
+            expect (! model.levelSetToday() && model.sessionQuestionDue(), "a new day: ask again");
         }
 
         beginTest ("Forecasts (M10): time to empty, to a full dose, to recover");

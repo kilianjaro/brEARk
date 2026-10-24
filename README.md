@@ -144,7 +144,7 @@ brEARk lives on your master, so it's built to be invisible there:
 - **It never touches your audio.** The output is bit-identical to the input, proven by a bit-exact null test, with zero latency and no phase shift. The only exception is HARD mode's power-down, and only when you've asked for it.
 - **Exports are sacred.** Bounces and renders are never measured, never alerted, never muted.
 - **Practically no CPU.** On the audio thread brEARk only copies samples: about 0.02 % of one core. All analysis runs on a low-priority background thread.
-- **Small and steady.** About 2–3 MB of memory, flat over hours. It's tested with three-hour soak runs and checked for any allocation or lock on the audio thread.
+- **Small and steady.** About 2–3 MB of memory (a little more in HARD mode at high sample rates), flat over hours. It's tested with three-hour soak runs and checked for any allocation or lock on the audio thread.
 - **Private.** No account, no internet. Your listening history stays in a small file on your Mac.
 
 ---

@@ -314,13 +314,17 @@ public:
             }
 
             juce::Thread::sleep (300);
-            int checkIns = 0;
+            int checkIns = 0, welcomes = 0;
 
             for (const auto& alert : brain.takeAlerts())
                 if (alert.kind == AlertKind::checkIn && alert.checkIn == (int) CheckInPolicy::Reason::firstSound)
+                {
                     ++checkIns;
+                    welcomes += alert.welcome ? 1 : 0;
+                }
 
             expectEquals (checkIns, 1, "the first sound of the session asks once");
+            expectEquals (welcomes, 1, "a new user's first question is WELCOME. (v1.0)");
 
             brain.setLevelNow (LevelPreset::loud);
             expect (brain.getSettings().preset == LevelPreset::loud, "the switch shows at once");

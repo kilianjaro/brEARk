@@ -2,11 +2,15 @@
 
 ### A break coach for your ears. For producers who forget to stop.
 
+**[Download brEARk for macOS](https://github.com/kilianjaro/brEARk/releases/latest)** · free and open source · [what's new](CHANGELOG.md)
+
+[![Build and test](https://github.com/kilianjaro/brEARk/actions/workflows/build.yml/badge.svg)](https://github.com/kilianjaro/brEARk/actions/workflows/build.yml)
+
 You sit down to fix one snare. You look up and it's 2 a.m., the mix is harsh, the master is crushed, and your ears are ringing. brEARk sits on your master channel, listens to everything you hear, and tells you when to take a break, before your judgment goes and before your hearing pays for it.
 
 ![brEARk in the middle of a session: OK., 45 % ear battery, break in about 17 minutes](docs/images/showcase-poster.png)
 
-<sub>From a test run: brEARk listening to a mastered house loop at about −7 LUFS, after 2 h 14 min of listening today. The day so far was loaded for the test; the level, the drain and the forecasts were measured live by the plugin, and the image is drawn by its own UI code. The battery is draining faster than usual because the master is heavily limited (LITTLE DYNAMICS +20 %) and the day is already well used (FULL DAY +20 %). The music plays 3 LU louder than when NORMAL was set, so the hearing dose runs at about twice the NORMAL pace: ~2:15 h left.</sub>
+<sub>From a test run: brEARk listening to a mastered house loop at about −7 LUFS, after 2 h 14 min of listening today. The day so far was loaded for the test; the level, the drain and the forecasts were measured live by the plugin, and the image is drawn by its own UI code. The battery is draining faster than usual because the master is heavily limited (LITTLE DYNAMICS +20 %) and the day is already well used (FULL DAY +20 %). The music plays 3 LU louder than when NORMAL was set, so the hearing dose runs at about twice the NORMAL pace: ~2:23 h left.</sub>
 
 **VST3 · Audio Unit · macOS 11+ · Apple Silicon and Intel · zero latency · bit-identical output · no account, no internet**
 
@@ -31,14 +35,14 @@ If you lose track of time when the music is working, and many producers with ADH
 brEARk is an outside clock that doesn't get pulled into the flow with you:
 
 - **It watches so you don't have to.** No timers to set and nothing to remember: it starts listening the moment Live plays.
-- **Its pop-ups find you.** They float over full-screen Live and on every Space and never steal your keyboard. Messages close after a few seconds, pop-ups with a button stay half a minute, and questions wait for your answer.
-- **It's honest without nagging.** One big word tells you where you stand: **FRESH.** **OK.** **TIRING.** **BREAK.** **STOP.** In ESCALATING mode, reminders only get firmer if you keep going.
+- **Its pop-ups find you.** They float over full-screen Live and on every Space and never steal your keyboard. Messages close after a few seconds, pop-ups with a button stay half a minute, and questions wait for your answer. **SOUND ON / OFF** decides whether they chime.
+- **It's honest without nagging.** One big word tells you where you stand: **FRESH.** **OK.** **TIRING.** **BREAK.** **STOP.** In ESCALATING mode, reminders only get firmer if you keep going, and each hint comes at most twice a day.
 - **It can hold the line for you.** In HARD mode, brEARk pulls the plug when your ears are spent: the music slows down like a turntable losing power and stops, for at least 5 minutes. It never cuts a recording, and SNOOZE always buys you 10 minutes.
 - **It tells you what's left.** "BREAK IN ~17 MIN" and "AT QUIET ~40 MIN" turn an abstract warning into a choice you can act on.
 
 ![Two pop-ups: NEW SESSION. asks where you listen and how loud it is; BREAK. suggests 12 minutes](docs/images/showcase-popups.png)
 
-<sub>brEARk's pop-ups, drawn by the plugin. Left: the question at the start of every session, which waits for your answer. Right: a break alert with its BREAK NOW button.</sub>
+<sub>brEARk's pop-ups, drawn by the plugin. Left: the question at the first music of the day, which waits for your answer. Right: a break alert with its BREAK NOW button.</sub>
 
 brEARk isn't a treatment for anything. It's the friend who taps you on the shoulder.
 
@@ -90,7 +94,7 @@ brEARk keeps two meters:
 - **Ear battery:** how tired your ears are right now. It drains while you listen (faster when it's loud, bright, squashed, repetitive or late) and refills in silence. A minute of silence starts recovery; 5 minutes counts as a break.
 - **Hearing dose:** how much of today's safe sound you've used, after the WHO. A full day at NORMAL is 8 hours; louder uses it faster. It doesn't refill during the day. At 100 % brEARk says **DONE.**
 
-**Your ears set the level; brEARk measures the music.** brEARk can't hear your room or see your volume knob, so it never guesses dB at your ears. Instead you rate it: **QUIET** (you could talk normally), **NORMAL** (you'd raise your voice) or **LOUD** (you'd have to shout), and **MONITORS** or **HEADPHONES**. brEARk asks at the start of each session and listens to the music for about two minutes to lock your rating in. From then on it measures how much louder or quieter the music is than when you rated it, and asks again when it drifts.
+**Your ears set the level; brEARk measures the music.** brEARk can't hear your room or see your volume knob, so it never guesses dB at your ears. Instead you rate it: **QUIET** (you could talk normally), **NORMAL** (you'd raise your voice) or **LOUD** (you'd have to shout), and **MONITORS** or **HEADPHONES**. brEARk asks at the first music of the day (and after 2 hours away) and listens to the music for about two minutes to lock your rating in. From then on it measures how much louder or quieter the music is than when you rated it, and asks again when it drifts. You can change the rating any time with the switch in the window.
 
 | At the level you rated | A day's hearing dose lasts |
 |---|---|
@@ -105,7 +109,7 @@ Music louder than when you rated it uses the dose faster: every 3 LU halves the 
 | | When the battery is empty |
 |---|---|
 | **GENTLE** | One sound and a pop-up |
-| **ESCALATING** | Reminders get firmer the longer you keep going |
+| **ESCALATING** | BREAK. again after 10 more minutes of listening, STOP. after 20, then every 15 minutes |
 | **HARD** | The plug comes out: a vinyl spin-down, then silence for at least 5 minutes |
 
 ![HISTORY: today's ear battery, the last 7 days of hearing dose, this week and last week](docs/images/showcase-history.png)
@@ -145,6 +149,49 @@ brEARk lives on your master, so it's built to be invisible there:
 
 ---
 
+## Install
+
+1. Download **brEARk-1.0.0-macOS.pkg** from the [latest release](https://github.com/kilianjaro/brEARk/releases/latest).
+2. Open it and follow the steps. It installs the VST3 and the Audio Unit for all users (`/Library/Audio/Plug-Ins/`), so macOS asks for your password.
+3. Open Live. If brEARk doesn't show up under Plug-Ins: Live › Preferences (Settings in Live 12) › Plug-Ins, turn on **Use VST3 Plug-In System Folders** (or **Use Audio Units**), then **Rescan**.
+
+**Requirements:** macOS 11 or later, Apple Silicon or Intel. Made and tested in Ableton Live 11; other VST3 and Audio Unit hosts on macOS should work too, but aren't tested yet. [Tell us](https://github.com/kilianjaro/brEARk/issues) how it goes.
+
+Each release lists the installer's SHA-256 next to it, if you want to check your download (`shasum -a 256 brEARk-1.0.0-macOS.pkg`).
+
+## Get started
+
+1. Put **brEARk** on Live's **master** track (one per set).
+2. Press play. After a few seconds, **WELCOME.** asks where you listen and how loud it is. One click each. From then on brEARk asks once a day.
+3. Pick **GENTLE**, **ESCALATING** or **HARD**, and **SOUND ON** or **OFF**.
+4. Make music. When brEARk says **BREAK.**, take it: as long as it suggests (5 to 25 minutes), in quiet, away from the speakers.
+
+Hover over anything in the window to learn what it shows. **DATA › HELP** brings you back here.
+
+## Uninstall
+
+Delete `brEARk.vst3` from `/Library/Audio/Plug-Ins/VST3` and `brEARk.component` from `/Library/Audio/Plug-Ins/Components` (in the Finder: Go › Go to Folder…). Your listening history and settings are in `~/Library/Application Support/brEARk`; delete that folder too if you want them gone.
+
+---
+
+## FAQ
+
+**Will brEARk change my sound?** No. Its output is bit-identical to its input, with zero latency; an automated null test checks it bit for bit. The only exception is HARD mode's power-down, and only when your battery is empty.
+
+**I have a client in the room, or it's late at night.** Turn **SOUND OFF**: the pop-ups keep coming, silently. Or switch to **GENTLE**. Or switch brEARk off in Live: it freezes until you switch it on again, and HISTORY shows the time as OFF.
+
+**The battery drains faster than I expected.** Check your level rating: if what you hear is NORMAL, say NORMAL. A bright or heavily limited mix, long loops and late hours also drain faster; POSTER's DRAINS FASTER line shows why.
+
+**Does brEARk work in Logic, Bitwig or Reaper?** It passes Apple's and Tracktion's plugin validators as VST3 and Audio Unit, but it's only tested in Ableton Live 11 so far. Reports are welcome.
+
+**Two DAWs open at once?** Each one counts on its own and they share one history file; use brEARk in one at a time.
+
+**Windows or Linux?** Not yet. brEARk's pop-ups and alert sound use macOS.
+
+**Does it send anything anywhere?** No. No account, no analytics, no update check. Everything stays in `~/Library/Application Support/brEARk`.
+
+---
+
 ## Under the hood
 
 For the engineers in the room:
@@ -162,8 +209,8 @@ For the engineers in the room:
 | **CPU** | Audio thread 0.017 % of one core (Instruments, 48 kHz / 512 samples). All analysis together about 0.1 % of one performance core (benchmark). |
 | **Memory** | 1.8 MB at 44.1 or 48 kHz, up to 3.0 MB at 192 kHz, allocated before playback. HARD mode adds a 2-second buffer for the power-down (1 MB at 48 kHz). |
 | **Host awareness** | Exports (flagged by the host, or audio faster than real time) are never counted. Switched off in Live: everything freezes and HISTORY shows the time as OFF. A sleeping Mac counts as rest. The first brEARk in Live listens; a second one shows INACTIVE. |
-| **Your data** | `~/Library/Application Support/brEARk/`: `state.json` (settings, today and 14 days of history), `coach-memory.json` (which coach lines you've seen) and your own `coach.txt`. brEARk never connects to the internet: it makes no network requests at all. |
-| **Testing** | 3,408 automated checks, the null test, pluginval at strictness 10 (VST3 and AU), auval, and a 3-hour soak test across 8 audio device setups (44.1–192 kHz, 64–2048 samples, 32/64-bit, mono/stereo) with the editor opened 100 times and memory checked every hour. On Apple Silicon and, for Intel, under Rosetta. |
+| **Your data** | `~/Library/Application Support/brEARk/`: `state.json` (settings, today and 14 days of history), `coach-memory.json` (which coach lines and hints you've seen) and your own `coach.txt`. brEARk never connects to the internet: it makes no network requests at all, and it doesn't check for updates; new versions are announced on the [releases page](https://github.com/kilianjaro/brEARk/releases). |
+| **Testing** | Over 3,400 automated checks (run on every push), the null test, pluginval at strictness 10 (VST3 and AU), auval, and a 3-hour soak test across 8 audio device setups (44.1–192 kHz, 64–2048 samples, 32/64-bit, mono/stereo) with the editor opened 100 times and memory checked every hour. On Apple Silicon and, for Intel, under Rosetta. |
 
 ---
 
@@ -173,15 +220,12 @@ brEARk is a coach, not a medical device. The hearing dose follows the WHO's safe
 
 ---
 
-## Get started
+## Free and open source
 
-1. Put **brEARk** on Live's **master** track (one per set).
-2. Press play. After a few seconds, **NEW SESSION.** asks where you listen and how loud it is. One click each.
-3. Pick **GENTLE**, **ESCALATING** or **HARD**.
-4. Make music. When brEARk says **BREAK.**, take it: as long as it suggests (5 to 25 minutes), in quiet, away from the speakers.
+brEARk is free software under the [GNU AGPLv3](LICENSE): use it, study it, change it, share it. If you share a changed version, share its source too. It's built with [JUCE](https://juce.com); the fonts are Space Grotesk and Space Mono under the SIL Open Font License ([third-party notices](THIRD_PARTY_NOTICES.md)).
 
-**Requirements:** macOS 11 or later, Apple Silicon or Intel. VST3 and Audio Unit. Made and tested in Ableton Live 11.
+Bugs and ideas: [GitHub Issues](https://github.com/kilianjaro/brEARk/issues). Building from source and the developer tools: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every alert in detail: [docs/ALERTS.md](docs/ALERTS.md).
 
----
+<!-- SUPPORT LINK: add "**Support brEARk:** [<page>](<url>)" here once Kilian sends the link. -->
 
-<sub>brEARk is made by Totemphonia Studio Berlin. Type: Space Grotesk and Space Mono (SIL Open Font License). Build, tests and your own coach lines: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Every alert: [docs/ALERTS.md](docs/ALERTS.md).</sub>
+<sub>brEARk is made by Totemphonia Studio Berlin.</sub>

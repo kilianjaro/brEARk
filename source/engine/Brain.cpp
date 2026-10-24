@@ -364,6 +364,7 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
             ask.kind = AlertKind::checkIn;
             ask.checkIn = (int) reason;
             ask.deviationLu = std::isfinite (recent) ? recent - exposure.getState().referenceLufs : 0.0;
+            ask.welcome = reason == CheckInPolicy::Reason::firstSound && exposure.getState().lastLevelSetMs == 0;
             const std::scoped_lock lock (alertsMutex);
             pendingAlerts.push_back (ask);
         }
@@ -402,6 +403,7 @@ void Brain::updateModel (double wallSeconds, double offSeconds, double sleptSeco
     working.breaksToday = state.breaksToday;
     working.offSecondsToday = state.offSecondsToday;
     working.levelAnchored = state.levelAnchored;
+    working.firstRun = state.lastLevelSetMs == 0;
     working.anchorListening = anchor.isListening();
     {
         const auto recent = std::isfinite (loudWindow.getLufs()) ? loudWindow.getLufs() : lufs;

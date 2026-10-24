@@ -128,6 +128,12 @@ inline const juce::String levelAnswer = tip ("Your answer: how loud it is on you
 inline const juce::String strictness = tip ("What happens when the battery is empty. Click to switch.",
                                             "GENTLE: one sound. ESCALATING: firmer reminders. HARD: the sound is cut at 0 %.");
 
+// v1.0: the coach line until a new user has set the level for the first time.
+inline const juce::String firstRunCoachLine = "Press play: brEARk asks where you listen and how loud. Hover anything to learn what it shows.";
+
+inline const juce::String help = tip ("Opens brEARk's guide on GitHub in your browser: what it measures, every pop-up, install and uninstall.",
+                                      "brEARk itself never connects to the internet; your browser opens the page.");
+
 inline const juce::String sound = tip ("The alert sound with BREAK., STOP., UNPLUGGED. and DONE. Click to switch.",
                                        "Off for client sessions or late nights: the pop-ups keep coming, silently.");
 
@@ -192,8 +198,8 @@ inline juce::String dataRow (const juce::String& label)
     if (label == "EAR BATTERY")  return tip ("The ear battery in %.", "0 %: break due. It refills in silence after a 60 s onset (63 % of the gap in 5 min).");
     if (label == "HEARING DOSE") return tip ("Today's and this week's hearing dose in % (WHO: 8 hours a day, 40 a week at 80 dB(A)).", "From your level setting, the loudness against the anchor, and time.");
     if (label == "FORECAST")     return tip ("At the loudness of the last 2 minutes: time to an empty battery, the same one level quieter, and until today's hearing dose is used up.", "Forecasts assume the loudness and your level stay.");
-    if (label == "TODAY")        return tip ("Listening time, time since the last break, breaks today, the longest stretch, how often the battery ran empty, the suggested break.", "A silence of 5 minutes or more counts as a break.");
-    if (label == "BREAKS")       return tip ("The break controller's state.", "LISTENING, WARNED (20 %), DUE (0 %), ON A BREAK, or UNPLUGGED.");
+    if (label == "TODAY")        return tip ("Listening time, time since the last break, breaks today, the longest stretch, how often the battery ran empty.", "A silence of 5 minutes or more counts as a break.");
+    if (label == "BREAKS")       return tip ("The break controller's state, and how long a break brEARk suggests now.", "LISTENING, WARNED (20 %), DUE (0 %), ON A BREAK, or UNPLUGGED; the suggestion is 5 to 25 minutes.");
     if (label == "POWER")        return tip ("HARD mode's power-down stage, and today's power-downs and snoozes.", "RUN: the audio passes untouched.");
     if (label == "ENGINE")       return tip ("Sample rate, plug-in format, precision and FFT size.", "Analysis runs on a background thread, never on the audio thread.");
     if (label == "AUDIO THREAD") return tip ("Time brEARk spends per audio block on Live's audio thread: average and maximum.", "It only copies the audio for analysis: a few microseconds.");

@@ -352,6 +352,7 @@ static int runShowcase (const juce::File& folder)
     e.longestStretchToday = 75.0 * 60.0;
     e.referenceLufs = musicLufs - 3.0; // set NORMAL on a slightly quieter track
     e.levelAnchored = true;
+    e.lastLevelSetMs = juce::Time::currentTimeMillis() - 2 * 3600 * 1000; // set NORMAL two hours ago
     e.referencePlaybackSeconds = 6.0 * 3600.0;
     e.lastSummaryWeek = ExposureModel::weekNumber (today);
 

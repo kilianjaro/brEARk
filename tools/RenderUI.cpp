@@ -10,6 +10,7 @@
 #include "ui/HistoryView.h"
 #include "ui/MeterView.h"
 #include "ui/ToastWindow.h"
+#include "ui/Tooltips.h"
 
 #include <iostream>
 
@@ -76,6 +77,7 @@ int main (int argc, char* argv[])
     folder.createDirectory();
 
     const std::vector<Sample> samples {
+        { "0-first-run", [] (Snapshot& s) { s.firstRun = true; s.silent = true; s.lufsShortTerm = Snapshot::minusInfinity; }, ui::tips::firstRunCoachLine.toRawUTF8() },
         { "1-fresh",     [] (Snapshot& s) { s.battery = 92.0f; s.doseToday = 4.0f; }, "Fresh ears. Make the big decisions now." },
         { "2-ok",        [] (Snapshot& s) { s.battery = 64.0f; }, "Good level, good ears, good time to decide." },
         { "3-tiring",    [] (Snapshot& s) { s.battery = 31.0f; s.loopBars = 8; s.loopingSeconds = 252.0; s.factors.repetition = 1.17; s.drainFactor = 1.49f; },
@@ -164,6 +166,10 @@ int main (int argc, char* argv[])
         // The session check-in (M11.1): where you listen, and how loud.
         toast.show ({ "NEW SESSION.", "Where do you listen, and how loud is it on your ears?", "", false, false, false, true, true, 0 });
         save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-session-window.png"));
+
+        // A new user's very first question (v1.0).
+        toast.show ({ "WELCOME.", "brEARk tells you when your ears need a break. Where do you listen, and how loud is it on your ears?", "", false, false, false, true, true, 0 });
+        save (toast.createComponentSnapshot (toast.getLocalBounds(), true, scale), folder.getChildFile ("toast-welcome-window.png"));
         toast.dismiss();
     }
 

@@ -45,7 +45,10 @@ ToastContent toastFor (const breark::Alert& alert, const juce::String& message, 
         case AlertKind::weeklySummary:   return { "LAST WEEK.", breark::ui::describeWeek (alert.week), "DETAILS IN HISTORY (POSTER)", false, false };
         case AlertKind::checkIn:
             if (alert.checkIn == (int) breark::CheckInPolicy::Reason::firstSound) // M11.1: the session check-in asks both
-                return { "NEW SESSION.", "Where do you listen, and how loud is it on your ears?", "", false, false, false, true, true, (int) setup };
+                return { alert.welcome ? "WELCOME." : "NEW SESSION.",
+                         alert.welcome ? "brEARk tells you when your ears need a break. Where do you listen, and how loud is it on your ears?"
+                                       : "Where do you listen, and how loud is it on your ears?",
+                         "", false, false, false, true, true, (int) setup };
 
             return { "HOW LOUD?", checkInQuestion (alert, level), "", false, false, false, true };
     }
@@ -186,7 +189,9 @@ void AlertPresenter::timerCallback()
     if (ticks % 240 == 0) // every ~minute, if a line was shown
         saveCoachMemory();
 
-    context = makeContext (brain->getSnapshot());
+    const auto snapshot = brain->getSnapshot();
+    context = makeContext (snapshot);
+    firstRun = snapshot.firstRun;
 
     for (const auto& alert : brain->takeAlerts())
         present (alert);

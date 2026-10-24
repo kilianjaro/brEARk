@@ -6,7 +6,8 @@
 
 //==============================================================================
 // DATA: every raw measurement, the model's state and the performance numbers,
-// plus developer controls (TIME x60, TEST ALERT). Opened from the main view.
+// plus HELP (the guide on GitHub), TEST ALERT and, in developer builds,
+// TIME x60. Opened from the main view.
 class DebugView final : public juce::Component,
                         public juce::TooltipClient
 {
@@ -34,7 +35,7 @@ private:
     SegmentedControl presetSwitch { { "QUIET", "NORMAL", "LOUD" } };
     SegmentedControl warpSwitch { { "TIME x1", "x60 TEST" } };
     SegmentedControl strictnessSwitch { { "GENTLE", "ESCALATING", "HARD" } };
-    juce::TextButton breakButton { "BREAK" }, snoozeButton { "SNOOZE" }, testAlertButton { "TEST ALERT" }, backButton { "BACK" };
+    juce::TextButton breakButton { "BREAK" }, snoozeButton { "SNOOZE" }, testAlertButton { "TEST ALERT" }, backButton { "BACK" }, helpButton { "HELP" };
     juce::StringArray rowLabels; // as painted, for the tooltips
     int rowsTop = 0;
 

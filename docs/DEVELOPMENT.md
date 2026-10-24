@@ -54,6 +54,10 @@ It writes `soak.csv` (one row per 10 s). `quick` shortens the phases to a tenth 
 
 `brEARk_Soak showcase [folder]` makes the README screenshots (about 4 minutes): a scripted day plus 2.5 minutes of real-time listening to a rendered house loop, saved as `showcase-poster.png`, `showcase-history.png` and `showcase-compact.png`; then a break (the music stops, BREAK is pressed, a minute later the coach shows a thought on the track: `showcase-break.png`); then the NEW SESSION. and BREAK. pop-ups side by side (`showcase-popups.png`; they flash on screen while being drawn). Run it as `brEARk_Soak showcase docs/images`.
 
+`brEARk_DaySim [scenario]` plays whole producer days through the real exposure model, break controller, check-ins and coach, second by second, with the plugin's pop-up timing, and prints every pop-up, sound and question plus pop-ups per listening hour. Five scenarios: a disciplined day, a hyperfocus day in ESCALATING and in HARD, a GENTLE night owl, and a day with five Live restarts. Use it to see what a change does to how often brEARk speaks.
+
+The GitHub workflow (`.github/workflows/build.yml`) builds the universal plugin and runs the unit tests on every push and pull request.
+
 All tools redirect the listening history (`BREARK_STATE_FILE`), so testing never touches your real `~/Library/Application Support/brEARk/state.json`.
 
 ## Release

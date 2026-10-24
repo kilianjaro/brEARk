@@ -47,6 +47,7 @@ struct Alert
     WeekSummary week;       // weeklySummary only
     int checkIn = 0;        // checkIn only: CheckInPolicy::Reason
     double deviationLu = 0.0; // checkIn only: the last 2 minutes against your anchor
+    bool welcome = false;     // checkIn only (v1.0): the very first question, the level never set
 };
 
 enum class BreakPhase { listening, warned, due, onBreak, unplugged };

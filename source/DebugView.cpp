@@ -117,7 +117,7 @@ DebugView::DebugView (BrearkProcessor& p)
     // TEST MODE is a developer tool: release builds leave it out (v1.0).
     warpSwitch.setVisible (BREARK_DEVELOPER_BUILD != 0);
 
-    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton })
+    for (auto* button : { &breakButton, &snoozeButton, &testAlertButton, &backButton, &helpButton })
     {
         Look::stylePaperButton (*button);
         addAndMakeVisible (*button);
@@ -131,6 +131,9 @@ DebugView::DebugView (BrearkProcessor& p)
     snoozeButton.setTooltip (tips::snooze);
     testAlertButton.setTooltip (tips::testAlert);
     backButton.setTooltip (tips::back);
+    helpButton.setTooltip (tips::help);
+    // Opens the guide in the browser; brEARk itself sends nothing.
+    helpButton.onClick = [] { juce::URL ("https://github.com/kilianjaro/brEARk#readme").launchInDefaultBrowser(); };
     breakButton.onClick = [&brain] { brain.toggleBreak(); };
     snoozeButton.onClick = [&brain] { brain.snooze(); };
     backButton.onClick = [this] { if (onBack != nullptr) onBack(); };
@@ -167,6 +170,7 @@ void DebugView::update (const breark::Snapshot& newSnapshot)
 void DebugView::resized()
 {
     backButton.setBounds (getWidth() - 24 - 90, 24, 90, 30);
+    helpButton.setBounds (getWidth() - 24 - 90 - 8 - 80, 24, 80, 30);
 
     auto controls = getLocalBounds().reduced (24).removeFromBottom (rowHeight + 70);
     auto top = controls.removeFromTop (28);
@@ -244,8 +248,8 @@ void DebugView::paint (juce::Graphics& g)
             + forecast (s.minutesToFullDose) + (s.dayDone ? "   DAY DONE" : "") + (s.unpluggedForDay ? " (UNPLUGGED)" : ""),
         "TODAY         " + clock (s.listeningSecondsToday) + " LISTENED   " + clock (s.secondsSinceBreak)
             + " SINCE BREAK   " + juce::String (s.breaksToday) + " BREAKS   LONGEST " + clock (s.longestStretchToday)
-            + "   EMPTY " + juce::String (s.emptyBatteryToday) + "x   NEXT BREAK " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN",
-        "BREAKS        " + phaseName (s.breakPhase)
+            + "   EMPTY " + juce::String (s.emptyBatteryToday) + "x",
+        "BREAKS        " + phaseName (s.breakPhase) + "   SUGGESTED " + juce::String (juce::roundToInt (s.suggestedBreakMinutes)) + " MIN"
             + (s.breakPhase == breark::BreakPhase::onBreak ? "   " + minutesSeconds (s.breakSecondsLeft) + " LEFT" : juce::String())
             + (s.breakPhase == breark::BreakPhase::due || s.breakPhase == breark::BreakPhase::unplugged
                    ? "   " + minutesSeconds (s.secondsSinceDue) + " LISTENED SINCE EMPTY" : juce::String()),

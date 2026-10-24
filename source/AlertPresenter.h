@@ -4,6 +4,7 @@
 #include "engine/Brain.h"
 #include "platform/AlertSound.h"
 #include "ui/ToastWindow.h"
+#include "ui/Tooltips.h"
 
 #include <optional>
 
@@ -21,7 +22,11 @@ public:
     void present (const breark::Alert& alert, bool test = false);
 
     // The coach's latest line, for the plugin window.
-    juce::String getCoachLine() const { return coach.getLine(); }
+    // v1.0: until a new user has set the level, it says what to do.
+    juce::String getCoachLine() const
+    {
+        return firstRun ? breark::ui::tips::firstRunCoachLine : coach.getLine();
+    }
 
     // ~/Library/Application Support/brEARk/coach.txt (your own lines).
     static juce::File userLinesFile();
@@ -36,6 +41,7 @@ private:
     juce::SharedResourcePointer<breark::Brain> brain;
     breark::Coach coach;
     breark::CoachContext context;
+    bool firstRun = false;
     juce::Time userLinesModified;
     int ticks = 0;
 

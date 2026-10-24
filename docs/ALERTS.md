@@ -1,6 +1,6 @@
 # brEARk: what it does and every alert
 
-*As of M11.2. Keep this file in step with the code when alerts change.*
+*As of version 1.0. Keep this file in step with the code when alerts change.*
 
 ---
 
@@ -13,7 +13,7 @@ brEARk sits on the master and listens. It never changes the audio, except for th
 
 Both depend on **your rating** (QUIET / NORMAL / LOUD and MONITORS / HEADPHONES) and on how loud the music is compared with the moment you set that rating. brEARk never shows dB at your ears: it can't see your monitor knob, so you rate the level, and it measures the signal.
 
-Loudness itself doesn't trigger a warning pop-up (since M11). It drives the battery and the hearing dose, and it triggers the HOW LOUD? check-in when it changes a lot.
+Loudness itself doesn't trigger a warning pop-up. It drives the battery and the hearing dose, and it triggers the HOW LOUD? check-in when it changes a lot.
 
 ---
 
@@ -29,7 +29,7 @@ Loudness itself doesn't trigger a warning pop-up (since M11). It drives the batt
 | Time of day (22:00–05:00) | Drain up to +25 %; LATE. hint |
 | How much of today's dose is used | Drain up to +50 % ("FULL DAY") |
 | All the drain reasons together | Capped at +60 % |
-| Silence, stopped transport, the Mac asleep, no audio from Live | Rest: the battery refills |
+| Silence, stopped transport, the Mac asleep, no audio from Live, HARD mode's mute | Rest: the battery refills |
 | Recording | HARD mode never cuts a take |
 | Exports | Not counted, never muted |
 | brEARk switched off in Live | Everything freezes; HISTORY shows the time as OFF |
@@ -38,15 +38,16 @@ Loudness itself doesn't trigger a warning pop-up (since M11). It drives the batt
 
 ## Every pop-up
 
-**About sound:** ♪ means the pop-up plays your alert mp3 through macOS. Without ♪ it's silent.
+**About sound:** ♪ means the pop-up plays brEARk's alert sound through macOS (not through Live, so it never ends up in a bounce). **SOUND ON / OFF** in the window turns it off; the pop-ups keep coming, silently.
 
 **How long pop-ups stay:**
-- Message pop-ups close after **6 s**.
+- Message pop-ups close after **6 s**; HEADS UP. after **10 s**.
 - Pop-ups with a button (BREAK NOW, SNOOZE) stay **30 s**.
-- Questions (NEW SESSION., HOW LOUD?) **stay until you answer** or close them with X.
+- Questions (WELCOME., NEW SESSION., HOW LOUD?) **stay until you answer** or close them with X.
 - A timed pop-up stays open while the mouse is over it, and closes 1.5 s after you move away.
 - Every answer closes it. X is only for closing early.
 - If another pop-up arrives while a question is open, the question comes back after it. Setting the level in the window or in DATA answers an open question.
+- What you just clicked yourself (BREAK, SNOOZE) gets no pop-up: the window shows it.
 
 ### 1. Break alerts (ear battery)
 
@@ -55,7 +56,7 @@ Loudness itself doesn't trigger a warning pop-up (since M11). It drives the batt
 | Battery at 20 % | – | **HEADS UP.** | **HEADS UP.** |
 | Battery empty, you're playing | **BREAK.** ♪ (once) | **BREAK.** ♪ | **UNPLUGGED.** ♪ in red, with the spin-down |
 | +10 min of listening | – | **BREAK.** ♪ (firmer) | muted for at least 5 min |
-| +15 min, then every 5 min | – | **STOP.** ♪ in red | – |
+| +20 min, then every 15 min | – | **STOP.** ♪ in red | – |
 
 - The clock after "empty" only counts listening time; silence pauses it.
 - Once the battery is back at 30 %, everything starts over.
@@ -63,7 +64,7 @@ Loudness itself doesn't trigger a warning pop-up (since M11). It drives the batt
 
 **HARD only:**
 - **AFTER THIS TAKE.** If you're recording when the plug would come out, it waits and pulls the plug right after the take.
-- **SNOOZED.** SNOOZE gives you exactly 10 minutes, then the plug comes out again if you're still drained.
+- **SNOOZE** (in the pop-up or the window) gives you exactly 10 minutes, then the plug comes out again if you're still drained. The window shows SNOOZED with the time left.
 - **BACK ON.** After the 5-minute minimum break, or when you leave HARD mode. The sound spins back up when music plays.
 
 ### 2. End of day (hearing dose at 100 %, while you play)
@@ -76,21 +77,22 @@ HARD never unplugs during a take here either (AFTER THIS TAKE.), and leaving HAR
 
 ### 3. Your own breaks
 
-- **RESTING.** You pressed BREAK; it shows the suggested break length.
+- Pressing **BREAK** starts a guided break: the window shows RESTING. with the time left, and the coach line changes every minute.
 - **WELCOME BACK.** The break countdown is over.
 - If you start playing during the break, it ends after 10 seconds of continuous sound, without a pop-up.
 
 ### 4. Check-ins
 
-- **NEW SESSION.** After the first 10 seconds of sound each time Live starts brEARk. It asks MONITORS / HEADPHONES (applies at once, stays open) and QUIET / NORMAL / LOUD (answers and closes). It waits for your answer.
-- **HOW LOUD?** When the music has been 6 LU or more louder or quieter than your setting over 2 minutes of play, at most every 20 minutes. QUIET / NORMAL / LOUD answers, anchors the level, and closes it. It waits for your answer.
+- **WELCOME.** A new user's very first question, at the first music: one sentence on what brEARk does, then MONITORS / HEADPHONES and QUIET / NORMAL / LOUD. Until you answer it, the window's coach line says what to do.
+- **NEW SESSION.** The same question at the **first music of the day**, and after **2 hours without sound** (Live closed, the Mac asleep, a long pause). A quick restart of Live keeps your last answer and doesn't ask. MONITORS / HEADPHONES applies at once and keeps the pop-up open; QUIET / NORMAL / LOUD answers and closes it.
+- **HOW LOUD?** When the music has been 6 LU or more louder or quieter than your setting over 2 minutes of play, at most every 20 minutes. QUIET / NORMAL / LOUD answers, anchors the level, and closes it.
 - **The anchor listens for about 2 minutes:** the last 30 s of play before your click and the next 90 s after it, so a quiet intro or a soloed track can't set the level.
 
 Setting the level yourself (the switch in the window or in DATA) counts as an answer.
 
 ### 5. Coach hints
 
-All five are silent, with no buttons. At most one hint every 20 minutes, never in the first 2 minutes of a session, only while sound plays, and never during a break. If several apply, the one higher in this list wins:
+All five are silent, with no buttons. At most one hint every 20 minutes, only after 2 minutes of sound in a session, only while sound plays, never during a break, and **each at most twice a day** (restarts included). If several apply, the one higher in this list wins:
 
 | Hint | When | Not again for |
 |---|---|---|
@@ -100,6 +102,8 @@ All five are silent, with no buttons. At most one hint every 20 minutes, never i
 | **SQUASHED.** | PSR around 8 dB or less | 3 h |
 | **HALF DOSE.** | Hearing dose between 50 and 99 % | once a day |
 
+After its second pop-up, a hint's topic still shows in the window's DRAINS FASTER line.
+
 ### 6. Weekly summary
 
 **LAST WEEK.** appears once a week, the first time you play after Monday 05:00 (not again after restarting Live). It shows:
@@ -108,7 +112,7 @@ All five are silent, with no buttons. At most one hint every 20 minutes, never i
 - time listened and longest stretch;
 - how often the battery ran empty, and your breaks.
 
-There's also **TEST ALERT** in DATA, which shows the BREAK pop-up with its sound on demand.
+There's also **TEST ALERT** in DATA, which shows the BREAK pop-up and always plays its sound.
 
 ---
 
@@ -119,15 +123,15 @@ There's also **TEST ALERT** in DATA, which shows the BREAK pop-up with its sound
   - BREAK. and STOP.;
   - RESTING. and UNPLUGGED.;
   - DONE.;
-  - OFF. (switched off in Live) and INACTIVE. (a second brEARk in the same set).
+  - OFF. (switched off in Live) and INACTIVE. (a second brEARk in the same Live).
 - **The colours:** the black area is the battery level. It turns red at 20 % or less. The whole window turns red for STOP., UNPLUGGED. and DONE. in HARD.
 - **The coach line** at the bottom of the window. During any break (or a minute of silence) it changes every minute, in turn: a thought on the track, a care tip, a thought on the craft, an ear fact. Otherwise an occasional line. About 370 lines in all; no line comes back until the rest of its kind was shown, and brEARk remembers that across restarts (`coach-memory.json`).
 - **The window's lines** (one line, one job: nothing is said twice):
   - under the big word, what's happening: e.g. HEARING DOSE USED UP · CALL IT A DAY, EAR BATTERY EMPTY, SOUND BACK IN 3:10;
   - above the numbers, only times: BREAK IN ~… · AT QUIET ~… while playing, 90 % IN ~… in silence, TAKE ~12 MIN OF QUIET when a break is due;
   - HEARING DOSE … % USED · ~… LEFT;
-  - the signal: LUFS and LU compared with your setting;
+  - the signal: LUFS and LU compared with your setting, or SILENCE;
   - DRAINS FASTER: …, only when a reason adds 10 % or more.
 - **Hover explanations** on every button and value: what it shows, and what it means for you.
-- **HISTORY** (POSTER): today's battery curve, 7 days of hearing dose, this week and last week. **DATA** has every raw number.
+- **HISTORY** (POSTER): today's battery curve, 7 days of hearing dose, this week and last week. **DATA** has every raw number, the version, and **HELP** (brEARk's guide on GitHub, in your browser).
 - **The sound itself** in HARD: the vinyl spin-down, and the spin-up when you're back.

@@ -59,6 +59,7 @@ struct Snapshot
     float    signalVsAnchorLu      = 0.0f;  // M11: the last 2 minutes of play against your anchor
     bool     levelAnchored         = false; // M11: you set the level while music played
     bool     anchorListening       = false; // M11.2: the anchor still averages the music after the click
+    bool     firstRun              = false; // v1.0: the level was never set (a new user)
     bool     dayDone               = false; // 100 % of the daily dose (M10)
     bool     unpluggedForDay       = false; // HARD at the end of the day
     double   minutesToBreak        = std::numeric_limits<double>::infinity(); // at this level (M10)
